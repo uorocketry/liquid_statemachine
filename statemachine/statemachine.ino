@@ -4,15 +4,10 @@
 
 StateMachine machine = StateMachine();
 
-// // pins
-// BV_1001_P_X
-// BV_1004_P_O
-// BV_1001_P_X
-// BV_1002_P_O
-
-const int BV_1001 = 0;
-const int BV_1002 = 1;
-const int BV_1004 = 2;
+// define valve slot
+const int BV_1001 = 1;
+const int BV_1002 = 2;
+const int BV_1004 = 3;
 
 // State variables
 State *initStateVar = machine.addState(&initState);
@@ -121,7 +116,9 @@ void initState()
 void fillState()
 {
     Serial.println("Fill state");
-    Serial
+    P1.writeDiscrete(LOW, BV_1001, 1);
+    P1.writeDiscrete(HIGH, BV_1004, 1);
+    P1.writeDiscrete(HIGH, BV_1002, 1);
 }
 
 void fireState()
