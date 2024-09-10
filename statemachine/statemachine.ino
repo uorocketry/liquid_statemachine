@@ -8,6 +8,10 @@ StateMachine machine = StateMachine();
 const int BV_1001 = 1;
 const int BV_1002 = 2;
 const int BV_1004 = 3;
+int BV_1001_state = LOW;
+int BV_1002_state = LOW;
+int BV_1004_state = LOW;
+int targetState = -1;
 
 // State variables
 State *initStateVar = machine.addState(&initState);
@@ -36,18 +40,18 @@ void setup()
     }
 
     // Define state transitions
-    initStateVar->addTransition(true, fillStateVar);
-    initStateVar->addTransition(true, overloadStateVar);
-    initStateVar->addTransition(true, abortStateVar);
-    fillStateVar->addTransition(true, fireStateVar);
-    fillStateVar->addTransition(true, abortStateVar);
-    fireStateVar->addTransition(true, purgeStateVar);
-    fireStateVar->addTransition(true, abortStateVar);
-    purgeStateVar->addTransition(true, overloadStateVar);
-    purgeStateVar->addTransition(true, abortStateVar);
-    overloadStateVar->addTransition(true, initStateVar);
-    overloadStateVar->addTransition(true, abortStateVar);
-    overloadStateVar->addTransition(true, purgeStateVar);
+    initStateVar->addTransition(&transitionInitFill, fillStateVar);
+    initStateVar->addTransition(&transitionInitOverload, overloadStateVar);
+    initStateVar->addTransition(&transitionInitAbort, abortStateVar);
+    fillStateVar->addTransition(&transitionFillFire, fireStateVar);
+    fillStateVar->addTransition(&transitionFillAbort, abortStateVar);
+    fireStateVar->addTransition(&transitionFirePurge, purgeStateVar);
+    fireStateVar->addTransition(&transitionFireAbort, abortStateVar);
+    purgeStateVar->addTransition(&transitionPurgeOverload, overloadStateVar);
+    purgeStateVar->addTransition(&transitionPurgeAbort, abortStateVar);
+    overloadStateVar->addTransition(&transitionOverloadInit, initStateVar);
+    overloadStateVar->addTransition(&transitionOverloadAbort, abortStateVar);
+    overloadStateVar->addTransition(&transitionOverloadPurge, purgeStateVar);
 }
 
 void loop()
@@ -62,57 +66,65 @@ void loop()
             delay(1000);
         }
     }
+    processJson();
+    machine.run();
+}
 
+void processJson()
+{
     if (Serial.available())
     {
         String input = Serial.readStringUntil('\n');
-        JsonDocument<200> doc;
+        JsonDocument doc;
         DeserializationError error = deserializeJson(doc, Serial);
-        if (error)
+        if (!error)
+        {
+            int stateValue = doc["state"];
+            targetState = stateValue;
+        }
+        else
         {
             Serial.print(F("deserializeJson() failed: "));
             Serial.println(error.f_str());
             return;
         }
-        processJson(doc);
-    }
-    machine.run();
-}
-
-void processJson(JsonDocument doc)
-{
-    int stateValue = doc["state"];
-    StateEnum state = static_cast<StateEnum>(stateValue);
-    switch (state)
-    {
-    case INIT:
-        machine.transitionTo(initStateVar);
-        break;
-    case FILL:
-        machine.transitionTo(fillStateVar);
-        break;
-    case FIRE:
-        machine.transitionTo(fireStateVar);
-        break;
-    case PURGE:
-        machine.transitionTo(purgeStateVar);
-        break;
-    case OVERLOAD:
-        machine.transitionTo(overloadStateVar);
-        break;
-    case ABORT:
-        machine.transitionTo(abortStateVar);
-        break;
-    default:
-        break;
     }
 }
-// state functions
+// init
 void initState()
 {
     Serial.println("Init state");
 }
 
+bool transitionInitFill()
+{
+    // check if the targetState is 1
+    if (targetState == 1)
+    {
+        return true;
+    }
+    return false;
+}
+
+bool transitionInitOverload()
+{
+    if (targetState == 4)
+    {
+        return true;
+    }
+    return false;
+}
+
+bool transitionInitAbort()
+{
+    if (targetState == 5)
+    {
+        return true;
+    }
+    return false;
+}
+
+// fill
 void fillState()
 {
     Serial.println("Fill state");
@@ -121,21 +133,104 @@ void fillState()
     P1.writeDiscrete(HIGH, BV_1002, 1);
 }
 
+bool transitionFillFire()
+{
+    // check if the targetState is 2 and valves are in the correct position
+    if (targetState == 2 && BV_1001_state == LOW && BV_1002_state == HIGH && BV_1004_state == HIGH)
+    {
+        return true;
+    }
+    return false;
+}
+
+bool transitionFillAbort()
+{
+    if (targetState == 5)
+    {
+        return true;
+    }
+    return false;
+}
+
+// fire
 void fireState()
 {
     Serial.println("Fire state");
 }
 
+bool transitionFirePurge()
+{
+    if (targetState == 3)
+    {
+        return true;
+    }
+    return false;
+}
+
+bool transitionFireAbort()
+{
+    if (targetState == 5)
+    {
+        return true;
+    }
+    return false;
+}
+
+// purge
 void purgeState()
 {
     Serial.println("Purge state");
 }
 
+bool transitionPurgeOverload()
+{
+    if (targetState == 4)
+    {
+        return true;
+    }
+    return false;
+}
+
+bool transitionPurgeAbort()
+{
+    if (targetState == 5)
+    {
+        return true;
+    }
+    return false;
+}
+
+// overload
 void overloadState()
 {
     Serial.println("Overload state");
 }
 
+bool transitionOverloadInit()
+{
+    if (targetState == 1)
+    {
+        return true;
+    }
+}
+
+bool transitionOverloadAbort()
+{
+    if (targetState == 5)
+    {
+        return true;
+    }
+}
+
+bool transitionOverloadPurge()
+{
+    if (targetState == 3)
+    {
+        return true;
+    }
+}
+
+// abort
 void abortState()
 {
     Serial.println("Abort state");
