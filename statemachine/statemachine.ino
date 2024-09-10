@@ -72,6 +72,7 @@ void loop()
 
 void processJson()
 {
+    // switch to ethernet after testing statemachine logic
     if (Serial.available())
     {
         String input = Serial.readStringUntil('\n');
@@ -98,7 +99,6 @@ void initState()
 
 bool transitionInitFill()
 {
-    // check if the targetState is 1
     if (targetState == 1)
     {
         return true;
@@ -128,9 +128,11 @@ bool transitionInitAbort()
 void fillState()
 {
     Serial.println("Fill state");
-    P1.writeDiscrete(LOW, BV_1001, 1);
-    P1.writeDiscrete(HIGH, BV_1004, 1);
-    P1.writeDiscrete(HIGH, BV_1002, 1);
+    BV_1002_state = HIGH;
+    BV_1004_state = HIGH;
+    P1.writeDiscrete(BV_1001_state, BV_1001, 1);
+    P1.writeDiscrete(BV_1002_state, BV_1004, 1);
+    P1.writeDiscrete(BV_1004_state, BV_1002, 1);
 }
 
 bool transitionFillFire()
