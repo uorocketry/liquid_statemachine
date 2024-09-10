@@ -1,7 +1,18 @@
 #include <StateMachine.h>
 #include <ArduinoJson.h>
+#include <P1AM.h>
 
 StateMachine machine = StateMachine();
+
+// // pins
+// BV_1001_P_X
+// BV_1004_P_O
+// BV_1001_P_X
+// BV_1002_P_O
+
+const int BV_1001 = 0;
+const int BV_1002 = 1;
+const int BV_1004 = 2;
 
 // State variables
 State *initStateVar = machine.addState(&initState);
@@ -23,27 +34,44 @@ enum StateEnum
 
 void setup()
 {
+    Serial.begin(9600);
+    while (!P1.init())
+    {
+        ; // wait for base to initialize
+    }
+
     // Define state transitions
-    initStateVar->addTransition(&transitionInitFill, fillStateVar);
-    initStateVar->addTransition(&transitionInitOverload, overloadStateVar);
-    initStateVar->addTransition(&transitionInitAbort, abortStateVar);
-    fillStateVar->addTransition(&transitionFillFire, fireStateVar);
-    fillStateVar->addTransition(&transitionFillAbort, abortStateVar);
-    fireStateVar->addTransition(&transitionFirePurge, purgeStateVar);
-    fireStateVar->addTransition(&transitionFireAbort, abortStateVar);
-    purgeStateVar->addTransition(&transitionPurgeOverload, overloadStateVar);
-    purgeStateVar->addTransition(&transitionPurgeAbort, abortStateVar);
-    overloadStateVar->addTransition(&transitionOverloadInit, initStateVar);
-    overloadStateVar->addTransition(&transitionOverloadAbort, abortStateVar);
-    overloadStateVar->addTransition(&transitionOverloadPurge, purgeStateVar);
+    initStateVar->addTransition(true, fillStateVar);
+    initStateVar->addTransition(true, overloadStateVar);
+    initStateVar->addTransition(true, abortStateVar);
+    fillStateVar->addTransition(true, fireStateVar);
+    fillStateVar->addTransition(true, abortStateVar);
+    fireStateVar->addTransition(true, purgeStateVar);
+    fireStateVar->addTransition(true, abortStateVar);
+    purgeStateVar->addTransition(true, overloadStateVar);
+    purgeStateVar->addTransition(true, abortStateVar);
+    overloadStateVar->addTransition(true, initStateVar);
+    overloadStateVar->addTransition(true, abortStateVar);
+    overloadStateVar->addTransition(true, purgeStateVar);
 }
 
 void loop()
 {
+    if (P1.isBaseActive() == false)
+    {
+        Serial.println("Re-init() the base modules.");
+        delay(10);
+        while (!P1.init())
+        {
+            Serial.println("Waiting for 24V");
+            delay(1000);
+        }
+    }
+
     if (Serial.available())
     {
-        JsonDocument doc;
-        doc = Serial.readStringUntil('\n');
+        String input = Serial.readStringUntil('\n');
+        JsonDocument<200> doc;
         DeserializationError error = deserializeJson(doc, Serial);
         if (error)
         {
@@ -58,7 +86,8 @@ void loop()
 
 void processJson(JsonDocument doc)
 {
-    StateEnum state = doc["state"];
+    int stateValue = doc["state"];
+    StateEnum state = static_cast<StateEnum>(stateValue);
     switch (state)
     {
     case INIT:
@@ -92,6 +121,7 @@ void initState()
 void fillState()
 {
     Serial.println("Fill state");
+    Serial
 }
 
 void fireState()
@@ -112,65 +142,4 @@ void overloadState()
 void abortState()
 {
     Serial.println("Abort state");
-}
-
-// transition functions
-// abort transitions
-bool transitionInitAbort()
-{
-    return true;
-}
-bool transitionFillAbort()
-{
-    return true;
-}
-bool transitionFireAbort()
-{
-    return true;
-}
-bool transitionPurgeAbort()
-{
-    return true;
-}
-bool transitionOverloadAbort()
-{
-    return true;
-}
-
-// overload transitions
-bool transitionInitOverload()
-{
-    return true;
-}
-bool transitionOverloadInit()
-{
-    return true;
-}
-bool transitionOverloadPurge()
-{
-    return true;
-}
-
-// init transitions
-bool transitionInitFill()
-{
-    return true;
-}
-
-// fill transitions
-bool transitionFillFire()
-{
-    return true;
-}
-
-// fire transitions
-bool transitionFirePurge()
-{
-    return true;
-}
-
-// purge transitions
-bool transitionPurgeOverload()
-{
-    return true;
 }
