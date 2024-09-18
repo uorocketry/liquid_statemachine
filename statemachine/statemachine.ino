@@ -1,8 +1,20 @@
 #include <StateMachine.h>
 #include <ArduinoJson.h>
 #include <P1AM.h>
+#include <Ethernet.h>
+#include <SPI.h>
 
 StateMachine machine = StateMachine();
+byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
+
+// Set the static IP address to use if the DHCP fails to assign
+IPAddress ip(192, 168, 0, 177);
+IPAddress myDns(192, 168, 0, 1);
+
+// Initialize the Ethernet client library
+// with the IP address and port of the server
+// that you want to connect to (port 80 is default for HTTP):
+EthernetClient client;
 
 // define valve slot
 const int BV_1001 = 1;
