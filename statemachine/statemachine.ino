@@ -1,6 +1,6 @@
 #include <StateMachine.h>
 #include <ArduinoJson.h>
-#include <P1AM.h>
+// #include <P1AM.h>
 
 StateMachine machine = StateMachine();
 
@@ -12,6 +12,14 @@ int BV_1001_state = LOW;
 int BV_1002_state = LOW;
 int BV_1004_state = LOW;
 int targetState = -1;
+
+// STATE LEDS
+const int LED_INIT = 4;
+const int LED_FILL = 5;
+const int LED_FIRE = 6;
+const int LED_PURGE = 7;
+const int LED_OVERLOAD = 8;
+const int LED_ABORT = 9;
 
 // State variables
 State *initStateVar = machine.addState(&initState);
@@ -34,10 +42,18 @@ enum StateEnum
 void setup()
 {
     Serial.begin(9600);
-    while (!P1.init())
-    {
-        ; // wait for base to initialize
-    }
+    // while (!P1.init())
+    // {
+    //     ; // wait for base to initialize
+    // }
+
+    // Set the state LED pins as outputs
+    pinMode(LED_INIT, OUTPUT);
+    pinMode(LED_FILL, OUTPUT);
+    pinMode(LED_FIRE, OUTPUT);
+    pinMode(LED_PURGE, OUTPUT);
+    pinMode(LED_OVERLOAD, OUTPUT);
+    pinMode(LED_ABORT, OUTPUT);
 
     // Define state transitions
     initStateVar->addTransition(&transitionInitFill, fillStateVar);
@@ -56,16 +72,16 @@ void setup()
 
 void loop()
 {
-    if (P1.isBaseActive() == false)
-    {
-        Serial.println("Re-init() the base modules.");
-        delay(10);
-        while (!P1.init())
-        {
-            Serial.println("Waiting for 24V");
-            delay(1000);
-        }
-    }
+    // if (P1.isBaseActive() == false)
+    // {
+    //     Serial.println("Re-init() the base modules.");
+    //     delay(10);
+    //     while (!P1.init())
+    //     {
+    //         Serial.println("Waiting for 24V");
+    //         delay(60);
+    //     }
+    // }
     processJson();
     machine.run();
 }
@@ -91,10 +107,19 @@ void processJson()
         }
     }
 }
+
+void sendMsg()
+{
+    Serial.println("Sending Message")
+}
+
+// receive http request and get json body
+
 // init
 void initState()
 {
     Serial.println("Init state");
+    pinMode(LED_INIT, HIGH);
 }
 
 bool transitionInitFill()
@@ -128,11 +153,13 @@ bool transitionInitAbort()
 void fillState()
 {
     Serial.println("Fill state");
+    pinMode(LED_FILL, HIGH);
     BV_1002_state = HIGH;
     BV_1004_state = HIGH;
-    P1.writeDiscrete(BV_1001_state, BV_1001, 1);
-    P1.writeDiscrete(BV_1002_state, BV_1004, 1);
-    P1.writeDiscrete(BV_1004_state, BV_1002, 1);
+    // P1.writeDiscrete(BV_1001_state, BV_1001, 1);
+    // P1.writeDiscrete(BV_1002_state, BV_1004, 1);
+    // P1.writeDiscrete(BV_1004_state, BV_1002, 1);
+    sendMsg();
 }
 
 bool transitionFillFire()
@@ -158,6 +185,7 @@ bool transitionFillAbort()
 void fireState()
 {
     Serial.println("Fire state");
+    pinMode(LED_FIRE, HIGH);
 }
 
 bool transitionFirePurge()
@@ -182,6 +210,7 @@ bool transitionFireAbort()
 void purgeState()
 {
     Serial.println("Purge state");
+    pinMode(LED_PURGE, HIGH);
 }
 
 bool transitionPurgeOverload()
@@ -206,6 +235,7 @@ bool transitionPurgeAbort()
 void overloadState()
 {
     Serial.println("Overload state");
+    pinMode(LED_OVERLOAD, HIGH);
 }
 
 bool transitionOverloadInit()
@@ -236,4 +266,5 @@ bool transitionOverloadPurge()
 void abortState()
 {
     Serial.println("Abort state");
+    pinMode(LED_ABORT, HIGH);
 }
