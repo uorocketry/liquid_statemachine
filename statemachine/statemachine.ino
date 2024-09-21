@@ -5,11 +5,8 @@
 #include <SPI.h>
 
 StateMachine machine = StateMachine();
+// check the mac address of the ethernet shield
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
-
-// Set the static IP address to use if the DHCP fails to assign
-IPAddress ip(192, 168, 0, 177);
-IPAddress myDns(192, 168, 0, 1);
 
 // Initialize the Ethernet client library
 // with the IP address and port of the server
@@ -51,6 +48,35 @@ void setup()
         ; // wait for base to initialize
     }
 
+    Serial.println("Obtaining an IP address using DHCP");
+    if (Ethernet.begin(mac) == 0)
+    {
+        Serial.println("Failed to obtaining an IP address");
+
+        // check for Ethernet hardware present
+        if (Ethernet.hardwareStatus() == EthernetNoHardware)
+            Serial.println("Ethernet shield was not found");
+
+        // check for Ethernet cable
+        if (Ethernet.linkStatus() == LinkOFF)
+            Serial.println("Ethernet cable is not connected.");
+
+        while (true)
+            ;
+    }
+    Serial.print("Arduino's IP Address: ");
+    Serial.println(Ethernet.localIP());
+
+    Serial.print("DNS Server's IP Address: ");
+    Serial.println(Ethernet.dnsServerIP());
+
+    Serial.print("Gateway's IP Address: ");
+    Serial.println(Ethernet.gatewayIP());
+
+    Serial.print("Network's Subnet Mask: ");
+    Serial.println(Ethernet.subnetMask());
+
+    Serial.println("Defining state transitions");
     // Define state transitions
     initStateVar->addTransition(&transitionInitFill, fillStateVar);
     initStateVar->addTransition(&transitionInitOverload, overloadStateVar);
@@ -75,7 +101,7 @@ void loop()
         while (!P1.init())
         {
             Serial.println("Waiting for 24V");
-            delay(1000);
+            delay(60);
         }
     }
     processJson();
