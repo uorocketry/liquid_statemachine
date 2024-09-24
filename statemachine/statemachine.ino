@@ -7,11 +7,7 @@
 StateMachine machine = StateMachine();
 // check the mac address of the ethernet shield
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
-
-// Initialize the Ethernet client library
-// with the IP address and port of the server
-// that you want to connect to (port 80 is default for HTTP):
-EthernetClient client;
+EthernetServer server(80); // HTTP server on port 80
 
 // define valve slot
 const int BV_1001 = 1;
@@ -67,14 +63,8 @@ void setup()
     Serial.print("Arduino's IP Address: ");
     Serial.println(Ethernet.localIP());
 
-    Serial.print("DNS Server's IP Address: ");
-    Serial.println(Ethernet.dnsServerIP());
-
-    Serial.print("Gateway's IP Address: ");
-    Serial.println(Ethernet.gatewayIP());
-
-    Serial.print("Network's Subnet Mask: ");
-    Serial.println(Ethernet.subnetMask());
+    server.begin(); // Start the HTTP server
+    Serial.println("Server is ready.");
 
     Serial.println("Defining state transitions");
     // Define state transitions
@@ -104,30 +94,76 @@ void loop()
             delay(60);
         }
     }
-    processJson();
+    EthernetClient client = server.available();
+    if (client)
+    {
+        handleClientRequest(client);
+    }
+    // processJson();
     machine.run();
 }
 
-void processJson()
+// Parse incoming HTTP request
+void handleClientRequest(EthernetClient client)
 {
-    // switch to ethernet after testing statemachine logic
-    if (Serial.available())
+    if (client.available())
     {
-        String input = Serial.readStringUntil('\n');
-        JsonDocument doc;
-        DeserializationError error = deserializeJson(doc, Serial);
-        if (!error)
+        String req = client.readStringUntil('\r'); // Read request line
+        client.flush();
+
+        // Parse the request line and look for 'GET' or 'POST'
+        if (req.startsWith("POST "))
         {
-            int stateValue = doc["state"];
-            targetState = stateValue;
-        }
-        else
-        {
-            Serial.print(F("deserializeJson() failed: "));
-            Serial.println(error.f_str());
-            return;
+            Serial.println("POST request received");
+            // Extract the body of the request (JSON) and process it
+            String body = "";
+            while (client.available())
+            {
+                char c = client.read();
+                body += c;
+            }
+
+            DynamicJsonDocument doc(200);
+            DeserializationError error = deserializeJson(doc, body);
+
+            if (error)
+            {
+                Serial.println("Failed to parse JSON");
+            }
+            else
+            {
+                targetState = doc["state"];
+                Serial.print("Target state: ");
+                Serial.println(targetState);
+
+                // Send confirmation back to the client
+                sendStateResponse(client);
+            }
         }
     }
+}
+
+// Send the current state and valve status back to the client in JSON
+void sendStateResponse(EthernetClient client)
+{
+    DynamicJsonDocument doc(256);
+
+    // Current state info
+    doc["current_state"] = targetState;
+    doc["BV_1001"] = BV_1001_state;
+    doc["BV_1002"] = BV_1002_state;
+    doc["BV_1004"] = BV_1004_state;
+
+    // Serialize JSON into the response
+    String response;
+    serializeJson(doc, response);
+
+    client.println("HTTP/1.1 200 OK");
+    client.println("Content-Type: application/json");
+    client.println("Connection: close");
+    client.println();
+    client.println(response); // Send JSON response
+    client.stop();
 }
 // init
 void initState()
