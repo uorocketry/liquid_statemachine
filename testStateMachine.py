@@ -1,7 +1,7 @@
 # test statemachine
 # this doesn't test overload or abort yet, only init -> fill -> fire -> purge
 
-import serial
+#import serial
 import json
 import time
 
@@ -26,26 +26,28 @@ def should_fail(state_number):
 	print()
 	time.sleep(10)
 
-serial_port = '/dev/ttyUSB0'
+#serial_port = '/dev/ttyUSB0'
 baud_rate = 9600
-ser = serial.Serial(serial_port, baud_rate)
+#ser = serial.Serial(serial_port, baud_rate)
 print("Connection opened")
 
 print("Should be in the init state")
 print()
 
-should_fail(FIRE)
-should_fail(PURGE)
+try:
+	should_fail(FIRE)
+	should_fail(PURGE)
 
-should_work(FILL)
-should_fail(INIT)
-should_fail(PURGE)
+	should_work(FILL)
+	should_fail(INIT)
+	should_fail(PURGE)
 
-should_work(FIRE)
-should_fail(INIT)
-should_fail(FILL)
+	should_work(FIRE)
+	should_fail(INIT)
+	should_fail(FILL)
 
-should_work(PURGE)
+	should_work(PURGE)
 
-print("Closing connection")
-ser.close()
+finally:
+	print("Closing connection")
+	ser.close()
