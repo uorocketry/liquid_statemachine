@@ -1,26 +1,51 @@
 # test statemachine
+# this doesn't test overload or abort yet, only init -> fill -> fire -> purge
+
 import serial
 import json
 import time
 
-serial_port = '/dev/ttyUSB0'
-baud_rate = 9600
-ser = serial.Serial(serial_port, baud_rate)
+INIT, FILL, FIRE, PURGE, OVERLOAD, ABORT = 0, 1, 2, 3, 4, 5
+def state_number_to_string(state_number):
+	return ["INIT", "FILL", "FIRE", "PURGE", "OVERLOAD", "ABORT"][state_number]
 
 def send_state(state_number):
     message = json.dumps({"state": state_number})
-    
-    # Send the JSON data over serial
     ser.write((message + '\n').encode('utf-8'))
-    print(f"Sent: {message}")
+    print(f"Sent: {state_number_to_string(state_number)} (message: {message})")
 
-try:
-    #INIT, FILL, FIRE, PURGE, OVERLOAD, ABORT
-    states = [0, 1, 2, 3, 4, 5]
-    for state in states:
-        send_state(state)
-        time.sleep(10)
+def should_work(state_number):
+	send_state(state_number)
+	print(f"Should change to state {state_number_to_string(state_number)}")
+	print()
+	time.sleep(10)
 
-finally:
-    print("Closing connection")
-    ser.close()
+def should_fail(state_number):
+	send_state(state_number)
+	print(f"Shouldn't change to state {state_number_to_string(state_number)}")
+	print()
+	time.sleep(10)
+
+serial_port = '/dev/ttyUSB0'
+baud_rate = 9600
+ser = serial.Serial(serial_port, baud_rate)
+print("Connection opened")
+
+print("Should be in the init state")
+print()
+
+should_fail(FIRE)
+should_fail(PURGE)
+
+should_work(FILL)
+should_fail(INIT)
+should_fail(PURGE)
+
+should_work(FIRE)
+should_fail(INIT)
+should_fail(FILL)
+
+should_work(PURGE)
+
+print("Closing connection")
+ser.close()
