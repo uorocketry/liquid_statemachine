@@ -118,8 +118,11 @@ void sendMsg()
 // init
 void initState()
 {
-    Serial.println("Init state");
-    pinMode(LED_INIT, HIGH);
+    if (machine.executeOnce)
+    {
+        Serial.println("Init state");
+        pinMode(LED_INIT, HIGH);
+    }
 }
 
 bool transitionInitFill()
@@ -152,14 +155,16 @@ bool transitionInitAbort()
 // fill
 void fillState()
 {
-    Serial.println("Fill state");
-    pinMode(LED_FILL, HIGH);
-    BV_1002_state = HIGH;
-    BV_1004_state = HIGH;
+    if (machine.executeOnce)
+    {
+        Serial.println("Fill state");
+        pinMode(LED_FILL, HIGH);
+        BV_1002_state = HIGH;
+        BV_1004_state = HIGH;
+    }
     // P1.writeDiscrete(BV_1001_state, BV_1001, 1);
     // P1.writeDiscrete(BV_1002_state, BV_1004, 1);
     // P1.writeDiscrete(BV_1004_state, BV_1002, 1);
-    sendMsg();
 }
 
 bool transitionFillFire()
@@ -184,8 +189,11 @@ bool transitionFillAbort()
 // fire
 void fireState()
 {
-    Serial.println("Fire state");
-    pinMode(LED_FIRE, HIGH);
+    if (machine.executeOnce)
+    {
+        Serial.println("Fire state");
+        pinMode(LED_FIRE, HIGH);
+    }
 }
 
 bool transitionFirePurge()
@@ -209,8 +217,11 @@ bool transitionFireAbort()
 // purge
 void purgeState()
 {
-    Serial.println("Purge state");
-    pinMode(LED_PURGE, HIGH);
+    if (machine.executeOnce)
+    {
+        Serial.println("Purge state");
+        pinMode(LED_PURGE, HIGH);
+    }
 }
 
 bool transitionPurgeOverload()
@@ -234,8 +245,11 @@ bool transitionPurgeAbort()
 // overload
 void overloadState()
 {
-    Serial.println("Overload state");
-    pinMode(LED_OVERLOAD, HIGH);
+    if (machine.executeOnce)
+    {
+        Serial.println("Overload state");
+        pinMode(LED_OVERLOAD, HIGH);
+    }
 }
 
 bool transitionOverloadInit()
@@ -265,6 +279,9 @@ bool transitionOverloadPurge()
 // abort
 void abortState()
 {
-    Serial.println("Abort state");
-    pinMode(LED_ABORT, HIGH);
+    if (machine.executeOnce)
+    {
+        Serial.println("Abort state");
+        pinMode(LED_ABORT, HIGH);
+    }
 }
