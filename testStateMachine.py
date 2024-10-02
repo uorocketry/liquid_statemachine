@@ -1,9 +1,13 @@
 # test statemachine
 # this doesn't test overload or abort yet, only init -> fill -> fire -> purge
 
-#import serial
+# usage: python3 testStateMachine.py baudrate
+# baudrate defaults to 9600 if not specified
+
+import serial
 import json
 import time
+import sys
 
 INIT, FILL, FIRE, PURGE, OVERLOAD, ABORT = 0, 1, 2, 3, 4, 5
 def state_number_to_string(state_number):
@@ -26,9 +30,9 @@ def should_fail(state_number):
 	print()
 	time.sleep(10)
 
-#serial_port = '/dev/ttyUSB0'
-baud_rate = 9600
-#ser = serial.Serial(serial_port, baud_rate)
+serial_port = '/dev/ttyUSB0'
+baud_rate = 9600 if len(sys.argv) == 1 else int(sys.argv[1])
+ser = serial.Serial(serial_port, baud_rate)
 print("Connection opened")
 
 print("Should be in the init state")
