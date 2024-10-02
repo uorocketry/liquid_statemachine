@@ -93,7 +93,7 @@ void processJson()
     {
         String input = Serial.readStringUntil('\n');
         JsonDocument doc;
-        DeserializationError error = deserializeJson(doc, Serial);
+        DeserializationError error = deserializeJson(doc, input);
         if (!error)
         {
             int stateValue = doc["state"];
@@ -110,7 +110,7 @@ void processJson()
 
 void sendMsg()
 {
-    Serial.println("Sending Message")
+    Serial.println("Sending Message");
 }
 
 // receive http request and get json body
