@@ -127,29 +127,17 @@ void initState()
 
 bool transitionInitFill()
 {
-    if (targetState == 1)
-    {
-        return true;
-    }
-    return false;
+    return targetState == FILL;
 }
 
 bool transitionInitOverload()
 {
-    if (targetState == 4)
-    {
-        return true;
-    }
-    return false;
+    return targetState == OVERLOAD;
 }
 
 bool transitionInitAbort()
 {
-    if (targetState == 5)
-    {
-        return true;
-    }
-    return false;
+    return targetState == ABORT;
 }
 
 // fill
@@ -179,11 +167,7 @@ bool transitionFillFire()
 
 bool transitionFillAbort()
 {
-    if (targetState == 5)
-    {
-        return true;
-    }
-    return false;
+    return targetState == ABORT;
 }
 
 // fire
@@ -198,20 +182,12 @@ void fireState()
 
 bool transitionFirePurge()
 {
-    if (targetState == 3)
-    {
-        return true;
-    }
-    return false;
+    return targetState == PURGE;
 }
 
 bool transitionFireAbort()
 {
-    if (targetState == 5)
-    {
-        return true;
-    }
-    return false;
+	return targetState == ABORT;
 }
 
 // purge
@@ -226,20 +202,12 @@ void purgeState()
 
 bool transitionPurgeOverload()
 {
-    if (targetState == 4)
-    {
-        return true;
-    }
-    return false;
+    return targetState == OVERLOAD;
 }
 
 bool transitionPurgeAbort()
 {
-    if (targetState == 5)
-    {
-        return true;
-    }
-    return false;
+    return targetState == ABORT;
 }
 
 // overload
@@ -254,26 +222,17 @@ void overloadState()
 
 bool transitionOverloadInit()
 {
-    if (targetState == 1)
-    {
-        return true;
-    }
+    return targetState == INIT;
 }
 
 bool transitionOverloadAbort()
 {
-    if (targetState == 5)
-    {
-        return true;
-    }
+    return targetState == ABORT;
 }
 
 bool transitionOverloadPurge()
 {
-    if (targetState == 3)
-    {
-        return true;
-    }
+    return targetState == PURGE;
 }
 
 // abort
