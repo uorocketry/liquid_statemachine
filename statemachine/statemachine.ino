@@ -39,6 +39,13 @@ enum StateEnum
     ABORT
 };
 
+void transitionToInit()     { return targetState = INIT;     }
+void transitionToFill()     { return targetState = FILL;     }
+void transitionToFire()     { return targetState = FIRE;     }
+void transitionToPurge()    { return targetState = PURGE;    }
+void transitionToOverload() { return targetState = OVERLOAD; }
+void transitionToAbort()    { return targetState = ABORT;    }
+
 void setup()
 {
     Serial.begin(9600);
@@ -56,18 +63,22 @@ void setup()
     pinMode(LED_ABORT, OUTPUT);
 
     // Define state transitions
-    initStateVar->addTransition(&transitionInitFill, fillStateVar);
-    initStateVar->addTransition(&transitionInitOverload, overloadStateVar);
-    initStateVar->addTransition(&transitionInitAbort, abortStateVar);
-    fillStateVar->addTransition(&transitionFillFire, fireStateVar);
-    fillStateVar->addTransition(&transitionFillAbort, abortStateVar);
-    fireStateVar->addTransition(&transitionFirePurge, purgeStateVar);
-    fireStateVar->addTransition(&transitionFireAbort, abortStateVar);
-    purgeStateVar->addTransition(&transitionPurgeOverload, overloadStateVar);
-    purgeStateVar->addTransition(&transitionPurgeAbort, abortStateVar);
-    overloadStateVar->addTransition(&transitionOverloadInit, initStateVar);
-    overloadStateVar->addTransition(&transitionOverloadAbort, abortStateVar);
-    overloadStateVar->addTransition(&transitionOverloadPurge, purgeStateVar);
+    initStateVar->addTransition(&transitionToFill, fillStateVar);
+    initStateVar->addTransition(&transitionToOverload, overloadStateVar);
+    initStateVar->addTransition(&transitionToAbort, abortStateVar);
+
+    fillStateVar->addTransition(&transitionToFire, fireStateVar);
+    fillStateVar->addTransition(&transitionToAbort, abortStateVar);
+
+    fireStateVar->addTransition(&transitionToPurge, purgeStateVar);
+    fireStateVar->addTransition(&transitionToAbort, abortStateVar);
+
+    purgeStateVar->addTransition(&transitionToOverload, overloadStateVar);
+    purgeStateVar->addTransition(&transitionToAbort, abortStateVar);
+
+    overloadStateVar->addTransition(&transitionToInit, initStateVar);
+    overloadStateVar->addTransition(&transitionToAbort, abortStateVar);
+    overloadStateVar->addTransition(&transitionToPurge, purgeStateVar);
 }
 
 void loop()
@@ -125,21 +136,6 @@ void initState()
     }
 }
 
-bool transitionInitFill()
-{
-    return targetState == FILL;
-}
-
-bool transitionInitOverload()
-{
-    return targetState == OVERLOAD;
-}
-
-bool transitionInitAbort()
-{
-    return targetState == ABORT;
-}
-
 // fill
 void fillState()
 {
@@ -155,21 +151,6 @@ void fillState()
     // P1.writeDiscrete(BV_1004_state, BV_1002, 1);
 }
 
-bool transitionFillFire()
-{
-    // check if the targetState is 2 and valves are in the correct position
-    if (targetState == 2 && BV_1001_state == LOW && BV_1002_state == HIGH && BV_1004_state == HIGH)
-    {
-        return true;
-    }
-    return false;
-}
-
-bool transitionFillAbort()
-{
-    return targetState == ABORT;
-}
-
 // fire
 void fireState()
 {
@@ -178,16 +159,6 @@ void fireState()
         Serial.println("Fire state");
         pinMode(LED_FIRE, HIGH);
     }
-}
-
-bool transitionFirePurge()
-{
-    return targetState == PURGE;
-}
-
-bool transitionFireAbort()
-{
-	return targetState == ABORT;
 }
 
 // purge
@@ -200,16 +171,6 @@ void purgeState()
     }
 }
 
-bool transitionPurgeOverload()
-{
-    return targetState == OVERLOAD;
-}
-
-bool transitionPurgeAbort()
-{
-    return targetState == ABORT;
-}
-
 // overload
 void overloadState()
 {
@@ -218,21 +179,6 @@ void overloadState()
         Serial.println("Overload state");
         pinMode(LED_OVERLOAD, HIGH);
     }
-}
-
-bool transitionOverloadInit()
-{
-    return targetState == INIT;
-}
-
-bool transitionOverloadAbort()
-{
-    return targetState == ABORT;
-}
-
-bool transitionOverloadPurge()
-{
-    return targetState == PURGE;
 }
 
 // abort
