@@ -152,12 +152,19 @@ void fillState()
 }
 
 // fire
+unsigned long purgeSwitchTime;
 void fireState()
 {
     if (machine.executeOnce)
     {
         Serial.println("Fire state");
         pinMode(LED_FIRE, HIGH);
+        // switch to purge in 10 seconds (10,000 ms)
+        purgeSwitchTime = millis() + 10000;
+    }
+    else if (millis() < purgeSwitchTime)
+    {
+        targetState == PURGE;
     }
 }
 
