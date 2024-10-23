@@ -39,12 +39,12 @@ enum StateEnum
     ABORT
 };
 
-void transitionToInit()     { return targetState = INIT;     }
-void transitionToFill()     { return targetState = FILL;     }
-void transitionToFire()     { return targetState = FIRE;     }
-void transitionToPurge()    { return targetState = PURGE;    }
-void transitionToOverload() { return targetState = OVERLOAD; }
-void transitionToAbort()    { return targetState = ABORT;    }
+void transitionToInit()     { return targetState == INIT;     }
+void transitionToFill()     { return targetState == FILL;     }
+void transitionToFire()     { return targetState == FIRE;     }
+void transitionToPurge()    { return targetState == PURGE;    }
+void transitionToOverload() { return targetState == OVERLOAD; }
+void transitionToAbort()    { return targetState == ABORT;    }
 
 void setup()
 {
