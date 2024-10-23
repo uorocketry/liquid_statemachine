@@ -162,7 +162,7 @@ void fireState()
         // switch to purge in 10 seconds (10,000 ms)
         purgeSwitchTime = millis() + 10000;
     }
-    else if (millis() < purgeSwitchTime)
+    else if (millis() > purgeSwitchTime)
     {
         targetState == PURGE;
     }
