@@ -29,6 +29,8 @@ State *purgeStateVar = machine.addState(&purgeState);
 State *overloadStateVar = machine.addState(&overloadState);
 State *abortStateVar = machine.addState(&abortState);
 
+#define ADD_TRANSITION(start, end, target) start->addTransition([](){ return targetState == target; }, end)
+
 enum StateEnum
 {
     INIT,
@@ -38,13 +40,6 @@ enum StateEnum
     OVERLOAD,
     ABORT
 };
-
-void transitionToInit()     { return targetState == INIT;     }
-void transitionToFill()     { return targetState == FILL;     }
-void transitionToFire()     { return targetState == FIRE;     }
-void transitionToPurge()    { return targetState == PURGE;    }
-void transitionToOverload() { return targetState == OVERLOAD; }
-void transitionToAbort()    { return targetState == ABORT;    }
 
 void setup()
 {
@@ -63,22 +58,22 @@ void setup()
     pinMode(LED_ABORT, OUTPUT);
 
     // Define state transitions
-    initStateVar->addTransition(&transitionToFill, fillStateVar);
-    initStateVar->addTransition(&transitionToOverload, overloadStateVar);
-    initStateVar->addTransition(&transitionToAbort, abortStateVar);
+    ADD_TRANSITION(initStateVar, fillStateVar, FILL);
+    ADD_TRANSITION(initStateVar, overloadStateVar, OVERLOAD);
+    ADD_TRANSITION(initStateVar, abortStateVar, ABORT);
 
-    fillStateVar->addTransition(&transitionToFire, fireStateVar);
-    fillStateVar->addTransition(&transitionToAbort, abortStateVar);
+    ADD_TRANSITION(fillStateVar, fireStateVar, FIRE);
+    ADD_TRANSITION(fillStateVar, abortStateVar, ABORT);
 
-    fireStateVar->addTransition(&transitionToPurge, purgeStateVar);
-    fireStateVar->addTransition(&transitionToAbort, abortStateVar);
+    ADD_TRANSITION(fireStateVar, purgeStateVar, PURGE);
+    ADD_TRANSITION(fireStateVar, abortStateVar, ABORT);
 
-    purgeStateVar->addTransition(&transitionToOverload, overloadStateVar);
-    purgeStateVar->addTransition(&transitionToAbort, abortStateVar);
+    ADD_TRANSITION(purgeStateVar, overloadStateVar, OVERLOAD);
+    ADD_TRANSITION(purgeStateVar, abortStateVar, ABORT);
 
-    overloadStateVar->addTransition(&transitionToInit, initStateVar);
-    overloadStateVar->addTransition(&transitionToAbort, abortStateVar);
-    overloadStateVar->addTransition(&transitionToPurge, purgeStateVar);
+    ADD_TRANSITION(overloadStateVar, initStateVar, INIT);
+    ADD_TRANSITION(overloadStateVar, abortStateVar, ABORT);
+    ADD_TRANSITION(overloadStateVar, purgeStateVar, PURGE);
 }
 
 void loop()
@@ -117,11 +112,6 @@ void processJson()
             return;
         }
     }
-}
-
-void sendMsg()
-{
-    Serial.println("Sending Message");
 }
 
 // receive http request and get json body
@@ -164,7 +154,7 @@ void fireState()
     }
     else if (millis() > purgeSwitchTime)
     {
-        targetState == PURGE;
+        targetState = PURGE;
     }
 }
 
