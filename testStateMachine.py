@@ -1,57 +1,59 @@
 # test statemachine
-# this doesn't test overload or abort yet, only init -> fill -> fire -> purge
+# this doesn't test overload or abort yet, only init -> fill -> fire -> purge, and doesn't test the fire -> purge auto timing
 
-# usage: python3 testStateMachine.py baudrate
-# baudrate defaults to 9600 if not specified
-
-import serial
+import sys
 import json
 import time
-import sys
+import serial
+import socket
 
 INIT, FILL, FIRE, PURGE, OVERLOAD, ABORT = 0, 1, 2, 3, 4, 5
 def state_number_to_string(state_number):
 	return ["INIT", "FILL", "FIRE", "PURGE", "OVERLOAD", "ABORT"][state_number]
 
-def send_state(state_number):
-    message = json.dumps({"state": state_number})
-    ser.write((message + '\n').encode('utf-8'))
-    print(f"Sent: {state_number_to_string(state_number)} (message: {message})")
+HOST = "192.168.1.30"
+PORT = 80
+def send(command):
+	with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+		s.connect((HOST, PORT))
+		s.send(bytes([command]))
+		response = s.recv(1)
+	return int(response[0])
 
-def should_work(state_number):
-	send_state(state_number)
-	print(f"Should change to state {state_number_to_string(state_number)}")
-	print()
-	time.sleep(10)
+failing = False
+def fail(message):
+	global failing
+	failing = True
+	print("fail: " + message)
 
-def should_fail(state_number):
-	send_state(state_number)
-	print(f"Shouldn't change to state {state_number_to_string(state_number)}")
-	print()
-	time.sleep(10)
+def should_work(target):
+	state = send(255)
+	send(target)
+	time.sleep(0.5)
+	new_state = send(255)
+	if new_state != target:
+		fail(f"{state_number_to_string(state)} should switch to {state_number_to_string(target)}, but remains {state_number_to_string(new_state)}")
 
-serial_port = '/dev/ttyUSB0'
-baud_rate = 9600 if len(sys.argv) == 1 else int(sys.argv[1])
-ser = serial.Serial(serial_port, baud_rate)
-print("Connection opened")
+def should_fail(target):
+	state = send(255)
+	send(target)
+	time.sleep(0.5)
+	new_state = send(255)
+	if new_state == target:
+		fail(f"{state_number_to_string(state)} should not switch to {state_number_to_string(target)}")
 
-print("Should be in the init state")
-print()
+should_fail(FIRE)
+should_fail(PURGE)
 
-try:
-	should_fail(FIRE)
-	should_fail(PURGE)
+should_work(FILL)
+should_fail(INIT)
+should_fail(PURGE)
 
-	should_work(FILL)
-	should_fail(INIT)
-	should_fail(PURGE)
+should_work(FIRE)
+should_fail(INIT)
+should_fail(FILL)
 
-	should_work(FIRE)
-	should_fail(INIT)
-	should_fail(FILL)
+should_work(PURGE)
 
-	should_work(PURGE)
-
-finally:
-	print("Closing connection")
-	ser.close()
+if not failing:
+	print("all tests pass")
