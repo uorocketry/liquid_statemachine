@@ -9,8 +9,6 @@
 
 byte mac[] = { 0x60, 0x52, 0xD0, 0x08, 0x17, 0x38 };
 IPAddress ip(192,168,1,30);
-IPAddress gateway(192,168,1,1);
-IPAddress subnet(255,255,255,0);
 
 // 10.192.87.89
 
@@ -70,9 +68,9 @@ void setup()
     Ethernet.init(5);
 
       // start the Ethernet connection and the server:
-    Ethernet.begin(mac, ip, gateway, gateway, subnet);
+    Ethernet.begin(mac, ip);
+    Serial.println("server is at");
     Serial.println(Ethernet.localIP());
-    Serial.println(Ethernet.gatewayIP());
 
     // Check for Ethernet hardware present
     if (Ethernet.hardwareStatus() == EthernetNoHardware) {
