@@ -22,8 +22,6 @@ Note that the id here is enp0s20f0u2
     $ sudo ifconfig enp0s20f0u2 192.168.1.1
 
     $ ip a
-
-    $ ip a
     ...
     7: enp0s20f0u2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
         link/ether 00:e0:4c:88:fb:b3 brd ff:ff:ff:ff:ff:ff
