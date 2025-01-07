@@ -1,7 +1,20 @@
 #include <StateMachine.h>
 #include <ArduinoJson.h>
 #include <TaskManagerIO.h>
-// #include <P1AM.h>
+#include <P1AM.h>
+
+// ethernet stuff
+#include <SPI.h>
+#include <Ethernet.h>
+
+byte mac[] = { 0x60, 0x52, 0xD0, 0x08, 0x17, 0x38 };
+IPAddress ip(192,168,1,30);
+IPAddress gateway(192,168,1,1);
+IPAddress subnet(255,255,255,0);
+
+// 10.192.87.89
+
+EthernetServer server(80);
 
 StateMachine machine = StateMachine();
 
@@ -45,18 +58,43 @@ enum StateEnum
 void setup()
 {
     Serial.begin(9600);
+    while (!Serial); // wait for serial port to connect. Needed for native USB port only
+
+    Ethernet.init(5);
+
+      // start the Ethernet connection and the server:
+    Ethernet.begin(mac, ip, gateway, gateway, subnet);
+    Serial.println(Ethernet.localIP());
+    Serial.println(Ethernet.gatewayIP());
+
+    // Check for Ethernet hardware present
+    if (Ethernet.hardwareStatus() == EthernetNoHardware) {
+      Serial.println("Ethernet shield was not found.  Sorry, can't run without hardware. :(");
+      while (true) {
+        delay(1); // do nothing, no point running without Ethernet hardware
+      }
+    }
+    if (Ethernet.linkStatus() == LinkOFF) {
+      Serial.println("Ethernet cable is not connected.");
+    }
+
+    // start the server
+    server.begin();
+    Serial.print("server is at ");
+    Serial.println(Ethernet.localIP());
+
     // while (!P1.init())
     // {
     //     ; // wait for base to initialize
     // }
 
     // Set the state LED pins as outputs
-    pinMode(LED_INIT, OUTPUT);
-    pinMode(LED_FILL, OUTPUT);
-    pinMode(LED_FIRE, OUTPUT);
-    pinMode(LED_PURGE, OUTPUT);
-    pinMode(LED_OVERLOAD, OUTPUT);
-    pinMode(LED_ABORT, OUTPUT);
+    // pinMode(LED_INIT, OUTPUT);
+    // pinMode(LED_FILL, OUTPUT);
+    // pinMode(LED_FIRE, OUTPUT);
+    // pinMode(LED_PURGE, OUTPUT);
+    // pinMode(LED_OVERLOAD, OUTPUT);
+    // pinMode(LED_ABORT, OUTPUT);
 
     // Define state transitions
     ADD_TRANSITION(initStateVar, fillStateVar, FILL);
@@ -89,34 +127,24 @@ void loop()
     //         delay(60);
     //     }
     // }
-    processJson();
+    processCommand();
     taskManager.runLoop();
     machine.run();
 }
 
-void processJson()
+void processCommand()
 {
-    // switch to ethernet after testing statemachine logic
-    if (Serial.available())
-    {
-        String input = Serial.readStringUntil('\n');
-        JsonDocument doc;
-        DeserializationError error = deserializeJson(doc, input);
-        if (!error)
-        {
-            int stateValue = doc["state"];
-            targetState = stateValue;
-        }
-        else
-        {
-            Serial.print(F("deserializeJson() failed: "));
-            Serial.println(error.f_str());
-            return;
+    EthernetClient client = server.available();
+    if (client) {
+        while (client.connected()) {
+            if (client.available()) {
+                  int r = client.read();
+                  if (INIT <= r && r <= ABORT) client.write(targetState = r);
+                  if (r == 255) client.write(machine.currentState);
+            }
         }
     }
 }
-
-// receive http request and get json body
 
 // init
 void initState()
