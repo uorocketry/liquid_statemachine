@@ -43,8 +43,6 @@ State *purgeStateVar = machine.addState(&purgeState);
 State *overloadStateVar = machine.addState(&overloadState);
 State *abortStateVar = machine.addState(&abortState);
 
-#define ADD_TRANSITION(start, end, target) start->addTransition([](){ return targetState == target; }, end)
-
 enum StateEnum
 {
     INIT,
@@ -54,6 +52,15 @@ enum StateEnum
     OVERLOAD,
     ABORT
 };
+
+#define INIT_VAR initStateVar
+#define FILL_VAR fillStateVar
+#define FIRE_VAR fireStateVar
+#define PURGE_VAR purgeStateVar
+#define OVERLOAD_VAR overloadStateVar
+#define ABORT_VAR abortStateVar
+
+#define ADD_TRANSITION(start, end) start ## _VAR ->addTransition([](){ return targetState == end; }, end ## _VAR)
 
 void setup()
 {
@@ -97,22 +104,22 @@ void setup()
     // pinMode(LED_ABORT, OUTPUT);
 
     // Define state transitions
-    ADD_TRANSITION(initStateVar, fillStateVar, FILL);
-    ADD_TRANSITION(initStateVar, overloadStateVar, OVERLOAD);
-    ADD_TRANSITION(initStateVar, abortStateVar, ABORT);
+    ADD_TRANSITION(INIT, FILL);
+    ADD_TRANSITION(INIT, OVERLOAD);
+    ADD_TRANSITION(INIT, ABORT);
 
-    ADD_TRANSITION(fillStateVar, fireStateVar, FIRE);
-    ADD_TRANSITION(fillStateVar, abortStateVar, ABORT);
+    ADD_TRANSITION(FILL, FIRE);
+    ADD_TRANSITION(FILL, ABORT);
 
-    ADD_TRANSITION(fireStateVar, purgeStateVar, PURGE);
-    ADD_TRANSITION(fireStateVar, abortStateVar, ABORT);
+    ADD_TRANSITION(FIRE, PURGE);
+    ADD_TRANSITION(FIRE, ABORT);
 
-    ADD_TRANSITION(purgeStateVar, overloadStateVar, OVERLOAD);
-    ADD_TRANSITION(purgeStateVar, abortStateVar, ABORT);
+    ADD_TRANSITION(PURGE, OVERLOAD);
+    ADD_TRANSITION(PURGE, ABORT);
 
-    ADD_TRANSITION(overloadStateVar, initStateVar, INIT);
-    ADD_TRANSITION(overloadStateVar, abortStateVar, ABORT);
-    ADD_TRANSITION(overloadStateVar, purgeStateVar, PURGE);
+    ADD_TRANSITION(OVERLOAD, INIT);
+    ADD_TRANSITION(OVERLOAD, ABORT);
+    ADD_TRANSITION(OVERLOAD, PURGE);
 }
 
 void loop()
