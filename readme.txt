@@ -1,13 +1,11 @@
 Setup instructions:
 -------------------
 
-1. Install the p1am library: https://github.com/facts-engineering/P1AM?tab=readme-ov-file#p1am-library
+1. Install the P1AM library: https://github.com/facts-engineering/P1AM?tab=readme-ov-file#p1am-library
 
-2. Connect p1am to 24 volts
+2. Connect ethernet shield to computer (no power source is needed, it seems like the computer by itself can power the P1AM).
 
-3. Connect ethernet shield to computer
-
-4. Give ethernet an ip address. Linux instructions:
+3. Give ethernet an ip address. Linux instructions:
 
     $ ip a
     ...

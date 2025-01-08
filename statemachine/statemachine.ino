@@ -9,9 +9,6 @@
 
 byte mac[] = { 0x60, 0x52, 0xD0, 0x08, 0x17, 0x38 };
 IPAddress ip(192,168,1,30);
-
-// 10.192.87.89
-
 EthernetServer server(80);
 
 StateMachine machine = StateMachine();
@@ -23,7 +20,6 @@ const int BV_1004 = 3;
 int BV_1001_state = LOW;
 int BV_1002_state = LOW;
 int BV_1004_state = LOW;
-int targetState = -1;
 
 // STATE LEDS
 const int LED_INIT = 4;
@@ -34,31 +30,25 @@ const int LED_OVERLOAD = 8;
 const int LED_ABORT = 9;
 
 // State variables
-State *initStateVar = machine.addState(&initState);
-State *fillStateVar = machine.addState(&fillState);
-State *fireStateVar = machine.addState(&fireState);
-State *purgeStateVar = machine.addState(&purgeState);
-State *overloadStateVar = machine.addState(&overloadState);
-State *abortStateVar = machine.addState(&abortState);
-
-enum StateEnum
-{
-    INIT,
-    FILL,
-    FIRE,
-    PURGE,
-    OVERLOAD,
-    ABORT
+State *Init     = machine.addState(&initState);
+State *Fill     = machine.addState(&fillState);
+State *Fire     = machine.addState(&fireState);
+State *Purge    = machine.addState(&purgeState);
+State *Overload = machine.addState(&overloadState);
+State *Abort    = machine.addState(&abortState);
+// must be the same order as variables above are added
+State *states[] = {
+    Init,      // 0
+    Fill,      // 1
+    Fire,      // 2
+    Purge,     // 3
+    Overload,  // 4
+    Abort      // 5
 };
 
-#define INIT_VAR initStateVar
-#define FILL_VAR fillStateVar
-#define FIRE_VAR fireStateVar
-#define PURGE_VAR purgeStateVar
-#define OVERLOAD_VAR overloadStateVar
-#define ABORT_VAR abortStateVar
+State *targetState = 0;
 
-#define ADD_TRANSITION(start, end) start ## _VAR ->addTransition([](){ return targetState == end; }, end ## _VAR)
+#define ADD_TRANSITION(start, end) start->addTransition([](){ return targetState == end; }, end)
 
 void setup()
 {
@@ -96,22 +86,22 @@ void setup()
     // pinMode(LED_ABORT, OUTPUT);
 
     // Define state transitions
-    ADD_TRANSITION(INIT, FILL);
-    ADD_TRANSITION(INIT, OVERLOAD);
-    ADD_TRANSITION(INIT, ABORT);
+    ADD_TRANSITION(Init, Fill);
+    ADD_TRANSITION(Init, Overload);
+    ADD_TRANSITION(Init, Abort);
 
-    ADD_TRANSITION(FILL, FIRE);
-    ADD_TRANSITION(FILL, ABORT);
+    ADD_TRANSITION(Fill, Fire);
+    ADD_TRANSITION(Fill, Abort);
 
-    ADD_TRANSITION(FIRE, PURGE);
-    ADD_TRANSITION(FIRE, ABORT);
+    ADD_TRANSITION(Fire, Purge);
+    ADD_TRANSITION(Fire, Abort);
 
-    ADD_TRANSITION(PURGE, OVERLOAD);
-    ADD_TRANSITION(PURGE, ABORT);
+    ADD_TRANSITION(Purge, Overload);
+    ADD_TRANSITION(Purge, Abort);
 
-    ADD_TRANSITION(OVERLOAD, INIT);
-    ADD_TRANSITION(OVERLOAD, ABORT);
-    ADD_TRANSITION(OVERLOAD, PURGE);
+    ADD_TRANSITION(Overload, Init);
+    ADD_TRANSITION(Overload, Abort);
+    ADD_TRANSITION(Overload, Purge);
 }
 
 void loop()
@@ -137,9 +127,9 @@ void processCommand()
     if (client) {
         while (client.connected()) {
             if (client.available()) {
-                  int r = client.read();
-                  if (INIT <= r && r <= ABORT) client.write(targetState = r);
-                  if (r == 255) client.write(machine.currentState);
+                int r = client.read();
+                if (r == 255) client.write(machine.currentState);
+                else         { targetState = states[r]; client.write(r); }
             }
         }
     }
@@ -177,7 +167,7 @@ void fireState()
     {
         Serial.println("Fire state");
         pinMode(LED_FIRE, HIGH);
-        taskManager.schedule(onceMillis(10000), []() { targetState = PURGE; });
+        taskManager.schedule(onceMillis(10000), []() { targetState = Purge; });
     }
 }
 
