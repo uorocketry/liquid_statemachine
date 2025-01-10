@@ -30,3 +30,17 @@ Note that the id here is enp0s20f0u2
            valid_lft forever preferred_lft forever
 
 Now, we have the ip 192.168.1.1, and can connect.
+
+
+Talking to the Arduino
+----------------------
+
+Every command is a single byte. The response will be first a length byte l, then l body bytes.
+
+Commands 0 through 5 set the state. The response's body, an acknowledgement, will echo back the command. However, this doesn't mean that the state was set: perhaps it is an invalid transition.
+
+Command 255 queries the state. The body of the response is the current state.
+
+Command 254 queries possible transitions from the current state. Each byte in the body of the response is a state number that can be transitioned to.
+
+All other commands are invalid, and their response body is 255.

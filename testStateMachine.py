@@ -17,8 +17,9 @@ def send(command):
 	with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 		s.connect((HOST, PORT))
 		s.send(bytes([command]))
-		response = s.recv(1)
-	return int(response[0])
+		size = s.recv(1)[0]
+		response = s.recv(size)
+	return response
 
 failing = False
 def fail(message):
@@ -27,33 +28,49 @@ def fail(message):
 	print("fail: " + message)
 
 def should_work(target):
-	state = send(255)
+	state = send(255)[0]
 	send(target)
 	time.sleep(0.5)
-	new_state = send(255)
+	new_state = send(255)[0]
 	if new_state != target:
 		fail(f"{state_number_to_string(state)} should switch to {state_number_to_string(target)}, but remains {state_number_to_string(new_state)}")
 
 def should_fail(target):
-	state = send(255)
+	state = send(255)[0]
 	send(target)
 	time.sleep(0.5)
-	new_state = send(255)
+	new_state = send(255)[0]
 	if new_state == target:
 		fail(f"{state_number_to_string(state)} should not switch to {state_number_to_string(target)}")
 
-should_fail(FIRE)
-should_fail(PURGE)
+def test():
+	global failing
+	failing = False
 
-should_work(FILL)
-should_fail(INIT)
-should_fail(PURGE)
+	should_fail(FIRE)
+	should_fail(PURGE)
 
-should_work(FIRE)
-should_fail(INIT)
-should_fail(FILL)
+	should_work(FILL)
+	should_fail(INIT)
+	should_fail(PURGE)
 
-should_work(PURGE)
+	should_work(FIRE)
+	should_fail(INIT)
+	should_fail(FILL)
 
-if not failing:
-	print("all tests pass")
+	should_work(PURGE)
+	should_fail(INIT)
+	should_fail(FILL)
+	should_fail(FIRE)
+
+	should_work(ABORT)
+
+	if not failing:
+		print("all tests pass")
+
+def get_transitions():
+	return send(254)
+
+test()
+
+# print(get_transitions())

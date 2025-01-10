@@ -30,21 +30,13 @@ const int LED_OVERLOAD = 8;
 const int LED_ABORT = 9;
 
 // State variables
-State *Init     = machine.addState(&initState);
-State *Fill     = machine.addState(&fillState);
-State *Fire     = machine.addState(&fireState);
-State *Purge    = machine.addState(&purgeState);
-State *Overload = machine.addState(&overloadState);
-State *Abort    = machine.addState(&abortState);
-// must be the same order as variables above are added
-State *states[] = {
-    Init,      // 0
-    Fill,      // 1
-    Fire,      // 2
-    Purge,     // 3
-    Overload,  // 4
-    Abort      // 5
-};
+State *Init     = machine.addState(&initState);      // 0
+State *Fill     = machine.addState(&fillState);      // 1
+State *Fire     = machine.addState(&fireState);      // 2
+State *Purge    = machine.addState(&purgeState);     // 3
+State *Overload = machine.addState(&overloadState);  // 4
+State *Abort    = machine.addState(&abortState);     // 5
+// the state numbers are the order in which the states are added
 
 State *targetState = 0;
 
@@ -77,6 +69,7 @@ void setup()
     //     ; // wait for base to initialize
     // }
 
+    // these lines make ethernet not work
     // Set the state LED pins as outputs
     // pinMode(LED_INIT, OUTPUT);
     // pinMode(LED_FILL, OUTPUT);
@@ -128,8 +121,30 @@ void processCommand()
         while (client.connected()) {
             if (client.available()) {
                 int r = client.read();
-                if (r == 255) client.write(machine.currentState);
-                else         { targetState = states[r]; client.write(r); }
+                switch (r) {
+                    // query state
+                    case 255:
+                        client.write(1);
+                        client.write(machine.currentState);
+                        break;
+
+                    // query possible transitions
+                    case 254: {
+                        LinkedList<struct Transition*> *transitions = machine.stateList->get(machine.currentState)->transitions;
+                        int len = transitions->size();
+                        client.write(len);
+                        for (int i = 0; i < len; i++) {
+                            client.write(transitions->get(i)->stateNumber);
+                        }
+                        break;
+                    }
+
+                    // transition state
+                    default:
+                        targetState = machine.stateList->get(r);
+                        client.write(1);
+                        client.write(targetState ? r : 255);  // the get returns null if the state is invalid
+                }
             }
         }
     }
@@ -197,6 +212,6 @@ void abortState()
     if (machine.executeOnce)
     {
         Serial.println("Abort state");
-        pinMode(LED_ABORT, HIGH);
+        // pinMode(LED_ABORT, HIGH);  // this line stops ethernet from working for some reason
     }
 }
