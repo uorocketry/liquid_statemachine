@@ -1,25 +1,8 @@
 # test statemachine
 # this doesn't test overload or abort yet, only init -> fill -> fire -> purge, and doesn't test the fire -> purge auto timing
 
-import sys
-import json
 import time
-import serial
-import socket
-
-INIT, FILL, FIRE, PURGE, OVERLOAD, ABORT = 0, 1, 2, 3, 4, 5
-def state_number_to_string(state_number):
-	return ["INIT", "FILL", "FIRE", "PURGE", "OVERLOAD", "ABORT"][state_number]
-
-HOST = "192.168.1.30"
-PORT = 80
-def send(command):
-	with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-		s.connect((HOST, PORT))
-		s.send(bytes([command]))
-		size = s.recv(1)[0]
-		response = s.recv(size)
-	return response
+from sm_eth import *
 
 failing = False
 def fail(message):
