@@ -17,17 +17,18 @@ StateMachine machine = StateMachine();
 const int BV_1001 = 1;
 const int BV_1002 = 2;
 const int BV_1004 = 3;
+const int BV_1008 = 4;
+const int BV_1009 = 6;
+const int BV_1014 = 7;
+
+// Set pilot valves to closed state
 int BV_1001_state = LOW;
 int BV_1002_state = LOW;
 int BV_1004_state = LOW;
+int BV_1008_state = LOW;
+int BV_1009_state = LOW;
+int BV_1014_state = LOW;
 
-// STATE LEDS
-const int LED_INIT = 4;
-const int LED_FILL = 5;
-const int LED_FIRE = 6;
-const int LED_PURGE = 7;
-const int LED_OVERLOAD = 8;
-const int LED_ABORT = 9;
 
 // State variables
 State *Init     = machine.addState(&initState);      // 0
@@ -43,7 +44,10 @@ State *targetState = 0;
 #define ADD_TRANSITION(start, end) start->addTransition([](){ return targetState == end; }, end)
 
 void setup()
-{
+{ 
+    P1.init();
+
+
     Serial.begin(9600);
     while (!Serial); // wait for serial port to connect. Needed for native USB port only
     Serial.println("\nstarting arduino");
@@ -64,19 +68,9 @@ void setup()
     Serial.print("server is at ");
     Serial.println(Ethernet.localIP());
 
-    // while (!P1.init())
-    // {
-    //     ; // wait for base to initialize
-    // }
-
-    // these lines make ethernet not work
-    // Set the state LED pins as outputs
-    // pinMode(LED_INIT, OUTPUT);
-    // pinMode(LED_FILL, OUTPUT);
-    // pinMode(LED_FIRE, OUTPUT);
-    // pinMode(LED_PURGE, OUTPUT);
-    // pinMode(LED_OVERLOAD, OUTPUT);
-    // pinMode(LED_ABORT, OUTPUT);
+    // Wait for user input
+    Serial.print("initlize system?\n");
+    waitForUserInput();
 
     // Define state transitions
     ADD_TRANSITION(Init, Fill);
@@ -95,20 +89,37 @@ void setup()
     ADD_TRANSITION(Overload, Init);
     ADD_TRANSITION(Overload, Abort);
     ADD_TRANSITION(Overload, Purge);
+
+
+    // This is the pilot valve test to ensure electical connection
+    for (int pin = 1; pin <= 7; pin++) { // Include BV_1014 (pin 7)
+        if (pin != 5) { // Skip pin 5 as it's used for Ethernet CS
+            P1.writeDiscrete(HIGH, 2, pin);
+            delay(500);
+            P1.writeDiscrete(LOW, 2, pin);
+            delay(500);
+            P1.writeDiscrete(HIGH, 2, pin);
+            delay(500);
+            P1.writeDiscrete(LOW, 2, pin);
+        }
+    }
+    // Test multiple valves
+    for (int pin = 1; pin <= 7; pin++) {
+        if (pin != 5) {
+            P1.writeDiscrete(HIGH, 2, pin);
+            delay(500);
+        }
+    }
+    for (int pin = 1; pin <= 7; pin++) {
+        if (pin != 5) {
+            P1.writeDiscrete(LOW, 2, pin);
+        }
+    }
+    delay(500);
 }
 
 void loop()
 {
-    // if (P1.isBaseActive() == false)
-    // {
-    //     Serial.println("Re-init() the base modules.");
-    //     delay(10);
-    //     while (!P1.init())
-    //     {
-    //         Serial.println("Waiting for 24V");
-    //         delay(60);
-    //     }
-    // }
     processCommand();
     taskManager.runLoop();
     machine.run();
@@ -156,7 +167,6 @@ void initState()
     if (machine.executeOnce)
     {
         Serial.println("Init state");
-        pinMode(LED_INIT, HIGH);
     }
 }
 
@@ -166,13 +176,14 @@ void fillState()
     if (machine.executeOnce)
     {
         Serial.println("Fill state");
-        pinMode(LED_FILL, HIGH);
-        BV_1002_state = HIGH;
-        BV_1004_state = HIGH;
+        BV_1001_state = HIGH;
+        BV_1009_state = HIGH;
+        BV_1004_state = LOW;
+        P1.writeDiscrete(BV_1001_state, 2, BV_1001);
+        P1.writeDiscrete(BV_1009_state, 2, BV_1009);
+        P1.writeDiscrete(BV_1004_state, 2, BV_1004);
     }
-    // P1.writeDiscrete(BV_1001_state, BV_1001, 1);
-    // P1.writeDiscrete(BV_1002_state, BV_1004, 1);
-    // P1.writeDiscrete(BV_1004_state, BV_1002, 1);
+    
 }
 
 // fire
@@ -181,7 +192,22 @@ void fireState()
     if (machine.executeOnce)
     {
         Serial.println("Fire state");
-        pinMode(LED_FIRE, HIGH);
+        BV_1004_state = HIGH; //fuel vent 
+        BV_1002_state = HIGH;  // LOX Vent
+        BV_1001_state = LOW;  // Fuel N2 Press valve
+        BV_1009_state = LOW;  // Fuel main valve 
+        BV_1014_state = LOW;  // LOX N2 Press Valve
+        BV_1008_state = LOW;  // LOX main valve
+
+
+
+        P1.writeDiscrete(BV_1004_state, 2, BV_1004);  // close fuel vent
+        P1.writeDiscrete(BV_1002_state, 2, BV_1002);  // close LOX vent
+        P1.writeDiscrete(BV_1001_state, 2, BV_1001);  // open fuel main press valve
+        P1.writeDiscrete(BV_1014_state, 2, BV_1014);  // open LOX main press valve
+        P1.writeDiscrete(BV_1009_state, 2, BV_1009);  // open main fuel valve
+        P1.writeDiscrete(BV_1008_state, 2, BV_1008);  // open main LOX valve 
+
         taskManager.schedule(onceMillis(10000), []() { targetState = Purge; });
     }
 }
@@ -192,17 +218,23 @@ void purgeState()
     if (machine.executeOnce)
     {
         Serial.println("Purge state");
-        pinMode(LED_PURGE, HIGH);
+        delay(1000);
+
+        BV_1004_state = LOW;
+        BV_1002_state = LOW;
+        P1.writeDiscrete(BV_1002_state, 2, BV_1002);
+        P1.writeDiscrete(BV_1004_state, 2, BV_1004);
+
+
     }
 }
 
 // overload
-void overloadState()
+void overloadState()  //We will use this state to have manual control over induvidual valves 
 {
     if (machine.executeOnce)
     {
         Serial.println("Overload state");
-        pinMode(LED_OVERLOAD, HIGH);
     }
 }
 
@@ -212,6 +244,33 @@ void abortState()
     if (machine.executeOnce)
     {
         Serial.println("Abort state");
-        // pinMode(LED_ABORT, HIGH);  // this line stops ethernet from working for some reason
+        // set valve state
+        BV_1004_state = LOW;  //fuel vent 
+        BV_1002_state = LOW;  // LOX Vent
+        BV_1001_state = LOW;  // Fuel N2 Press valve
+        BV_1009_state = HIGH;  // Fuel main valve 
+        BV_1014_state = LOW;  // LOX N2 Press Valve
+        BV_1008_state = HIGH;  // LOX main valve
+
+
+
+        P1.writeDiscrete(BV_1004_state, 2, BV_1004);  // close fuel vent
+        P1.writeDiscrete(BV_1002_state, 2, BV_1002);  // close LOX vent
+        P1.writeDiscrete(BV_1001_state, 2, BV_1001);  // open fuel main press valve
+        P1.writeDiscrete(BV_1014_state, 2, BV_1014);  // open LOX main press valve
+        P1.writeDiscrete(BV_1009_state, 2, BV_1009);  // open main fuel valve
+        P1.writeDiscrete(BV_1008_state, 2, BV_1008);  // open main LOX valve
+
+
+
     }
+}
+
+void waitForUserInput() {
+  Serial.println("Address error message and press enter to continue");
+
+  // Wait until data is available
+  while (!Serial.available()) {
+    delay(100); // Avoid busy-waiting
+  }
 }
