@@ -212,12 +212,13 @@ void fireState()
     if (machine.executeOnce)
     {
         Serial.println("Fire state");
-        BV_1004_state = HIGH; //fuel vent 
-        BV_1002_state = HIGH;  // LOX Vent
-        BV_1001_state = LOW;  // Fuel N2 Press valve
-        BV_1009_state = LOW;  // Fuel main valve 
+        Serial.println("Tank Press");
+        BV_1004_state = HIGH; //fuel vent CLose
+        BV_1002_state = HIGH;  // LOX Vent CLose
+        BV_1001_state = HIGH;  // Fuel N2 Press valve
         BV_1014_state = LOW;  // LOX N2 Press Valve
-        BV_1008_state = LOW;  // LOX main valve
+        BV_1009_state = HIGH;  // Fuel main valve open
+        BV_1008_state = HIGH;  // LOX main valve open
 
 
 
@@ -225,9 +226,13 @@ void fireState()
         P1.writeDiscrete(BV_1002_state, 2, BV_1002);  // close LOX vent
         P1.writeDiscrete(BV_1001_state, 2, BV_1001);  // open fuel main press valve
         P1.writeDiscrete(BV_1014_state, 2, BV_1014);  // open LOX main press valve
+        //Need a 10 second delay here
+
         P1.writeDiscrete(BV_1009_state, 2, BV_1009);  // open main fuel valve
+        //will need a delay here based on arrival time of propellants
         P1.writeDiscrete(BV_1008_state, 2, BV_1008);  // open main LOX valve 
 
+        // this delay is based on expected duration of fire(aka how much LOX we have)
         taskManager.schedule(onceMillis(10000), []() { targetState = Purge; });
     }
 }
@@ -239,6 +244,7 @@ void purgeState()
     {
         Serial.println("Purge state");
         delay(1000);
+        
 
         BV_1004_state = LOW;
         BV_1002_state = LOW;
@@ -268,9 +274,9 @@ void abortState()
         BV_1004_state = LOW;  //fuel vent 
         BV_1002_state = LOW;  // LOX Vent
         BV_1001_state = LOW;  // Fuel N2 Press valve
-        BV_1009_state = HIGH;  // Fuel main valve 
+        BV_1009_state = LOW;  // Fuel main valve 
         BV_1014_state = LOW;  // LOX N2 Press Valve
-        BV_1008_state = HIGH;  // LOX main valve
+        BV_1008_state = LOW;  // LOX main valve
 
 
 
