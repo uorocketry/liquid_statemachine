@@ -32,11 +32,12 @@ int BV_1014_state = LOW;
 
 // State variables
 State *Init     = machine.addState(&initState);      // 0
-State *Fill     = machine.addState(&fillState);      // 1
-State *Fire     = machine.addState(&fireState);      // 2
-State *Purge    = machine.addState(&purgeState);     // 3
-State *Overload = machine.addState(&overloadState);  // 4
-State *Abort    = machine.addState(&abortState);     // 5
+State *Fuel_Fill= machine.addState(&FuelFillState);  // 1
+State *LOX_Fill = machine.addState(&LOXFillState);   // 2
+State *Fire     = machine.addState(&fireState);      // 3
+State *Purge    = machine.addState(&purgeState);     // 4
+State *Overload = machine.addState(&overloadState);  // 5
+State *Abort    = machine.addState(&abortState);     // 6
 // the state numbers are the order in which the states are added
 
 State *targetState = 0;
@@ -73,12 +74,15 @@ void setup()
     waitForUserInput();
 
     // Define state transitions
-    ADD_TRANSITION(Init, Fill);
+    ADD_TRANSITION(Init, Fuel_Fill);
     ADD_TRANSITION(Init, Overload);
     ADD_TRANSITION(Init, Abort);
 
-    ADD_TRANSITION(Fill, Fire);
-    ADD_TRANSITION(Fill, Abort);
+    ADD_TRANSITION(Fuel_Fill, Abort);
+    ADD_TRANSITION(Fuel_Fill, LOX_Fill);
+
+    ADD_TRANSITION(LOX_Fill, Abort);
+    ADD_TRANSITION(LOX_Fill, Fire);
 
     ADD_TRANSITION(Fire, Purge);
     ADD_TRANSITION(Fire, Abort);
@@ -171,13 +175,13 @@ void initState()
 }
 
 // fill
-void fillState()
+void FuelFillState()
 {
     if (machine.executeOnce)
     {
-        Serial.println("Fill state");
-        BV_1001_state = HIGH;
-        BV_1009_state = HIGH;
+        Serial.println("Fuel Fill State");
+        BV_1001_state = LOW;
+        BV_1009_state = LOW;
         BV_1004_state = LOW;
         P1.writeDiscrete(BV_1001_state, 2, BV_1001);
         P1.writeDiscrete(BV_1009_state, 2, BV_1009);
@@ -185,6 +189,22 @@ void fillState()
     }
     
 }
+void LOXFillState()
+{
+    if (machine.executeOnce)
+    {
+        Serial.println("LOX Fill State");
+        BV_1014_state = LOW;
+        BV_1002_state = LOW;
+        BV_1008_state = LOW;
+        P1.writeDiscrete(BV_1001_state, 2, BV_1014);
+        P1.writeDiscrete(BV_1009_state, 2, BV_1002);
+        P1.writeDiscrete(BV_1004_state, 2, BV_1008);
+    }
+    
+}
+
+
 
 // fire
 void fireState()

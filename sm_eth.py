@@ -3,10 +3,10 @@
 import time
 import socket
 
-INIT, FILL, FIRE, PURGE, OVERLOAD, ABORT = 0, 1, 2, 3, 4, 5
-STATES = [INIT, FILL, FIRE, PURGE, OVERLOAD, ABORT]
+INIT, FUEL_FILL, LOX_FILL, FIRE, PURGE, OVERLOAD, ABORT = 0, 1, 2, 3, 4, 5, 6
+STATES = [INIT, FUEL_FILL, LOX_FILL, FIRE, PURGE, OVERLOAD, ABORT]
 def state_number_to_string(state_number):
-	return ["INIT", "FILL", "FIRE", "PURGE", "OVERLOAD", "ABORT"][state_number]
+	return ["INIT", "FUEL FILL", "LOX FILL", "FIRE", "PURGE", "OVERLOAD", "ABORT"][state_number]
 
 HOST = "192.168.1.30"
 PORT = 80
