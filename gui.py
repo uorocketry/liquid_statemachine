@@ -25,6 +25,8 @@ buttons = [make_button(s) for s in STATES]
 def update():
 	global state_label
 
+	print("GUI: updating")
+
 	state = send(255)[0]
 	state_label.set(f"Current state: {state_number_to_string(state)}")
 

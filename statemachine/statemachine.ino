@@ -31,13 +31,13 @@ int BV_1014_state = LOW;
 
 
 // State variables
-State *Init     = machine.addState(&initState);      // 0
-State *Fuel_Fill= machine.addState(&FuelFillState);  // 1
-State *LOX_Fill = machine.addState(&LOXFillState);   // 2
-State *Fire     = machine.addState(&fireState);      // 3
-State *Purge    = machine.addState(&purgeState);     // 4
-State *Overload = machine.addState(&overloadState);  // 5
-State *Abort    = machine.addState(&abortState);     // 6
+State *Init      = machine.addState(&initState);      // 0
+State *Fuel_Fill = machine.addState(&FuelFillState);  // 1
+State *LOX_Fill  = machine.addState(&LOXFillState);   // 2
+State *Fire      = machine.addState(&fireState);      // 3
+State *Purge     = machine.addState(&purgeState);     // 4
+State *Overload  = machine.addState(&overloadState);  // 5
+State *Abort     = machine.addState(&abortState);     // 6
 // the state numbers are the order in which the states are added
 
 State *targetState = 0;
@@ -171,6 +171,8 @@ void initState()
     if (machine.executeOnce)
     {
         Serial.println("Init state");
+        Serial.println("delaying for 30s to test");
+        delay(3000);
     }
 }
 
