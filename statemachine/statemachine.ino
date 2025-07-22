@@ -172,7 +172,7 @@ void initState()
     {
         Serial.println("Init state");
         Serial.println("delaying for 30s to test");
-        delay(3000);
+        delay(30000);
     }
 }
 
