@@ -1,6 +1,10 @@
 from sm_eth import *
 import tkinter as tk
 
+# global font size
+import tkinter.font as font
+font.nametofont("TkDefaultFont").configure(size=15)
+
 window = tk.Tk()
 
 state_label = tk.StringVar()
