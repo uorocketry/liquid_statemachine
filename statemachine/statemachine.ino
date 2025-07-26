@@ -31,13 +31,14 @@ int BV_1014_state = LOW;
 
 
 // State variables
-State *Init      = machine.addState(&initState);      // 0
-State *Fuel_Fill = machine.addState(&FuelFillState);  // 1
-State *LOX_Fill  = machine.addState(&LOXFillState);   // 2
-State *Fire      = machine.addState(&fireState);      // 3
-State *Purge     = machine.addState(&purgeState);     // 4
-State *Overload  = machine.addState(&overloadState);  // 5
-State *Abort     = machine.addState(&abortState);     // 6
+State *Valve_Testing = machine.addState(&ValveTestingState);// 0
+State *Init      = machine.addState(&initState);      // 1
+State *Fuel_Fill = machine.addState(&FuelFillState);  // 2
+State *LOX_Fill  = machine.addState(&LOXFillState);   // 3
+State *Fire      = machine.addState(&fireState);      // 4
+State *Purge     = machine.addState(&purgeState);     // 5
+State *Overload  = machine.addState(&overloadState);  // 6
+State *Abort     = machine.addState(&abortState);     // 7
 // the state numbers are the order in which the states are added
 
 State *targetState = 0;
@@ -74,6 +75,11 @@ void setup()
     waitForUserInput();
 
     // Define state transitions
+
+    ADD_TRANSITION(Valve_Testing, Init);
+    ADD_TRANSITION(Valve_Testing, Overload);
+    ADD_TRANSITION(Valve_Testing, Abort);
+
     ADD_TRANSITION(Init, Fuel_Fill);
     ADD_TRANSITION(Init, Overload);
     ADD_TRANSITION(Init, Abort);
@@ -92,34 +98,7 @@ void setup()
 
     ADD_TRANSITION(Overload, Init);
     ADD_TRANSITION(Overload, Abort);
-    ADD_TRANSITION(Overload, Purge);
-
-
-    // This is the pilot valve test to ensure electical connection
-    for (int pin = 1; pin <= 7; pin++) { // Include BV_1014 (pin 7)
-        if (pin != 5) { // Skip pin 5 as it's used for Ethernet CS
-            P1.writeDiscrete(HIGH, 2, pin);
-            delay(500);
-            P1.writeDiscrete(LOW, 2, pin);
-            delay(500);
-            P1.writeDiscrete(HIGH, 2, pin);
-            delay(500);
-            P1.writeDiscrete(LOW, 2, pin);
-        }
-    }
-    // Test multiple valves
-    for (int pin = 1; pin <= 7; pin++) {
-        if (pin != 5) {
-            P1.writeDiscrete(HIGH, 2, pin);
-            delay(500);
-        }
-    }
-    for (int pin = 1; pin <= 7; pin++) {
-        if (pin != 5) {
-            P1.writeDiscrete(LOW, 2, pin);
-        }
-    }
-    delay(500);
+    ADD_TRANSITION(Overload, Purge);    
 }
 
 void loop()
@@ -165,14 +144,49 @@ void processCommand()
     }
 }
 
+
+// valve testing
+void ValveTestingState()
+{
+    if (machine.executeOnce)
+    {
+      
+      Serial.println("Valve Testing state");
+
+      // This is the pilot valve test to ensure electical connection
+      for (int pin = 1; pin <= 7; pin++) { // Include BV_1014 (pin 7)
+          if (pin != 5) { // Skip pin 5 as it's used for Ethernet CS
+              P1.writeDiscrete(HIGH, 2, pin);
+            taskManager.schedule(onceMillis(10000), []() {
+              P1.writeDiscrete(LOW, 2, pin);
+              delay(500);
+              P1.writeDiscrete(HIGH, 2, pin);
+              delay(500);
+              P1.writeDiscrete(LOW, 2, pin);
+          }
+      }
+      // Test multiple valves
+      for (int pin = 1; pin <= 7; pin++) {
+          if (pin != 5) {
+              P1.writeDiscrete(HIGH, 2, pin);
+              delay(500);
+          }
+      }
+      for (int pin = 1; pin <= 7; pin++) {
+          if (pin != 5) {
+              P1.writeDiscrete(LOW, 2, pin);
+          }
+      }
+      delay(500);
+    }
+}    
+
 // init
 void initState()
 {
     if (machine.executeOnce)
     {
         Serial.println("Init state");
-        Serial.println("delaying for 30s to test");
-        delay(30000);
     }
 }
 
@@ -214,7 +228,7 @@ void fireState()
     if (machine.executeOnce)
     {
         Serial.println("Fire state");
-        Serial.println("Tank Press");
+        Serial.println("Tank Pressurizing");
         BV_1004_state = HIGH; //fuel vent CLose
         BV_1002_state = HIGH;  // LOX Vent CLose
         BV_1001_state = HIGH;  // Fuel N2 Press valve
@@ -228,14 +242,18 @@ void fireState()
         P1.writeDiscrete(BV_1002_state, 2, BV_1002);  // close LOX vent
         P1.writeDiscrete(BV_1001_state, 2, BV_1001);  // open fuel main press valve
         P1.writeDiscrete(BV_1014_state, 2, BV_1014);  // open LOX main press valve
-        //Need a 10 second delay here
+        taskManager.schedule(onceMillis(10000), []() { // 10 second delay here
+          P1.writeDiscrete(BV_1009_state, 2, BV_1009);  // open main fuel valve
+          taskManager.schedule(onceMillis(1000), []() { // this delay here is to be based on arrival time of propellants
+            P1.writeDiscrete(BV_1008_state, 2, BV_1008);  // open main LOX valve
+            taskManager.schedule(onceMillis(10000), []() { // this delay is based on expected duration of fire (aka how much LOX we have)
+              targetState = Purge;
+            });
+          });
+        });
+        
 
-        P1.writeDiscrete(BV_1009_state, 2, BV_1009);  // open main fuel valve
-        //will need a delay here based on arrival time of propellants
-        P1.writeDiscrete(BV_1008_state, 2, BV_1008);  // open main LOX valve 
-
-        // this delay is based on expected duration of fire(aka how much LOX we have)
-        taskManager.schedule(onceMillis(10000), []() { targetState = Purge; });
+        
     }
 }
 
@@ -245,15 +263,13 @@ void purgeState()
     if (machine.executeOnce)
     {
         Serial.println("Purge state");
-        delay(1000);
-        
-
-        BV_1004_state = LOW;
-        BV_1002_state = LOW;
-        P1.writeDiscrete(BV_1002_state, 2, BV_1002);
-        P1.writeDiscrete(BV_1004_state, 2, BV_1004);
-
-
+        taskManager.schedule(onceMillis(1000), []() {
+          Serial.println("Purge state delay complete");
+          BV_1004_state = LOW;
+          BV_1002_state = LOW;
+          P1.writeDiscrete(BV_1002_state, 2, BV_1002);
+          P1.writeDiscrete(BV_1004_state, 2, BV_1004);
+        });
     }
 }
 
