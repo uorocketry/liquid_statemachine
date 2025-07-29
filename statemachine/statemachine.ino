@@ -157,7 +157,7 @@ void ValveTestingState()
       for (int pin = 1; pin <= 7; pin++) { // Include BV_1014 (pin 7)
           if (pin != 5) { // Skip pin 5 as it's used for Ethernet CS
               P1.writeDiscrete(HIGH, 2, pin);
-            taskManager.schedule(onceMillis(10000), []() {
+              delay(500);
               P1.writeDiscrete(LOW, 2, pin);
               delay(500);
               P1.writeDiscrete(HIGH, 2, pin);
@@ -228,24 +228,27 @@ void fireState()
     if (machine.executeOnce)
     {
         Serial.println("Fire state");
-        Serial.println("Tank Pressurizing");
-        BV_1004_state = HIGH; //fuel vent CLose
-        BV_1002_state = HIGH;  // LOX Vent CLose
+        Serial.println("Tanks are pressurizing");
+
+        BV_1004_state = HIGH; //fuel vent Close
+        BV_1002_state = HIGH;  // LOX Vent Close
         BV_1001_state = HIGH;  // Fuel N2 Press valve
         BV_1014_state = LOW;  // LOX N2 Press Valve
         BV_1009_state = HIGH;  // Fuel main valve open
         BV_1008_state = HIGH;  // LOX main valve open
 
-
-
         P1.writeDiscrete(BV_1004_state, 2, BV_1004);  // close fuel vent
         P1.writeDiscrete(BV_1002_state, 2, BV_1002);  // close LOX vent
         P1.writeDiscrete(BV_1001_state, 2, BV_1001);  // open fuel main press valve
         P1.writeDiscrete(BV_1014_state, 2, BV_1014);  // open LOX main press valve
+
         taskManager.schedule(onceMillis(10000), []() { // 10 second delay here
           P1.writeDiscrete(BV_1009_state, 2, BV_1009);  // open main fuel valve
+            Serial.println("Fuel Flowing");
           taskManager.schedule(onceMillis(1000), []() { // this delay here is to be based on arrival time of propellants
             P1.writeDiscrete(BV_1008_state, 2, BV_1008);  // open main LOX valve
+            Serial.println("LOX Flowing");
+            Serial.println("Main burn begun");
             taskManager.schedule(onceMillis(10000), []() { // this delay is based on expected duration of fire (aka how much LOX we have)
               targetState = Purge;
             });
