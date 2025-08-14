@@ -11,33 +11,34 @@ state_label = tk.StringVar()
 state_label.set("Current state: INIT")
 tk.Label(window, textvariable=state_label).pack(pady = 10)
 
+def update_current_state(packet):
+	global state_label
+	state_label.set(f"Current state: {state_number_to_string(packet[0])}")
 
 def make_button(state):
-    text = state_number_to_string(state)
-    command = lambda: send(state)
-    if text == "FIRE":
-        b = tk.Button(text=text, command=command, fg="#ff0000")
-    else:
-        b = tk.Button(text=text, command=command)
-    b.pack(pady = 10)
-    return b
+	text = state_number_to_string(state)
+	command = lambda: send(state, lambda: None)
+	if text == "FIRE":
+		b = tk.Button(text=text, command=command, fg="#ff0000")
+	else:
+		b = tk.Button(text=text, command=command)
+	b.pack(pady = 10)
+	return b
 
 buttons = [make_button(s) for s in STATES]
 
+def update_transitions(packet):
+	for s, b in enumerate(buttons):
+		b["state"] = "active" if s in packet else "disable"
 
 def update():
-    global state_label
 
-    print("GUI: updating")
+	print("GUI: updating")
 
-    state = send(255)[0]
-    state_label.set(f"Current state: {state_number_to_string(state)}")
+	send(255, update_current_state)
+	send(254, update_transitions)
 
-    transitions = send(254)
-    for s, b in enumerate(buttons):
-        b["state"] = "active" if s in transitions else "disable"
-
-    window.after(100, update)
+	window.after(100, update)
 window.after(100, update)
 
 

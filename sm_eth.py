@@ -1,7 +1,7 @@
 # connect to the arduino over ethernet
 
-import time
 import socket
+from threading import Thread
 
 VALVE_TESTING, INIT, FUEL_FILL, LOX_FILL, FIRE, PURGE, OVERLOAD, ABORT = 0, 1, 2, 3, 4, 5, 6, 7
 STATES = [VALVE_TESTING, INIT, FUEL_FILL, LOX_FILL, FIRE, PURGE, OVERLOAD, ABORT]
@@ -10,7 +10,7 @@ def state_number_to_string(state_number):
 
 HOST = "192.168.1.30"
 PORT = 80
-def send(command):
+def send_(command, callback):
 	with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 
 		# read n bytes
@@ -27,4 +27,8 @@ def send(command):
 		s.send(bytes([command]))
 		size = read(1)[0]
 		response = read(size)
-	return response
+	callback(response)
+
+# run in a new thread so it doesn't block
+def send(command, callback):
+	Thread(target=send_, args=(command,callback)).start()
