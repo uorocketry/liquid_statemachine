@@ -20,6 +20,8 @@ const int BV_1004 = 3;
 const int BV_1008 = 4;
 const int BV_1009 = 6;
 const int BV_1014 = 7;
+const int IGN_1 = 9;
+const int IGN_2 = 10;
 
 // Set pilot valves to closed state
 int BV_1001_state = LOW;
@@ -28,6 +30,8 @@ int BV_1004_state = LOW;
 int BV_1008_state = LOW;
 int BV_1009_state = LOW;
 int BV_1014_state = LOW;
+int IGN_1_state = LOW;
+int IGN_2_state = LOW;
 
 
 // State variables
@@ -230,6 +234,7 @@ void fireState()
         Serial.println("Fire state");
         Serial.println("Tanks are pressurizing");
 
+        // set valve state
         BV_1004_state = HIGH; //fuel vent Close
         BV_1002_state = HIGH;  // LOX Vent Close
         BV_1001_state = HIGH;  // Fuel N2 Press valve
@@ -237,20 +242,42 @@ void fireState()
         BV_1009_state = HIGH;  // Fuel main valve open
         BV_1008_state = HIGH;  // LOX main valve open
 
+        //set ignitor state 
+        IGN_1_state = HIGH;
+        IGN_2_state = HIGH;
+
+
+        // close vents
         P1.writeDiscrete(BV_1004_state, 2, BV_1004);  // close fuel vent
         P1.writeDiscrete(BV_1002_state, 2, BV_1002);  // close LOX vent
-        P1.writeDiscrete(BV_1001_state, 2, BV_1001);  // open fuel main press valve
-        P1.writeDiscrete(BV_1014_state, 2, BV_1014);  // open LOX main press valve
 
-        taskManager.schedule(onceMillis(10000), []() { // 10 second delay here
-          P1.writeDiscrete(BV_1009_state, 2, BV_1009);  // open main fuel valve
-            Serial.println("Fuel Flowing");
-          taskManager.schedule(onceMillis(1000), []() { // this delay here is to be based on arrival time of propellants
-            P1.writeDiscrete(BV_1008_state, 2, BV_1008);  // open main LOX valve
-            Serial.println("LOX Flowing");
-            Serial.println("Main burn begun");
-            taskManager.schedule(onceMillis(10000), []() { // this delay is based on expected duration of fire (aka how much LOX we have)
-              targetState = Purge;
+        // 2 second delay, then pressureize tanks
+        taskManager.schedule(onceMillis(2000), []() { // 2 second delay
+            P1.writeDiscrete(BV_1001_state, 2, BV_1001);  // open fuel main press valve
+            P1.writeDiscrete(BV_1014_state, 2, BV_1014);  // open LOX main press valve
+        });
+
+        P1.writeDiscrete(IGN_1_state, 2, IGN_1);
+        P1.writeDiscrete(IGN_2_state, 2, IGN_2);
+
+        taskManager.schedule(onceMillis(10000), []() { // 10 second delay here to allow tank pressure to equalize
+            // ignite ignitors
+            P1.writeDiscrete(IGN_1_state, 2, IGN_1);
+            P1.writeDiscrete(IGN_2_state, 2, IGN_2);
+
+            taskManager.schedule(onceMillis(2000), []() {
+
+                // open main fuel valve
+                P1.writeDiscrete(BV_1009_state, 2, BV_1009);
+                Serial.println("Fuel Flowing");
+
+                taskManager.schedule(onceMillis(250), []() { // this delay here is to be based on arrival time of propellants
+                    P1.writeDiscrete(BV_1008_state, 2, BV_1008);  // open main LOX valve
+                    Serial.println("LOX Flowing");
+                    Serial.println("Main burn begun");
+                    taskManager.schedule(onceMillis(10000), []() { // this delay is based on expected duration of fire (aka how much LOX we have)
+                        targetState = Purge;
+                });
             });
           });
         });
