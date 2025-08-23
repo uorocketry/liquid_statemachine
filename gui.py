@@ -6,6 +6,7 @@ import tkinter.font as font
 import sys
 import time
 import datetime # Added for timestamped log file
+import os       # --- NEW: Imported OS module for folder creation ---
 from sm_eth import State, STATE_NAMES, UI_STATES, send_async
 
 # --- Configuration ---
@@ -92,15 +93,23 @@ class StateMachineGUI:
         except tk.TclError:
             pass
 
-        # 2. State Label (in the right pane)
-        self.state_label = tk.Label(right_frame, text="Current state: CONNECTING...", font=('Helvetica', 16, 'bold'))
-        self.state_label.pack(pady=10)
-        
-        # --- Countdown Timer Label (hidden by default) ---
-        self.countdown_label = tk.Label(right_frame, text="", font=('Helvetica', 48, 'bold'), fg=self.colors['fire_fg'])
-        # It will be packed later when the countdown starts
+        # --- Dynamic placeholder frame for swapping State and Countdown ---
+        dynamic_display_frame = tk.Frame(right_frame)
+        dynamic_display_frame.pack(pady=10, fill='x')
 
-        # 3. Buttons Frame (in the right pane)
+        # 2. State Label (placed inside the dynamic frame)
+        self.state_label = tk.Label(dynamic_display_frame, text="Current state: CONNECTING...", font=('Helvetica', 16, 'bold'))
+        self.state_label.pack() # Show the state label by default
+        
+        # 3. Countdown Timer Frame and its labels (created but not packed)
+        self.countdown_frame = tk.Frame(dynamic_display_frame)
+        countdown_font = ('Helvetica', 48, 'bold')
+        fire_in_label = tk.Label(self.countdown_frame, text="Fire in", font=countdown_font, fg=self.colors['fire_fg'])
+        fire_in_label.pack(side=tk.LEFT, padx=(0, 10))
+        self.countdown_label = tk.Label(self.countdown_frame, text="", font=countdown_font, fg=self.colors['fire_fg'])
+        self.countdown_label.pack(side=tk.LEFT)
+
+        # 4. Buttons Frame (in the right pane)
         button_frame = tk.Frame(right_frame)
         button_frame.pack(pady=10, padx=20)
 
@@ -137,20 +146,22 @@ class StateMachineGUI:
 
         # Now that the log viewer definitely exists, log the logo error if it happened.
         if not self.logo_image:
-            self.log("Error: icon.png not found. Make sure it's in the same folder.", tags=["error"])
+            self.log("Error: icon.png not in folder.", tags=["error"])
 
     def start_fire_sequence(self):
-        """Disables buttons and starts the 10-second countdown."""
-        self.log(f"FIRE sequence initiated. Countdown started from {FIRE_COUNTDOWN_SECONDS} seconds.")
+        """Disables buttons, swaps labels, and starts the countdown."""
+        self.log(f"FIRE sequence initiated. Countdown from {FIRE_COUNTDOWN_SECONDS}s.")
         
-        # --- KEY CHANGE HERE ---
         # Disable all buttons EXCEPT for the ABORT button.
         for state, button in self.buttons.items():
             if state != State.ABORT:
                 button.config(state='disabled')
         
+        # Swap State Label for Countdown Frame
+        self.state_label.pack_forget()
+        self.countdown_frame.pack()
+        
         self.countdown_value = FIRE_COUNTDOWN_SECONDS
-        self.countdown_label.pack(pady=10) # Make the label visible
         self.update_countdown()
 
     def update_countdown(self):
@@ -160,19 +171,20 @@ class StateMachineGUI:
             self.countdown_value -= 1
             self.countdown_job = self.root.after(1000, self.update_countdown)
         else:
-            self.countdown_label.config(text="FIRING...")
+            self.countdown_label.config(text="0")
             self.log("Countdown complete. Sending FIRE command.")
             send_async(State.FIRE.value, lambda resp: None)
-            # Hide the label after a short delay
             self.root.after(2000, self.end_fire_sequence)
 
     def end_fire_sequence(self):
-        """Hides the countdown label and allows the UI to update normally."""
+        """Hides the countdown and swaps the state label back in."""
         if self.countdown_job:
             self.root.after_cancel(self.countdown_job)
             self.countdown_job = None
-        self.countdown_label.pack_forget() # Hide the label
-        # The regular update_status loop will re-enable the correct buttons
+        
+        # Swap Countdown Frame for State Label
+        self.countdown_frame.pack_forget()
+        self.state_label.pack()
         
     def send_abort_command(self):
         """Sends the ABORT command and cancels any ongoing countdown."""
@@ -184,14 +196,24 @@ class StateMachineGUI:
         send_async(State.ABORT.value, lambda resp: None)
 
     def setup_file_logging(self):
-        """Creates a timestamped log file."""
+        """--- UPDATED: Creates a timestamped log file inside a 'log_output' directory. ---"""
         try:
+            log_dir = "log_output"
+            
+            # Create the directory if it doesn't exist
+            if not os.path.exists(log_dir):
+                os.makedirs(log_dir)
+                print(f"Created directory: {log_dir}") # This will also go to the log
+
             timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            filename = f"output_{timestamp}.txt"
+            # Safely join the directory and filename to create the full path
+            filename = os.path.join(log_dir, f"output_{timestamp}.txt")
+            
             self.log_file = open(filename, "w", encoding="utf-8")
+            # The log message will now show the full path
             self.log(f"Logging session to {filename}")
         except Exception as e:
-            self.log(f"Error: Could not create log file. {e}", tags=["error"])
+            self.log(f"Error: Could not create log file/directory. {e}", tags=["error"])
 
     def setup_half_screen_layout(self):
         screen_width = self.root.winfo_screenwidth()
