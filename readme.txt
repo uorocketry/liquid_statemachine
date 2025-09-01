@@ -1,7 +1,15 @@
-Setup instructions:
--------------------
+Arduino IDE Setup Instructions
+-------------------------------
 
-1. Install the P1AM library: https://github.com/facts-engineering/P1AM?tab=readme-ov-file#p1am-library
+1. Install
+- the P1AM library: https://github.com/facts-engineering/P1AM?tab=readme-ov-file#installing-the-library
+- the ArduinoJson, StateMachine, and TaskManagerIO library in the Arduino IDE
+
+If you encounter an error like "No device found on ttyACM0", this probably means you don't have the right permissions. See https://stackoverflow.com/a/49063205.
+
+
+Ethernet Setup Instructions
+---------------------------
 
 2. Connect ethernet shield to computer (no power source is needed, it seems like the computer by itself can power the P1AM).
 
@@ -44,3 +52,15 @@ Command 255 queries the state. The body of the response is the current state.
 Command 254 queries possible transitions from the current state. Each byte in the body of the response is a state number that can be transitioned to.
 
 All other commands are invalid, and their response body is 255.
+
+
+Starting the Box
+----------------
+1. Breaker on
+2. Blue button
+3. Connect arduino
+4. Connect ethernet
+
+Stopping the Box
+----------------
+1. Breaker off

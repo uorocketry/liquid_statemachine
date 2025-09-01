@@ -75,7 +75,7 @@ void setup()
     Serial.println(Ethernet.localIP());
 
     // Wait for user input
-    Serial.print("initlize system?\n");
+    Serial.print("initialize system?\n");
     waitForUserInput();
 
     // Define state transitions
