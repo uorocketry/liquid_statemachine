@@ -34,8 +34,8 @@ STATE_NAMES = {
 UI_STATES = [State.VALVE_TESTING, State.INIT, State.FUEL_FILL, State.LOX_FILL, State.FIRE, State.PURGE, State.OVERLOAD, State.ABORT]
 
 # --- Network Configuration ---
-#HOST = "192.168.1.30"
-HOST = "127.0.0.1" # Changed for local testing
+HOST = "192.168.1.30"
+#HOST = "127.0.0.1" # Changed for local testing
 PORT = 80
 TIMEOUT = 5 # seconds
 
