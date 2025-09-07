@@ -8,7 +8,7 @@
 #include <Ethernet.h>
 
 byte mac[] = { 0x60, 0x52, 0xD0, 0x08, 0x17, 0x38 };
-IPAddress ip(192,168,1,30);
+IPAddress ip(192,168,1,50);
 EthernetServer server(80);
 
 StateMachine machine = StateMachine();
