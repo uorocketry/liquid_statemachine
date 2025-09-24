@@ -1,0 +1,32 @@
+[15:18:32] Logging session to log_output\output_2025-09-20_15-18-32.txt
+[15:18:36] Connection established.
+[15:18:36] Current state: VALVE TESTING
+[15:18:37] Error: Connection to 192.168.1.50:80 timed out.
+[15:18:37] Error: Connection to 192.168.1.50:80 timed out.
+[15:18:37] 
+[15:18:37] 
+[15:18:38] Error: Connection to 192.168.1.50:80 timed out.
+[15:18:38] Error: Connection to 192.168.1.50:80 timed out.
+[15:18:38] 
+[15:18:38] 
+[15:18:38] Error: Connection to 192.168.1.50:80 timed out.
+[15:18:38] Error: Connection to 192.168.1.50:80 timed out.
+[15:18:38] 
+[15:18:38] 
+[15:18:39] Error: Connection to 192.168.1.50:80 timed out.
+[15:18:39] Error: Connection to 192.168.1.50:80 timed out.
+[15:18:39] 
+[15:18:39] 
+[15:18:39] Error: Connection to 192.168.1.50:80 timed out.
+[15:18:39] Error: Connection to 192.168.1.50:80 timed out.
+[15:18:39] 
+[15:18:39] 
+[15:18:40] Error: Connection to 192.168.1.50:80 timed out.
+[15:18:40] Error: Connection to 192.168.1.50:80 timed out.
+[15:18:40] 
+[15:18:40] 
+[15:18:40] Error: Connection to 192.168.1.50:80 timed out.
+[15:18:40] Error: Connection to 192.168.1.50:80 timed out.
+[15:18:40] 
+[15:18:40] 
+[15:18:48] Application closing...

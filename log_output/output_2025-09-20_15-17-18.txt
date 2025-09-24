@@ -1,0 +1,6 @@
+[15:17:18] Logging session to log_output\output_2025-09-20_15-17-18.txt
+[15:17:23] Error: Connection to 192.168.1.50:80 timed out.
+[15:17:23] Error: Connection to 192.168.1.50:80 timed out.
+[15:17:23] 
+[15:17:23] 
+[15:17:24] Application closing...
