@@ -5,7 +5,7 @@ Arduino IDE Setup Instructions
 - the P1AM library: https://github.com/facts-engineering/P1AM?tab=readme-ov-file#installing-the-library
 - the ArduinoJson, StateMachine, and TaskManagerIO library in the Arduino IDE
 
-If you encounter an error like "No device found on ttyACM0", this probably means you don't have the right permissions. See https://stackoverflow.com/a/49063205.
+If you encounter an error like "No device found on ttyACM0", this probably means you don't have the right permissions for the /dev/ttyACM0 file. See https://stackoverflow.com/a/49063205.
 
 
 Ethernet Setup Instructions
@@ -59,7 +59,8 @@ Starting the Box
 1. Breaker on
 2. Blue button
 3. Connect arduino
-4. Connect ethernet
+4. Make sure coaxial cable is connected
+5. Connect ethernet
 
 Stopping the Box
 ----------------
