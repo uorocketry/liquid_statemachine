@@ -13,7 +13,7 @@ import os       # For creating the data directory
 from collections import deque # For efficient live plotting
 
 # --- Configuration ---
-DEFAULT_IP = "192.168.1.250"  # IMPORTANT: Change this to your T7's static IP address
+DEFAULT_IP = "192.168.0.250"  # IMPORTANT: Change this to your T7's static IP address
 DATA_DIR = "stream_data"      # Folder to save CSV files in
 PLOT_HISTORY_SIZE = 1000      # Number of points to show on the LIVE plots
 

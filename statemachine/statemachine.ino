@@ -8,7 +8,7 @@
 #include <Ethernet.h>
 
 byte mac[] = { 0x60, 0x52, 0xD0, 0x08, 0x17, 0x38 };
-IPAddress ip(192,168,1,50);
+IPAddress ip(192,168,0,50);
 EthernetServer server(80);
 
 StateMachine machine = StateMachine();
@@ -156,10 +156,10 @@ void ValveTestingState()
     {
       
       Serial.println("Valve Testing state");
-
+    /*
       // This is the pilot valve test to ensure electical connection
       for (int pin = 1; pin <= 7; pin++) { // Include BV_1014 (pin 7)
-          if (pin != 5) { // Skip pin 5 as it's used for Ethernet CS
+          if (pin != 4) { // Skip pin 5 as it's used for Ethernet CS
               P1.writeDiscrete(HIGH, 2, pin);
               delay(500);
               P1.writeDiscrete(LOW, 2, pin);
@@ -171,17 +171,19 @@ void ValveTestingState()
       }
       // Test multiple valves
       for (int pin = 1; pin <= 7; pin++) {
-          if (pin != 5) {
+          if (pin != 4) {
               P1.writeDiscrete(HIGH, 2, pin);
               delay(500);
           }
       }
       for (int pin = 1; pin <= 7; pin++) {
-          if (pin != 5) {
+          if (pin != 4) {
               P1.writeDiscrete(LOW, 2, pin);
           }
-      }
-      delay(500);
+      }*/
+      
+      P1.writeDiscrete(HIGH, 2, 6);
+      
     }
 }    
 
