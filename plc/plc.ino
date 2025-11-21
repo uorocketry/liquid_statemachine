@@ -74,12 +74,7 @@ void setup()
     Serial.print("server is at ");
     Serial.println(Ethernet.localIP());
 
-    // Wait for user input
-    Serial.print("initialize system?\n");
-    waitForUserInput();
-
     // Define state transitions
-
     ADD_TRANSITION(Valve_Testing, Init);
     ADD_TRANSITION(Valve_Testing, Overload);
     ADD_TRANSITION(Valve_Testing, Abort);
@@ -122,12 +117,14 @@ void processCommand()
                 switch (r) {
                     // query state
                     case 255:
+                        Serial.println("Current state queried.");
                         client.write(1);
                         client.write(machine.currentState);
                         break;
 
                     // query possible transitions
                     case 254: {
+                        Serial.println("Current transitions queried.");
                         LinkedList<struct Transition*> *transitions = machine.stateList->get(machine.currentState)->transitions;
                         int len = transitions->size();
                         client.write(len);
@@ -328,16 +325,12 @@ void abortState()
         BV_1014_state = LOW;  // LOX N2 Press Valve
         BV_1008_state = LOW;  // LOX main valve
 
-
-
         P1.writeDiscrete(BV_1004_state, 2, BV_1004);  // close fuel vent
         P1.writeDiscrete(BV_1002_state, 2, BV_1002);  // close LOX vent
         P1.writeDiscrete(BV_1001_state, 2, BV_1001);  // open fuel main press valve
         P1.writeDiscrete(BV_1014_state, 2, BV_1014);  // open LOX main press valve
         P1.writeDiscrete(BV_1009_state, 2, BV_1009);  // open main fuel valve
         P1.writeDiscrete(BV_1008_state, 2, BV_1008);  // open main LOX valve
-
-
 
     }
 }

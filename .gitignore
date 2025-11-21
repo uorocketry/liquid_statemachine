@@ -1,2 +1,6 @@
 .vscode/
 __pycache__/
+base_station/logs/client
+!/base_station/logs/client/.gitignore
+base_station/logs/labjack
+!/base_station/logs/labjack/.gitignore

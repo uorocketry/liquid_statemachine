@@ -14,7 +14,7 @@ from collections import deque # For efficient live plotting
 
 # --- Configuration ---
 DEFAULT_IP = "192.168.1.200"  # IMPORTANT: Change this to your T7's static IP address
-DATA_DIR = "stream_data"      # Folder to save CSV files in
+DATA_DIR = "logs/labjack"      # Folder to save CSV files in
 PLOT_HISTORY_SIZE = 1000      # Number of points to show on the LIVE plots
 
 class LabJackGUI:

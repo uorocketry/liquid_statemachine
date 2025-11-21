@@ -86,7 +86,7 @@ class StateMachineGUI:
 
         # 1. Logo (in the right pane)
         try:
-            self.logo_image = tk.PhotoImage(file="icon.png")
+            self.logo_image = tk.PhotoImage(file="assets/icon.png")
             self.logo_image = self.logo_image.subsample(2, 2)
             logo_label = tk.Label(right_frame, image=self.logo_image)
             logo_label.pack(pady=5)
@@ -196,9 +196,9 @@ class StateMachineGUI:
         send_async(State.ABORT.value, lambda resp: None)
 
     def setup_file_logging(self):
-        """--- UPDATED: Creates a timestamped log file inside a 'log_output' directory. ---"""
+        """--- UPDATED: Creates a timestamped log file inside a 'logs/client' directory. ---"""
         try:
-            log_dir = "log_output"
+            log_dir = "logs/client"
             
             # Create the directory if it doesn't exist
             if not os.path.exists(log_dir):
