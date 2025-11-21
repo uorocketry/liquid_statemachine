@@ -29,7 +29,7 @@ class TextRedirector:
         pass
 
 class StateMachineGUI:
-    def __init__(self, root):
+    def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("State Machine Controller")
 
@@ -289,7 +289,7 @@ class StateMachineGUI:
         """The main loop that periodically fetches status from the device."""
         if not self.root: return
         send_async(State.GET_STATE.value, self.update_current_state)
-        send_async(State.GET_TRANSITIONS.value, self.update_transitions)
+        self.root.after(500, lambda: send_async(State.GET_TRANSITIONS.value, self.update_transitions))
         self.root.after(500, self.update_status)
 
     def check_connection(self):
