@@ -10,36 +10,11 @@ class Valve {
 	uint8_t slot;
 	uint8_t state;
 
-	Valve(String valveName, uint8_t valveSlot, uint8_t valveChannel) {
-		name = valveName;
-		slot = valveSlot;
-		channel = valveChannel;
-		close();
-	}
+	Valve(String valveName, uint8_t valveSlot, uint8_t valveChannel);
 
-	void open() {
-		Serial.println("Opening valve: " + name);
-		state = HIGH;
-		P1.writeDiscrete(state, slot, channel);
-	}
-
-	void close() {
-		Serial.println("Closing valve: " + name);
-		state = LOW;
-		P1.writeDiscrete(state, slot, channel);
-	}
-
-	void test() {
-		Serial.println("Starting to test valve: " + name);
-		open();
-		delay(500);
-		close();
-		delay(500);
-		open();
-		delay(500);
-		close();
-		Serial.println("Finished testing valve: " + name);
-	}
+	void open();
+	void close();
+	void test();
 };
 
 // Valves are defined as Valve(name, slot, channel)

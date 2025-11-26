@@ -1,5 +1,36 @@
 #include "valves.h"
 
+Valve::Valve(String valveName, uint8_t valveSlot, uint8_t valveChannel) {
+	name = valveName;
+	slot = valveSlot;
+	channel = valveChannel;
+	this->close();
+}
+
+void Valve::open() {
+	Serial.println("Opening valve: " + name);
+	state = HIGH;
+	P1.writeDiscrete(state, slot, channel);
+}
+
+void Valve::close() {
+	Serial.println("Closing valve: " + name);
+	state = LOW;
+	P1.writeDiscrete(state, slot, channel);
+}
+
+void Valve::test() {
+	Serial.println("Starting to test valve: " + name);
+	this->open();
+	delay(500);
+	this->close();
+	delay(500);
+	this->open();
+	delay(500);
+	this->close();
+	Serial.println("Finished testing valve: " + name);
+}
+
 // Valves are defined as Valve(name, slot, channel)
 Valve FuelN2PressureValve = Valve("Fuel N2 Pressure [BV_1001]", 2, 1);
 Valve LoxVentValve = Valve("Lox [BV_1002]", 2, 2);
