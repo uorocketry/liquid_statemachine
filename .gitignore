@@ -1,4 +1,8 @@
-.vscode/
+.DS_Store
+*.pyc
+*.pyo
+*.pyd
+.venv/
 __pycache__/
 base_station/logs/client/**/*
 !/base_station/logs/client/.gitignore

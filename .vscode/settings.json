@@ -1,0 +1,5 @@
+{
+	"python-envs.pythonProjects": [],
+	"python.defaultInterpreterPath": "${workspaceFolder}/base_station/.venv/bin/python",
+	"pylint.interpreter": ["${workspaceFolder}/base_station/.venv/bin/python"]
+}

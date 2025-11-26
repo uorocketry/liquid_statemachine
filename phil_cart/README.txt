@@ -7,7 +7,6 @@ Arduino IDE Setup Instructions
 
 If you encounter an error like "No device found on ttyACM0", this probably means you don't have the right permissions for the /dev/ttyACM0 file. See https://stackoverflow.com/a/49063205.
 
-
 Ethernet Setup Instructions
 ---------------------------
 

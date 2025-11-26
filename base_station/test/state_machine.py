@@ -1,7 +1,7 @@
 # testStateMachine.py
 
 import time
-from sm_eth import State, STATE_NAMES, send_and_get_response
+from phil_cart_client import State, STATE_NAMES, send_and_get_response
 
 class TestRunner:
     def __init__(self):

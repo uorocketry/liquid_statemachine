@@ -1,17 +1,15 @@
-# gui.py
-
 import tkinter as tk
 from tkinter import scrolledtext
 import tkinter.font as font
 import sys
 import time
-import datetime # Added for timestamped log file
-import os       # --- NEW: Imported OS module for folder creation ---
-from sm_eth import State, STATE_NAMES, UI_STATES, send_async
+import datetime
+import os
+from phil_cart_client import State, STATE_NAMES, UI_STATES, send_async
 
 # --- Configuration ---
 # How long to wait for a response before declaring the connection lost (in seconds)
-CONNECTION_TIMEOUT = 3.0
+CONNECTION_TIMEOUT = 5.0
 FIRE_COUNTDOWN_SECONDS = 10
 
 # A helper class to redirect stdout (general print statements) to the GUI's text widget
@@ -28,7 +26,7 @@ class TextRedirector:
         # This is needed for compatibility with the sys.stdout interface.
         pass
 
-class StateMachineGUI:
+class ControlPanel:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("State Machine Controller")
@@ -50,7 +48,7 @@ class StateMachineGUI:
         self.colors = {
             'normal_bg': self.root.cget('bg'),
             'highlight_bg': '#a6d8ff', # A light blue for highlighting
-            'fire_fg': '#ff0000'
+            'fire_fg': "#e15e25"
         }
 
         # --- UI Widgets ---
@@ -308,8 +306,3 @@ class StateMachineGUI:
             for button in self.buttons.values():
                 button.config(state='disabled', bg=self.colors['normal_bg'])
         self.root.after(1000, self.check_connection)
-
-if __name__ == "__main__":
-    window = tk.Tk()
-    app = StateMachineGUI(window)
-    window.mainloop()

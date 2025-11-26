@@ -1,10 +1,6 @@
-# test_server.py
-# A fake server that mimics the Arduino state machine to test the GUI.
-# Run this script first, then run gui.py in a separate terminal.
-
 import socket
 import time
-from sm_eth import State, STATE_NAMES
+from phil_cart_client import State, STATE_NAMES
 
 class FakeArduinoServer:
     def __init__(self, host='0.0.0.0', port=80):

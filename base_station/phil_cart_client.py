@@ -1,5 +1,3 @@
-# sm_eth.py
-
 import socket
 from threading import Thread
 from enum import IntEnum
