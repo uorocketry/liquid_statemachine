@@ -1,6 +1,32 @@
 Arduino IDE Setup Instructions
 -------------------------------
 
+Bootloader / upload mode
+------------------------
+
+The reliable visual cue is the P1AM-100 status LED pulsing/flashing yellow.
+Use the reset-button timing that produces that pattern (normally a quick
+double-tap; an inconsistent tap can occasionally appear to do the same thing),
+then upload while the USB port is visible. The normal application state does
+not keep the yellow LED pulsing.
+
+From this repository, list ports and upload with:
+
+    arduino-cli board list
+    cd base_station
+    uv run upload --port /dev/cu.usbmodemNNNNN
+
+Replace the example port with the port shown by `arduino-cli board list`.
+
+Startup safety
+--------------
+
+Boot does not cycle valves or write every configured output automatically.
+The controller starts in the `Valve Testing` state as an idle software state;
+physical output actions require an explicit operator command. This also avoids
+blocking startup when the connected P1 module layout differs from the expected
+slot configuration.
+
 1. Install
 - the P1AM library: https://github.com/facts-engineering/P1AM?tab=readme-ov-file#installing-the-library
 - the ArduinoJson, StateMachine, and TaskManagerIO library in the Arduino IDE
@@ -42,15 +68,27 @@ Now, we have the ip 192.168.1.1, and can connect.
 Talking to the Arduino
 ----------------------
 
-Every command is a single byte. The response will be first a length byte l, then l body bytes.
+The controller exposes an HTTP/1.1 JSON API at `http://192.168.0.50`:
 
-Commands 0 through 5 set the state. The response's body, an acknowledgement, will echo back the command. However, this doesn't mean that the state was set: perhaps it is an invalid transition.
+- `GET /api/status` — health, current state, and allowed transitions in one
+  response.
+- `POST /api/p1/initialize` — initialize the P1 rack explicitly.
+- `POST /api/reset` — close initialized valve outputs and software-restart the
+  controller. Rack initialization is required again after restart.
+- `PUT /api/state/{id}` — request a validated transition.
 
-Command 255 queries the state. The body of the response is the current state.
+Responses use JSON and standard HTTP status codes. A valid transition request
+returns `202 Accepted`; an unavailable transition returns `409 Conflict`.
+The firmware has no legacy binary-protocol compatibility path.
+Ethernet and health start before rack initialization. Until initialization
+succeeds, health reports a degraded controller, transitions are empty, and
+state-change requests return `503 Service Unavailable`.
 
-Command 254 queries possible transitions from the current state. Each byte in the body of the response is a state number that can be transitioned to.
+State indices are: valve testing `0`, initialize `1`, fuel fill `2`, LOX fill
+`3`, fire `4`, purge `5`, overload `6`, and abort `7`.
 
-All other commands are invalid, and their response body is 255.
+The base station provides the preferred interface; run it from `base_station/`
+with `uv run gui` (or the equivalent alias `uv run web`).
 
 
 Starting the Box

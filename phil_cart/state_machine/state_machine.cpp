@@ -29,12 +29,9 @@ void ValveTestingStateHandler() {
 		return;
 	}
 
-	Serial.println("Entered State: Valve Testing");
-
-	// sizeof(valves) / sizeof(valves[0] gives the number of elements in the valves array
-	for (int i = 0; i < sizeof(valves) / sizeof(valves[0]); i++) {
-		valves[i]->test();
-	}
+	// Boot into a safe, responsive state. Cycling physical valves must require a
+	// separate explicit operator action; it must never happen automatically.
+	Serial.println("Entered State: Valve Testing (idle)");
 }
 
 void InitStateHandler() {

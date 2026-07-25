@@ -7,11 +7,15 @@
 
 
 void setup() {
-	P1.init();
-
 	Serial.begin(9600);
+	const unsigned long serialDeadline = millis() + 3000;
+	while (!Serial && millis() < serialDeadline) {
+		delay(10);
+	}
 	Serial.println("Starting Arduino...");
 
+	// Keep diagnostics reachable even when rack initialization fails. The rack
+	// is initialized explicitly through the HTTP API before transitions unlock.
 	setupServer();
 	defineStateTransitions();
 }

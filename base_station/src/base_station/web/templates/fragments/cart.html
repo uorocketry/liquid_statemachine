@@ -1,0 +1,46 @@
+{% from "macros/actions.html" import action_button %}
+<div id="cart-fragment" hx-get="/fragments/cart" hx-trigger="every 600ms" hx-swap="outerHTML" hx-sync="this:queue last">
+  <section class="panel state-panel">
+    <div class="section-heading">
+      <div><span class="eyebrow">Sequence control</span><h1>PHIL cart</h1></div>
+      <span class="connection-dot {% if cart.connected %}online{% endif %}" title="Cart status"></span>
+    </div>
+    <div class="current-state">
+      <span>Current state</span>
+      <strong>{{ state_names[cart.state] if cart.connected and cart.state is not none else "Disconnected" }}</strong>
+      <small>{% if cart.connected %}Controller online · state {{ cart.state }}{% else %}Waiting for {{ cart.host }}{% endif %}</small>
+      {% if cart.transition_message %}<p class="operation-status {% if cart.pending_state is not none %}pending{% endif %}">{{ cart.transition_message }}</p>{% endif %}
+    </div>
+    <div class="state-grid" aria-label="State controls">
+      {% for name in state_names %}
+      {{ action_button(
+        name, "put", "/ui/cart/state/" ~ loop.index0, "#cart-fragment",
+        disabled=(not cart.connected or loop.index0 not in cart.transitions or cart.pending_state is not none),
+        class_name="state-button" ~ (" danger" if loop.index0 in [4, 7] else "") ~ (" current" if loop.index0 == cart.state else ""),
+        confirm="Begin FIRE state transition?" if loop.index0 == 4 else none
+      ) }}
+      {% endfor %}
+    </div>
+    <p class="hint">Only transitions authorized by the controller are enabled.</p>
+  </section>
+  <section class="panel controller-health">
+    <div class="section-heading compact">
+      <div><span class="eyebrow">Controller health</span><h2>P1AM-100</h2></div>
+      <span class="health-badge {{ cart.health }}">{{ cart.health }}</span>
+    </div>
+    <dl class="health-summary">
+      <div><dt>Rack <span class="info-tip" tabindex="0" title="One P1 rack is connected. This is the number of I/O modules in it; valve outputs target module slot 2.">i</span></dt><dd>{% if cart.p1_initialized %}{{ cart.modules_detected }} I/O modules{% else %}Not initialized{% endif %}</dd></div>
+      <div><dt>Response</dt><dd>{{ cart.response_time_ms ~ " ms" if cart.response_time_ms is not none else "—" }}</dd></div>
+      <div><dt>Firmware</dt><dd>{{ cart.firmware_version or "—" }}</dd></div>
+      <div><dt>Last seen</dt><dd>{{ cart.last_seen[11:19] if cart.last_seen else "—" }}</dd></div>
+    </dl>
+    <a class="detail-link" href="/diagnostics">Open diagnostics →</a>
+  </section>
+  <section class="panel mini-panel">
+    <span class="eyebrow">Run summary</span>
+    <div class="stat-row">
+      <div><span>Samples</span><strong>{{ "{:,}".format(labjack.sample_count) }}</strong></div>
+      <div><span>Scan rate</span><strong>{{ "{:,} Hz".format(labjack.scan_rate) if labjack.streaming else "—" }}</strong></div>
+    </div>
+  </section>
+</div>

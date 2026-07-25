@@ -29,4 +29,7 @@ extern Valve Igniter2;
 
 extern Valve* valves[];
 
+// Apply the safe closed state after the P1 base controller is initialized.
+void initializeValves();
+
 #endif

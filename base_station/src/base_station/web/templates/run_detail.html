@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% set active_page = "runs" %}
+{% block title %}Run {{ run.id }} · Liquid State Machine{% endblock %}
+{% block subtitle %}Acquisition archive{% endblock %}
+{% block styles %}<link rel="stylesheet" href="/static/runs.css" />{% endblock %}
+{% block content %}
+<main class="runs-page run-detail" data-run-id="{{ run.id }}" data-sample-count="{{ run.sample_count }}" data-scan-rate="{{ run.scan_rate }}" data-run-status="{{ run.status }}">
+  <header class="page-heading">
+    <div><a class="back-link" href="/runs">← All runs</a><h1>Run {{ run.id }}</h1></div>
+    <a class="primary-button download-link" href="/runs/{{ run.id }}/export.csv">Download CSV</a>
+  </header>
+  <dl class="run-summary">
+    <div><dt>Started</dt><dd>{{ run.started_at|replace("T", " ") }}</dd></div><div><dt>Status</dt><dd id="run-status">{{ run.status }}</dd></div>
+    <div><dt>Scan rate</dt><dd>{{ "{:,}".format(run.scan_rate) }} Hz</dd></div><div><dt>Samples</dt><dd id="run-samples">{{ "{:,}".format(run.sample_count) }}</dd></div>
+    <div><dt>Duration</dt><dd id="run-duration">{{ (run.sample_count / run.scan_rate)|round(3) }} s</dd></div>
+  </dl>
+  {% if run.error %}<p class="run-error">{{ run.error }}</p>{% endif %}
+  <section class="history-view">
+    <div class="history-heading"><div><span class="eyebrow">Window detail</span><h2 id="window-label">Loading samples…</h2></div><div class="timeline-controls"><button id="playback-toggle" class="secondary-button" type="button">▶ Play</button><button id="return-tail" class="secondary-button" type="button">{{ "Return to live" if run.status == "recording" else "Go to end" }}</button></div>{% include "fragments/graph_settings.html" %}</div>
+    <div class="channel-plots">
+      <article class="timeline-chart"><div class="timeline-chart-header"><div><span class="channel-key cyan"></span><strong>AIN0 − AIN1</strong></div><output id="range-a">—</output></div><canvas id="history-chart-a" aria-label="AIN0 minus AIN1 selected data window"></canvas></article>
+      <article class="timeline-chart"><div class="timeline-chart-header"><div><span class="channel-key lime"></span><strong>AIN2 − AIN3</strong></div><output id="range-b">—</output></div><canvas id="history-chart-b" aria-label="AIN2 minus AIN3 selected data window"></canvas></article>
+    </div>
+    <div class="timeline-navigator"><canvas id="tier-navigator" aria-label="Drag to navigate recorded acquisition history"></canvas></div>
+  </section>
+</main>
+{% endblock %}
+{% block scripts %}<script src="/static/timeline-inspection.js"></script><script src="/static/timeline.js"></script><script src="/static/run-history.js"></script>{% endblock %}

@@ -1,22 +1,27 @@
 #include "valves.h"
+#include <SPI.h>
 
 Valve::Valve(String valveName, uint8_t valveSlot, uint8_t valveChannel) {
 	name = valveName;
 	slot = valveSlot;
 	channel = valveChannel;
-	this->close();
+	state = LOW;
 }
 
 void Valve::open() {
 	Serial.println("Opening valve: " + name);
 	state = HIGH;
 	P1.writeDiscrete(state, slot, channel);
+	// P1 I/O and P1AM-ETH share SPI. P1 ends the bus after its transaction;
+	// restore it once so Ethernet can continue servicing the control server.
+	SPI.begin();
 }
 
 void Valve::close() {
 	Serial.println("Closing valve: " + name);
 	state = LOW;
 	P1.writeDiscrete(state, slot, channel);
+	SPI.begin();
 }
 
 void Valve::test() {
@@ -42,3 +47,9 @@ Valve Igniter1 = Valve("IGN_1", 2, 9);
 Valve Igniter2 = Valve("IGN_2", 2, 10);
 
 Valve* valves[] = { &FuelN2PressureValve, &LoxVentValve, &FuelVentValve, &LoxMainValve, &FuelMainValve, &LoxN2PressureValve, &Igniter1, &Igniter2 };
+
+void initializeValves() {
+	for (Valve* valve : valves) {
+		valve->close();
+	}
+}

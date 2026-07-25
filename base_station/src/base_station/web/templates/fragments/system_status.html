@@ -1,0 +1,7 @@
+<div id="system-status" class="status-cluster"
+     hx-get="/fragments/system-status" hx-trigger="every 1s" hx-swap="outerHTML"
+     aria-label="Service status">
+  <span class="service-status online"><i></i><b>FastAPI</b><em>online</em></span>
+  <span class="service-status {{ cart.health }}"><i></i><b>P1AM</b><em>{{ cart.health }}</em></span>
+  <span class="service-status {{ 'online' if labjack.connected else 'offline' }}"><i></i><b>LabJack</b><em>{{ 'online' if labjack.connected else 'offline' }}</em></span>
+</div>
