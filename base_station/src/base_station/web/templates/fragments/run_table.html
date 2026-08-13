@@ -1,0 +1,20 @@
+<div id="run-table-fragment" class="run-table-wrap">
+  <table class="run-table">
+    <thead><tr><th>Run</th><th>Started</th><th>Status</th><th>Rate</th><th>Samples</th><th>Duration</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for run in runs %}
+      <tr>
+        <td><a href="/runs/{{ run.id }}">#{{ run.id }}</a></td>
+        <td>{{ run.started_at|replace("T", " ") }}</td>
+        <td><span class="run-status {{ run.status }}">{{ run.status }}</span></td>
+        <td>{{ "{:,}".format(run.scan_rate) }} Hz</td>
+        <td>{{ "{:,}".format(run.sample_count) }}</td>
+        <td>{{ (run.sample_count / run.scan_rate)|round(2) }} s</td>
+        <td class="run-actions"><a href="/runs/{{ run.id }}/export.csv">CSV</a><button hx-delete="/ui/runs/{{ run.id }}" hx-target="#run-table-fragment" hx-swap="outerHTML" hx-confirm="Delete run {{ run.id }} and all of its samples?">Delete</button></td>
+      </tr>
+      {% else %}
+      <tr><td class="empty-table" colspan="7">No runs recorded yet. Start acquisition from the dashboard.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

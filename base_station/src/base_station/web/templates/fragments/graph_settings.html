@@ -1,0 +1,27 @@
+<details class="graph-settings">
+  <summary aria-label="Graph settings">Graph settings</summary>
+  <form class="graph-settings-form">
+    <fieldset><legend>Display filter</legend>
+      <label><input type="radio" name="filter_mode" value="raw" checked /> Raw</label>
+      <label><input type="radio" name="filter_mode" value="moving_average" /> Moving average</label>
+      <label><input type="radio" name="filter_mode" value="ema" /> EMA</label>
+    </fieldset>
+    <label class="filter-option moving-average-option"><span>Window <output>100 ms</output></span><input name="moving_average_ms" type="range" min="1" max="5000" value="100" /></label>
+    <label class="filter-option ema-option"><span>Time constant <output>50 ms</output></span><input name="ema_time_constant_ms" type="range" min="1" max="5000" value="50" /></label>
+    <fieldset class="window-settings"><legend>Navigator windows</legend>
+      <label><span>Context</span><input name="context_seconds" type="number" min="0.1" max="3600" step="0.1" value="60" /><em>seconds</em></label>
+      <label><span>Detail</span><input name="detail_seconds" type="number" min="0.01" max="60" step="0.01" value="1" /><em>seconds</em></label>
+    </fieldset>
+    <fieldset class="main-window-settings"><legend>Main display</legend>
+      <label><input type="radio" name="display_tier" value="full" /> Full</label>
+      <label><input type="radio" name="display_tier" value="context" /> Context</label>
+      <label><input type="radio" name="display_tier" value="detail" checked /> Detail</label>
+    </fieldset>
+    <fieldset class="navigator-channel-settings"><legend>Navigator signal</legend>
+      <label><input type="radio" name="navigator_channels" value="a" /> AIN0−AIN1</label>
+      <label><input type="radio" name="navigator_channels" value="b" /> AIN2−AIN3</label>
+      <label><input type="radio" name="navigator_channels" value="both" checked /> Both</label>
+    </fieldset>
+    <p>Display only. Downloads and stored runs remain raw.</p>
+  </form>
+</details>

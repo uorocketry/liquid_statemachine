@@ -1,1 +1,13 @@
-.vscode/
+.vscode/c_cpp_properties.json
+.DS_Store
+*.pyc
+*.pyo
+*.pyd
+.venv/
+.build/
+__pycache__/
+base_station/logs/client/**/*
+!/base_station/logs/client/.gitignore
+base_station/logs/labjack/**/*
+!/base_station/logs/labjack/.gitignore
+base_station/data/
