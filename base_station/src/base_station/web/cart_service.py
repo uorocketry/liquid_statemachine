@@ -27,7 +27,7 @@ class CartService:
     def __init__(
         self,
         dashboard: DashboardState,
-        host: str = "192.168.0.50",
+        host: str = "192.168.8.50",
         port: int = 80,
     ) -> None:
         self.dashboard = dashboard

@@ -7,7 +7,12 @@
 #include "../commands/commands.h"
 
 byte mac[] = { 0x60, 0x52, 0xD0, 0x08, 0x17, 0x38 };
-IPAddress ip(192,168,0,50);
+// The GL.iNet LAN is 192.168.8.0/24. Keep the controller on a predictable
+// address so the base station and OTA tooling do not need network discovery.
+IPAddress ip(192,168,8,50);
+IPAddress dns(192,168,8,1);
+IPAddress gateway(192,168,8,1);
+IPAddress subnet(255,255,255,0);
 constexpr uint16_t SERVER_PORT = 80;
 constexpr unsigned long REQUEST_TIMEOUT_MS = 750;
 constexpr size_t MAX_REQUEST_LINE = 96;
@@ -161,7 +166,7 @@ void setupServer() {
 	Serial.println("Setting up Server...");
 
 	Ethernet.init(5);
-	Ethernet.begin(mac, ip);
+	Ethernet.begin(mac, ip, dns, gateway, subnet);
 
 	// Check for Ethernet hardware present
 	if (Ethernet.hardwareStatus() == EthernetNoHardware) {

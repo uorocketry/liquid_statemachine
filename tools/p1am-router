@@ -1,0 +1,256 @@
+#!/bin/sh
+set -eu
+
+ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+ENV_FILE="$ROOT_DIR/.env"
+ROUTER_HOST=${ROUTER_HOST:-192.168.8.1}
+ROUTER_USER=${ROUTER_USER:-root}
+REMOTE_FIRMWARE=${REMOTE_FIRMWARE:-/tmp/phil_cart.ino.bin}
+LOCAL_FIRMWARE="$ROOT_DIR/base_station/.build/arduino/phil_cart.ino.bin"
+
+usage() {
+    cat <<'EOF'
+Usage: tools/p1am-router <command>
+
+Commands:
+  probe      Verify that the GL.iNet router sees the P1AM over USB.
+  bootstrap  Install the OpenWrt BOSSA uploader package on the router.
+  compile    Compile phil_cart firmware locally without touching hardware.
+  stage      Compile and copy firmware to the router without flashing it.
+  flash      Compile, copy the .bin to the router, and flash the attached P1AM.
+
+Environment overrides:
+  ROUTER_HOST       Router address (default: 192.168.8.1)
+  ROUTER_USER       SSH user (default: root)
+  REMOTE_FIRMWARE   Temporary firmware path on router
+
+The router password is read from ROUTER_ADMIN_PASSWORD in .env.
+EOF
+}
+
+read_env_value() {
+    key=$1
+    [ -f "$ENV_FILE" ] || return 1
+    sed -n "s/^${key}=//p" "$ENV_FILE" | head -n 1
+}
+
+if [ -z "${ROUTER_ADMIN_PASSWORD:-}" ]; then
+    ROUTER_ADMIN_PASSWORD=$(read_env_value ROUTER_ADMIN_PASSWORD || true)
+fi
+
+if [ -z "${ROUTER_ADMIN_PASSWORD:-}" ]; then
+    echo "ROUTER_ADMIN_PASSWORD is not set and was not found in $ENV_FILE" >&2
+    exit 2
+fi
+export ROUTER_ADMIN_PASSWORD
+
+if ! command -v expect >/dev/null 2>&1; then
+    echo "expect is required on the Mac for non-interactive SSH password entry." >&2
+    exit 2
+fi
+
+expect_exec() {
+    expect -f - "$@" <<'EOF'
+set timeout 90
+set command $argv
+spawn {*}$command
+expect {
+    -re {(?i)password:} {
+        send -- "$env(ROUTER_ADMIN_PASSWORD)\r"
+        exp_continue
+    }
+    eof
+}
+catch wait result
+set code [lindex $result 3]
+if {$code eq ""} { set code 1 }
+exit $code
+EOF
+}
+
+remote() {
+    expect_exec ssh \
+        -o StrictHostKeyChecking=accept-new \
+        -o PreferredAuthentications=password \
+        -o PubkeyAuthentication=no \
+        "$ROUTER_USER@$ROUTER_HOST" "$1"
+}
+
+copy_to_router() {
+    expect_exec scp \
+        -O \
+        -o StrictHostKeyChecking=accept-new \
+        -o PreferredAuthentications=password \
+        -o PubkeyAuthentication=no \
+        "$1" "$ROUTER_USER@$ROUTER_HOST:$2"
+}
+
+probe() {
+    remote '
+set -eu
+echo "Router: $(ubus call system board | jsonfilter -e "@.model")"
+echo "USB serial devices:"
+ls -l /dev/ttyACM* 2>/dev/null || true
+echo "P1AM USB identity:"
+found=0
+for d in /sys/bus/usb/devices/*; do
+    [ -f "$d/idVendor" ] || continue
+    vid=$(cat "$d/idVendor" 2>/dev/null || true)
+    pid=$(cat "$d/idProduct" 2>/dev/null || true)
+    if [ "$vid" = "1354" ]; then
+        found=1
+        product=$(cat "$d/product" 2>/dev/null || true)
+        printf "  %s:%s %s\n" "$vid" "$pid" "$product"
+    fi
+done
+[ "$found" -eq 1 ] || { echo "P1AM (VID 1354) not found" >&2; exit 3; }
+'
+}
+
+bootstrap() {
+    remote '
+set -eu
+opkg update
+opkg install bossa coreutils-stty
+echo "BOSSA uploader: $(command -v bossac)"
+echo "stty: $(command -v stty)"
+opkg list-installed bossa
+bossac --help 2>&1 | head -n 3
+'
+}
+
+compile_firmware() {
+    (
+        cd "$ROOT_DIR/base_station"
+        uv run compile
+    )
+    [ -f "$LOCAL_FIRMWARE" ] || {
+        echo "Expected firmware was not produced: $LOCAL_FIRMWARE" >&2
+        exit 4
+    }
+    ls -lh "$LOCAL_FIRMWARE"
+}
+
+stage() {
+    echo "Checking router and attached P1AM..."
+    probe
+
+    remote 'command -v bossac >/dev/null 2>&1 || { echo "bossac is missing; run: tools/p1am-router bootstrap" >&2; exit 5; }'
+
+    echo "Compiling firmware on the Mac..."
+    compile_firmware
+
+    echo "Copying firmware to $ROUTER_HOST:$REMOTE_FIRMWARE..."
+    copy_to_router "$LOCAL_FIRMWARE" "$REMOTE_FIRMWARE"
+
+    local_sha=$(shasum -a 256 "$LOCAL_FIRMWARE" | awk '{print $1}')
+    remote "echo '$local_sha  $REMOTE_FIRMWARE' | sha256sum -c -"
+    echo "Firmware is staged on the router; the P1AM has not been reset or modified."
+}
+
+flash() {
+    echo "Checking router and attached P1AM..."
+    probe
+
+    remote '
+command -v bossac >/dev/null 2>&1 || { echo "bossac is missing; run: tools/p1am-router bootstrap" >&2; exit 5; }
+command -v stty >/dev/null 2>&1 || { echo "stty is missing; run: tools/p1am-router bootstrap" >&2; exit 5; }
+'
+
+    echo "Compiling firmware on the Mac..."
+    compile_firmware
+
+    echo "Copying firmware to $ROUTER_HOST:$REMOTE_FIRMWARE..."
+    copy_to_router "$LOCAL_FIRMWARE" "$REMOTE_FIRMWARE"
+
+    local_sha=$(shasum -a 256 "$LOCAL_FIRMWARE" | awk '{print $1}')
+    remote "echo '$local_sha  $REMOTE_FIRMWARE' | sha256sum -c -"
+
+    echo "Flashing P1AM from the router..."
+    remote "
+set -eu
+FW='$REMOTE_FIRMWARE'
+[ -s \"\$FW\" ] || { echo 'Firmware file is missing or empty' >&2; exit 6; }
+
+PORT=\$(ls /dev/ttyACM* 2>/dev/null | head -n 1 || true)
+[ -n \"\$PORT\" ] || { echo 'No /dev/ttyACM device found' >&2; exit 7; }
+
+P1AM_PID=''
+for d in /sys/bus/usb/devices/*; do
+    [ -f \"\$d/idVendor\" ] || continue
+    [ \"\$(cat \"\$d/idVendor\" 2>/dev/null || true)\" = '1354' ] || continue
+    P1AM_PID=\$(cat \"\$d/idProduct\" 2>/dev/null || true)
+    break
+done
+[ -n \"\$P1AM_PID\" ] || { echo 'P1AM USB VID 1354 not found' >&2; exit 8; }
+
+if [ \"\$P1AM_PID\" = '4000' ]; then
+    echo \"Touching \$PORT at 1200 baud to enter the SAM-BA bootloader...\"
+    stty 1200 < \"\$PORT\"
+    sleep 1
+elif [ \"\$P1AM_PID\" = '4001' ]; then
+    echo 'P1AM is already in the SAM-BA bootloader.'
+else
+    echo \"Unexpected P1AM USB PID: \$P1AM_PID\" >&2
+    exit 8
+fi
+
+i=0
+while [ \"\$i\" -lt 10 ]; do
+    boot=0
+    for d in /sys/bus/usb/devices/*; do
+        [ -f \"\$d/idVendor\" ] || continue
+        vid=\$(cat \"\$d/idVendor\" 2>/dev/null || true)
+        pid=\$(cat \"\$d/idProduct\" 2>/dev/null || true)
+        if [ \"\$vid\" = '1354' ] && [ \"\$pid\" = '4001' ]; then
+            boot=1
+            break
+        fi
+    done
+    [ \"\$boot\" -eq 1 ] && break
+    sleep 1
+    i=\$((i + 1))
+done
+[ \"\$boot\" -eq 1 ] || { echo 'P1AM bootloader USB identity 1354:4001 did not appear' >&2; exit 9; }
+
+BOOT_PORT=\$(ls /dev/ttyACM* 2>/dev/null | head -n 1 || true)
+[ -n \"\$BOOT_PORT\" ] || { echo 'Bootloader serial port did not appear' >&2; exit 9; }
+PORT_NAME=\$(basename \"\$BOOT_PORT\")
+echo \"Programming through /dev/\$PORT_NAME...\"
+bossac -p \"\$PORT_NAME\" -U -o 0x2000 -i -e -w -v -R \"\$FW\"
+
+echo 'Waiting for application USB identity 1354:4000...'
+i=0
+app=0
+while [ \"\$i\" -lt 15 ]; do
+    for d in /sys/bus/usb/devices/*; do
+        [ -f \"\$d/idVendor\" ] || continue
+        vid=\$(cat \"\$d/idVendor\" 2>/dev/null || true)
+        pid=\$(cat \"\$d/idProduct\" 2>/dev/null || true)
+        if [ \"\$vid\" = '1354' ] && [ \"\$pid\" = '4000' ]; then
+            app=1
+            break
+        fi
+    done
+    [ \"\$app\" -eq 1 ] && break
+    sleep 1
+    i=\$((i + 1))
+done
+[ \"\$app\" -eq 1 ] || { echo 'Flash verified, but application USB identity did not return' >&2; exit 10; }
+echo 'Flash complete and P1AM application is running.'
+"
+}
+
+case "${1:-}" in
+    probe) probe ;;
+    bootstrap) bootstrap ;;
+    compile) compile_firmware ;;
+    stage) stage ;;
+    flash) flash ;;
+    -h|--help|help|'') usage ;;
+    *)
+        echo "Unknown command: $1" >&2
+        usage >&2
+        exit 2
+        ;;
+esac

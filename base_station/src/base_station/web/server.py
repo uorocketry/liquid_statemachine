@@ -46,6 +46,12 @@ class StateRequest(BaseModel):
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     cart.start()
+    try:
+        labjack.connect(dashboard.labjack.ip)
+    except RuntimeError as error:
+        dashboard.log(
+            f"LabJack auto-connect failed: {error}", "warning", "labjack"
+        )
     yield
     cart.stop()
     labjack.disconnect()
