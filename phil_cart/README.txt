@@ -1,81 +1,83 @@
-Arduino IDE Setup Instructions
--------------------------------
+PHIL Cart / P1AM
+================
 
-Bootloader / upload mode
-------------------------
+The P1AM owns the cart state machine and drives valves/igniters through the P1
+I/O rack. The LabJack is a separate Ethernet device controlled by the base
+station.
 
-The reliable visual cue is the P1AM-100 status LED pulsing/flashing yellow.
-Use the reset-button timing that produces that pattern (normally a quick
-double-tap; an inconsistent tap can occasionally appear to do the same thing),
-then upload while the USB port is visible. The normal application state does
-not keep the yellow LED pulsing.
+Network
+-------
 
-From this repository, list ports and upload with:
+P1AM:   192.168.8.50
+LabJack: 192.168.8.51
+
+After a power cycle, use `/diagnostics` to initialize the P1 rack before state
+transitions. Use `/state` for normal state control.
+
+Valve outputs
+-------------
+
+All current actuator outputs use P1 rack slot 2:
+
+  1  Fuel N2 pressure
+  2  LOX vent
+  3  Fuel vent
+  4  LOX main
+  6  Fuel main
+  7  LOX N2 pressure
+  9  Igniter 1
+ 10  Igniter 2
+
+Firmware updates
+----------------
+
+Normal development is Ethernet OTA; leave USB unplugged:
+
+    cd base_station
+    uv run system
+    uv run ota
+
+OTA writes the inactive A/B slot. The new build is a trial until the host sees
+that exact build over HTTP and confirms it. A watchdog/reset failure rolls back
+to the last known-good slot.
+
+USB is only for bootstrap/recovery. Put the factory bootloader in upload mode
+(status LED pulsing yellow), then:
 
     arduino-cli board list
     cd base_station
-    uv run upload --port /dev/cu.usbmodemNNNNN
+    uv run upload --port /dev/cu.usbmodemNNNN
 
-Replace the example port with the port shown by `arduino-cli board list`.
+The factory P1AM bootloader is never replaced.
+
+HTTP API
+--------
+
+  GET  /api/status             health, state, allowed transitions
+  GET  /api/system             firmware slot/build and rollback state
+  POST /api/p1/initialize      initialize the P1 rack
+  POST /api/reset              close initialized outputs and reboot
+  PUT  /api/state/{id}         request an allowed state transition
+  POST /api/firmware           upload an inactive-slot image
+  POST /api/firmware/confirm   confirm the running trial
+
+Do not call firmware endpoints manually; use `uv run ota`.
+
+States
+------
+
+0 Valve testing, 1 Initialize, 2 Fuel fill, 3 LOX fill, 4 Fire, 5 Purge,
+6 Overload, 7 Abort.
 
 Startup safety
 --------------
 
-Boot does not cycle valves or write every configured output automatically.
-The controller starts in the `Valve Testing` state as an idle software state;
-physical output actions require an explicit operator command. This also avoids
-blocking startup when the connected P1 module layout differs from the expected
-slot configuration.
+Boot does not cycle valves. Valve Testing is an idle state; physical outputs
+change only after an explicit command. Until P1 initialization succeeds,
+transitions remain unavailable.
 
-1. Install
-- the P1AM library: https://github.com/facts-engineering/P1AM?tab=readme-ov-file#installing-the-library
-- the ArduinoJson, StateMachine, and TaskManagerIO library in the Arduino IDE
+Build prerequisites
+-------------------
 
-If you encounter an error like "No device found on ttyACM0", this probably means you don't have the right permissions for the /dev/ttyACM0 file. See https://stackoverflow.com/a/49063205.
-
-Ethernet / OTA Setup
---------------------
-
-The machine LAN is `192.168.8.0/24` behind the GL.iNet router. The controller is
-static at `192.168.8.50`; the LabJack T7 is static at `192.168.8.51`.
-
-The controller exposes HTTP/1.1 JSON at `http://192.168.8.50`:
-
-- `GET /api/status` — health, current state, and allowed transitions.
-- `GET /api/system` — running version/build/slot plus OTA/rollback state.
-- `POST /api/p1/initialize` — initialize the P1 rack explicitly.
-- `POST /api/reset` — put initialized outputs in the reset state and reboot.
-- `PUT /api/state/{id}` — request a validated state transition.
-- `POST /api/firmware` — stream a raw inactive-slot application image.
-- `POST /api/firmware/confirm` — make the currently running trial known-good.
-
-Do not normally call the firmware endpoints by hand. From `base_station/`, use:
-
-    uv run system
-    uv run ota
-
-The factory P1AM USB bootloader remains untouched. `uv run upload` is reserved
-for first-time bootstrap or recovery and installs the tiny second-stage updater
-plus a known-good App A. Normal Ethernet deployment alternates between App A
-and App B. The new slot must come back over HTTP and be explicitly confirmed;
-otherwise watchdog/reset recovery returns to the last known-good slot.
-
-Ethernet and health start before rack initialization. Until P1 initialization
-succeeds, health is degraded, transitions are empty, and state-change requests
-return `503 Service Unavailable`.
-
-State indices are: valve testing `0`, initialize `1`, fuel fill `2`, LOX fill
-`3`, fire `4`, purge `5`, overload `6`, and abort `7`.
-
-
-Starting the Box
-----------------
-1. Breaker on
-2. Blue button
-3. Connect arduino
-4. Make sure coaxial cable is connected
-5. Connect ethernet
-
-Stopping the Box
-----------------
-1. Breaker off
+Arduino CLI plus the P1AM, ArduinoJson, StateMachine, and TaskManagerIO Arduino
+libraries are required. See `base_station/README.md` for host setup.

@@ -12,3 +12,5 @@ base_station/logs/client/**/*
 base_station/logs/labjack/**/*
 !/base_station/logs/labjack/.gitignore
 base_station/data/
+base_station/reference/
+meetings/

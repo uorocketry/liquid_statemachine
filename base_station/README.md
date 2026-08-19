@@ -1,10 +1,6 @@
 # Base Station
 
-Local web dashboard for the PHIL cart state machine, LabJack data logging, and
-P1AM firmware tooling. FastAPI and Jinja2 render the pages and authoritative UI
-fragments; a pinned, vendored HTMX file swaps those fragments without a frontend
-build system. Custom JavaScript is limited to the canvas telemetry charts and
-their interaction controls.
+Operator UI, LabJack DAQ, run archive, and P1AM firmware tooling.
 
 ## Prerequisites
 
@@ -29,28 +25,26 @@ Run these from the `base_station` directory:
 # Launch the operator GUI
 uv run gui
 
-# Build the second-stage updater, both A/B application images, and USB recovery image
+# Build updater, both application slots, and USB recovery image
 uv run compile
 
-# Show the running firmware slot/build and the last OTA/rollback result
+# Inspect the running P1AM firmware
 uv run system
 
-# Normal deployment: build for the inactive slot, upload by Ethernet, and confirm it
+# Normal deployment over Ethernet
 uv run ota
 
-# Bootstrap/recovery only: flash updater + App A through the factory USB bootloader
+# Bootstrap/recovery through the factory USB bootloader
 uv run upload
 
 # Select a directly attached serial port explicitly for USB recovery
 uv run upload --port /dev/cu.usbmodem11301
 ```
 
-The controller remains on `192.168.8.50`. Normal development uses `uv run ota`;
-`upload` is the bootstrap/recovery path and preserves the factory P1AM SAM-BA
-bootloader. The OTA updater uses two 96 KiB application slots. A newly uploaded
-slot is a trial until the host sees `/api/system` from that exact build and sends
-`POST /api/firmware/confirm`. If the trial hangs, resets, or never restores HTTP,
-the watchdog causes the updater to return to the last confirmed slot.
+Normal development uses `uv run ota`; USB is not required. OTA writes the
+inactive A/B slot, waits for that exact build to return, then confirms it.
+Watchdog/reset failure rolls back to the last known-good slot. The factory
+P1AM bootloader remains untouched.
 
 Build artifacts live under `.build/ota/`; `p1am-recovery.bin` contains the
 second-stage updater plus App A at their fixed flash offsets.
@@ -60,44 +54,36 @@ The macOS `BaseStation.command` and Windows `Base Station.bat` launchers run
 
 ## Web interface
 
-- `http://127.0.0.1:8000/` is the sunlight-readable operator dashboard.
-- `http://127.0.0.1:8000/diagnostics` shows detailed P1AM and LabJack health,
-  response timing, rack status, LabJack connection settings, controller restart,
-  errors, and filterable structured logs.
-- `http://127.0.0.1:8000/runs` lists durable acquisition runs, opens tiered
-  history views, exports CSV files to the browser, and downloads database backups.
-- `GET /api/status` supplies the live dashboard snapshot.
-- `GET /api/logs` supplies up to 500 recent structured events and accepts the
-  optional `level`, `component`, and `limit` query parameters.
+- `/` — blueprint-published live telemetry.
+- `/state` — PHIL cart state transitions and controller health.
+- `/configuration` — LabJack/signal blueprint editor and low-rate preview.
+- `/runs` — Record/Stop, run archive, CSV export, and database backup.
+- `/diagnostics` — detailed P1AM/LabJack health and P1 rack initialization.
 
-There is intentionally no Node.js project, `package.json`, or npm build step.
-HTMX 2.0.10 is stored under `src/base_station/web/static/vendor/` so the operator
-interface does not depend on an internet connection.
+DAQ configuration is saved to `data/daq-blueprint.json`. Live preview starts
+automatically when the LabJack is available and acquisition is idle.
 
-FastAPI uses one background poller per process and reads the P1AM's combined
-`GET /api/status` endpoint. Browser count therefore does not multiply routine
-controller traffic. HTMX action controls use its request classes plus shared
-CSS indicators; no custom spinner JavaScript is used.
+The high-rate recorder still uses the legacy fixed differential stream and
+storage schema. Compiling the saved graph into acquisition/storage is the next
+backend migration; the UI does not pretend otherwise.
 
-The LabJack scan rate is captured when a run starts and remains locked until it
-stops. Start and Stop are idempotence-guarded by an explicit
-starting/running/stopping/idle lifecycle, so repeated UI requests cannot create
-multiple stream threads or stop the device twice.
+There is no frontend build step. Jinja/HTMX handles ordinary controls; native
+custom elements use vendored Lit for blueprint DOM updates. All browser
+dependencies are served locally from `static/vendor/`.
 
-Every acquisition is recorded automatically in `data/acquisition.sqlite3`.
-There is no record checkbox and no CSV file is written into the repository;
-CSV is generated as a streaming browser download from the Runs page. SQLite is
-part of Python's standard library, so durable history adds no runtime dependency.
-Dashboard and recorded-run detail share the same Full/Context/Detail navigator
-and playback implementation. Drag the navigator to move through time. Drag a
-main graph to inspect statistics, or hold Shift while dragging to make the
-selected interval the Context view. The dashboard uses one red Record control
-that becomes Stop recording and reports duration from the authoritative acquired
-sample count.
+FastAPI polls the P1AM once per process, so opening more browsers does not
+multiply controller traffic.
 
-Runs always store raw differential samples. Graph settings are display-only:
-The server bounds every graph response with SQLite time buckets containing the
-raw minimum, maximum, mean, and count for both channels. The browser applies the
-moving-average window or exponential-moving-average time constant to those
-bounded means, so display work stays predictable even for long runs. Changing a
-graph filter never changes the raw database, min/max envelope, or CSV export.
+The run scan rate locks while recording. Start/Stop is guarded by an explicit
+starting/running/stopping/idle lifecycle.
+
+Runs are stored in `data/acquisition.sqlite3`. CSV is generated on demand; no
+CSV files are written into the repository. Record/Stop lives on `/runs`.
+
+Run-history filtering is display-only. Stored samples and CSV exports remain raw.
+
+## Tests
+
+```bash
+uv run python -m unittest discover -s test -v
+```
