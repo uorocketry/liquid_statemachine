@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from base_station.web.daq_config.signal_math import current_from_shunt, scalar
+
 if TYPE_CHECKING:
     from base_station.web.labjack_service import LabJackService
 
@@ -45,7 +47,7 @@ def _read_source(handle: int, node: dict, nodes: dict, incoming: dict, sdk, cons
     if node_type == "labjack-current":
         shunt = _linked_node(node, "shunt", nodes, incoming)
         shunt_ohms = shunt["config"]["value"] if shunt is not None else node.get("config", {}).get("shuntOhms")
-        amps = volts / float(shunt_ohms)
+        amps = scalar(current_from_shunt(volts, float(shunt_ohms)))
         return {"value": amps, "unit": "A", "rawVolts": volts}
     cj_temp_k = float(sdk.eReadName(handle, "TEMPERATURE_DEVICE_K"))
     tc_type = getattr(constants, f"tt{config['thermocoupleType']}")

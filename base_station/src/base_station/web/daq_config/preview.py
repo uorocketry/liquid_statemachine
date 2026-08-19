@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from base_station.web.daq_config.hardware import read_physical_sources
+from base_station.web.daq_config.signal_math import linear_map, load_cell, scalar, subtract
 
 if TYPE_CHECKING:
     from base_station.web.labjack_service import LabJackService
@@ -58,8 +59,9 @@ def _evaluate_node(node: dict, incoming: dict[str, str], values: dict) -> dict |
         high = float(high)
         if high == low:
             return None
-        fraction = (source["value"] - low) / (high - low)
-        psi = float(psi_min) + fraction * (float(psi_max) - float(psi_min))
+        psi = scalar(linear_map(
+            source["value"], low, high, float(psi_min), float(psi_max)
+        ))
         return {"value": psi, "unit": "psi"}
     if node_type == "load-cell":
         source = _input_value(incoming, values, "input")
@@ -72,19 +74,25 @@ def _evaluate_node(node: dict, incoming: dict[str, str], values: dict) -> dict |
         if None in {excitation, rated_mv_v, capacity, zero}:
             return None
         excitation = float(excitation)
-        rated = float(rated_mv_v) / 1000.0
         capacity = float(capacity)
         zero = float(zero)
-        if excitation <= 0 or rated <= 0:
+        if excitation <= 0 or float(rated_mv_v) <= 0:
             return None
-        output = ((source["value"] - zero) / excitation) / rated * capacity
+        output = scalar(load_cell(
+            source["value"],
+            excitation_v=excitation,
+            rated_output_mv_v=float(rated_mv_v),
+            zero_v=zero,
+            capacity=capacity,
+        ))
         return {"value": output, "unit": config.get("unit", "kg")}
     if node_type == "subtract":
         left = _input_value(incoming, values, "a")
         right = _input_value(incoming, values, "b")
         if left is None or right is None:
             return None
-        return {"value": left["value"] - right["value"], "unit": left.get("unit", "")}
+        value = scalar(subtract(left["value"], right["value"]))
+        return {"value": value, "unit": left.get("unit", "")}
     if node_type == "rate-of-change":
         return None
     if node_type == "dashboard-signal":

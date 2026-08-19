@@ -62,6 +62,8 @@ The macOS `BaseStation.command` and Windows `Base Station.bat` launchers run
 
 DAQ configuration is saved to `data/daq-blueprint.json`. Live preview starts
 automatically when the LabJack is available and acquisition is idle.
+Engineering transforms are server-side NumPy functions shared by preview and
+future stream-chunk execution.
 
 The high-rate recorder still uses the legacy fixed differential stream and
 storage schema. Compiling the saved graph into acquisition/storage is the next
