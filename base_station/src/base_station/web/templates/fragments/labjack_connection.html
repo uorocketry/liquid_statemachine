@@ -1,8 +1,7 @@
 {% from "macros/actions.html" import action_button %}
 <section id="labjack-connection" class="connection-settings">
-  <div class="section-heading compact"><h2>Connection</h2><span class="connection-dot {% if labjack.connected %}online{% endif %}"></span></div>
+  <div class="section-heading compact"><h2>Connection</h2></div>
   {% if labjack.connected %}
-  <p class="device-detail">Connected to {{ labjack.ip }} · serial {{ labjack.serial_number }}</p>
   {{ action_button("Disconnect device", "post", "/ui/labjack/disconnect", "#labjack-connection", class_name="secondary-button") }}
   {% else %}
   <form>

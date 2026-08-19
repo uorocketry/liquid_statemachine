@@ -4,15 +4,18 @@
 {% block content %}
 <main class="page dashboard-page">
   <section class="telemetry dashboard-telemetry">
-    <header class="page-heading">
-      <h1>Dashboard</h1>
-      <div class="telemetry-actions">
-        <span id="telemetry-live-state" class="telemetry-live-state">—</span>
-        <details class="telemetry-signal-picker"><summary class="icon-button" aria-label="Signals" title="Signals"><span class="ui-icon icon-signals" aria-hidden="true"></span></summary><div id="telemetry-signal-options" class="telemetry-signal-options"></div></details>
-      </div>
-    </header>
-    <div id="telemetry-signal-grid" class="blueprint-telemetry-grid"></div>
+    <div id="telemetry-signal-grid" class="dashboard-signal-groups"></div>
     <div id="telemetry-empty" class="telemetry-empty" hidden><a href="/configuration"><span class="ui-icon icon-open-daq" aria-hidden="true"></span><span>DAQ Setup</span></a></div>
+    <footer id="telemetry-time-control" class="telemetry-time-control" hidden>
+      <div class="telemetry-navigator-wrap">
+        <canvas id="telemetry-tier-navigator" aria-label="Telemetry history navigator. Full, 60 second context, and 1 second detail bands."></canvas>
+        <output id="telemetry-time-tooltip" class="telemetry-time-tooltip" hidden></output>
+      </div>
+      <div class="telemetry-time-actions">
+        <details class="telemetry-signal-picker"><summary class="icon-button" aria-label="Choose dashboard signals" title="Signals"><span class="ui-icon icon-signals" aria-hidden="true"></span></summary><div id="telemetry-signal-options" class="telemetry-signal-options"></div></details>
+        <button id="telemetry-return-tail" class="icon-button telemetry-return-tail" type="button" hidden aria-label="Follow newest samples" title="Follow newest samples"><span class="ui-icon icon-end" aria-hidden="true"></span></button>
+      </div>
+    </footer>
   </section>
 </main>
 {% endblock %}

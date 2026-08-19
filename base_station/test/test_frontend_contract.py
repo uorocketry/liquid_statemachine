@@ -52,7 +52,7 @@ class FrontendContractTests(TestCase):
         self.assertIn('class="site-shell"', base)
         self.assertIn('id="site-sidebar"', base)
         self.assertIn('<h2>Devices</h2>', base)
-        self.assertIn('<h2>Navigation</h2>', base)
+        self.assertNotIn('<h2>Navigation</h2>', base)
         self.assertNotIn('{% block sidebar_page %}', base)
         self.assertNotIn('{% block sidebar_footer %}', base)
         self.assertNotIn('class="topbar"', base)
@@ -193,16 +193,60 @@ class FrontendContractTests(TestCase):
     def test_dashboard_telemetry_is_blueprint_driven(self) -> None:
         dashboard = read("templates/index.html")
         telemetry = read("static/dashboard-telemetry.js")
+        controller = read("static/dashboard-time-controller.js")
+        renderer = read("static/dashboard-time-renderer.js")
         self.assertIn('id="telemetry-signal-grid"', dashboard)
         self.assertIn('id="telemetry-signal-options"', dashboard)
+        self.assertIn('id="telemetry-tier-navigator"', dashboard)
+        self.assertIn('id="telemetry-return-tail"', dashboard)
         self.assertIn('src="/static/dashboard-telemetry.js"', dashboard)
         self.assertIn("node.nodeType === 'dashboard-signal'", telemetry)
         self.assertIn("previewConfiguration(graph)", telemetry)
+        self.assertIn("DashboardTimeController", telemetry)
+        self.assertIn("class DashboardTimeController", controller)
+        self.assertIn("this.contextSeconds = 60", controller)
+        self.assertIn("this.detailSeconds = 1", controller)
+        self.assertIn("this.selectedRange", controller)
+        self.assertIn("zoomToSelection", controller)
+        self.assertIn("data-signal-chart", telemetry)
+        self.assertIn("this.hoverTime", controller)
+        self.assertIn("renderSignal", renderer)
+        self.assertIn("renderNavigator", renderer)
+        self.assertIn("PLACEHOLDER_LABELS", telemetry)
+        self.assertIn("pickerDetails.hidden = signals.length === 0", telemetry)
+        self.assertNotIn("dashboard-toolbar", dashboard)
+        self.assertNotIn('telemetry-live-state', dashboard)
+        self.assertNotIn("'Live'", telemetry)
         self.assertNotIn("AIN0", dashboard)
         self.assertNotIn("AIN2", dashboard)
         self.assertNotIn('fragments/cart.html', dashboard)
         self.assertNotIn('fragments/labjack.html', dashboard)
         self.assertNotIn('fragments/events.html', dashboard)
+
+    def test_primary_pages_do_not_repeat_sidebar_route_titles(self) -> None:
+        for template, duplicate in (
+            ("templates/index.html", "Dashboard"),
+            ("templates/state.html", "Fill Cart"),
+            ("templates/runs.html", "Runs"),
+            ("templates/logs.html", "Logs"),
+            ("templates/settings.html", "Settings"),
+            ("templates/device_p1am.html", "P1AM-100"),
+            ("templates/device_labjack.html", "LabJack T7 Pro"),
+        ):
+            source = read(template)
+            self.assertNotIn(f"<h1>{duplicate}</h1>", source)
+
+    def test_state_page_keeps_device_diagnostics_out_of_control_surface(self) -> None:
+        cart = read("templates/fragments/cart.html")
+        self.assertNotIn("P1AM-100", cart)
+        self.assertNotIn("Waiting for", cart)
+        self.assertNotIn("Open device setup", cart)
+        self.assertIn('aria-label="Current state"', cart)
+
+    def test_runs_empty_state_does_not_reference_old_dashboard_recording(self) -> None:
+        table = read("templates/fragments/run_table.html")
+        self.assertIn("No runs recorded yet.", table)
+        self.assertNotIn("Start acquisition from the dashboard", table)
 
     def test_state_machine_and_recording_have_dedicated_pages(self) -> None:
         base = read("templates/base.html")

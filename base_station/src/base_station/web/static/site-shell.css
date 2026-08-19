@@ -29,6 +29,7 @@
 .site-brand strong { display: block; font-size: 14px; letter-spacing: .01em; }
 .site-sidebar-section { padding: 11px 10px; }
 .site-sidebar-section > h2 { margin: 0 2px 8px; color: var(--color-text-subtle); font-size: 8px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.site-nav { padding-top: 3px; }
 .site-nav a { display: grid; grid-template-columns: 22px 1fr; align-items: center; gap: 8px; min-height: 31px; margin: 1px 0; padding: 0 8px; border-radius: var(--radius-ui); color: var(--muted); font-size: 10px; font-weight: 700; text-decoration: none; }
 .site-nav a:hover,
 .site-nav a.active { color: var(--color-text); background: var(--color-surface-hover); }
@@ -158,6 +159,7 @@
 .page { width: 100%; min-height: 100%; padding: 22px; }
 .page-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
 .page-heading h1 { margin: 0; font-size: 23px; }
+.page-action-row { min-height: 30px; display: flex; align-items: center; justify-content: flex-end; }
 
 @media (max-width: 760px) {
   .site-shell, .site-shell.sidebar-collapsed { display: block; }

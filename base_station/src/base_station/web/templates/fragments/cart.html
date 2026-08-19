@@ -2,9 +2,7 @@
 <div id="cart-fragment" hx-get="/fragments/cart" hx-trigger="every 600ms" hx-swap="outerHTML" hx-sync="this:queue last">
   <section class="panel state-panel">
     <div class="current-state">
-      <span>Current state</span>
-      <strong>{{ state_names[cart.state] if cart.connected and cart.state is not none else "Disconnected" }}</strong>
-      {% if not cart.connected %}<small>Waiting for {{ cart.host }}</small>{% endif %}
+      <strong aria-label="Current state">{{ state_names[cart.state] if cart.connected and cart.state is not none else "Disconnected" }}</strong>
       {% if cart.transition_message %}<p class="operation-status {% if cart.pending_state is not none %}pending{% endif %}">{{ cart.transition_message }}</p>{% endif %}
     </div>
     <div class="state-grid" aria-label="State controls">
@@ -17,18 +15,5 @@
       ) }}
       {% endfor %}
     </div>
-  </section>
-  <section class="panel controller-health">
-    <div class="section-heading compact">
-      <h2>P1AM-100</h2>
-      <span class="health-badge {{ cart.health }}">{{ cart.health }}</span>
-    </div>
-    <dl class="health-summary">
-      <div><dt>Rack <span class="info-tip" tabindex="0" title="One P1 rack is connected. This is the number of I/O modules in it; valve outputs target module slot 2.">i</span></dt><dd>{% if cart.p1_initialized %}{{ cart.modules_detected }} I/O modules{% else %}Not initialized{% endif %}</dd></div>
-      <div><dt>Response</dt><dd>{{ cart.response_time_ms ~ " ms" if cart.response_time_ms is not none else "—" }}</dd></div>
-      <div><dt>Firmware</dt><dd>{{ cart.firmware_version or "—" }}</dd></div>
-      <div><dt>Last seen</dt><dd>{{ cart.last_seen[11:19] if cart.last_seen else "—" }}</dd></div>
-    </dl>
-    <a class="detail-link" href="/devices/p1am">Open device setup →</a>
   </section>
 </div>

@@ -1,20 +1,23 @@
-.dashboard-telemetry { min-height: 100%; padding: 0 0 14px; }
-.telemetry-actions { display: flex; align-items: center; gap: 10px; }
-.telemetry-live-state { color: var(--muted); font-size: 9px; }
-.telemetry-live-state.live { color: var(--color-success); }
-.telemetry-live-state.warning { color: var(--amber); }
-.telemetry-live-state.error { color: var(--red); }
+.dashboard-page {
+  min-height: 100%;
+  padding: 8px 10px 0;
+}
+
+.dashboard-telemetry {
+  min-height: calc(100vh - 8px);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
 
 .telemetry-signal-picker { position: relative; }
 .telemetry-signal-picker summary {
-  min-height: 30px;
+  min-height: 28px;
   display: grid;
   place-items: center;
   padding: 0;
-  border: 1px solid var(--line);
-  background: var(--color-surface-subtle);
-  font-size: 9px;
-  font-weight: 800;
+  border: 0;
+  background: transparent;
   cursor: pointer;
   list-style: none;
 }
@@ -22,8 +25,8 @@
 .telemetry-signal-picker[open] summary { color: var(--color-text); background: var(--color-surface-hover); }
 .telemetry-signal-options {
   position: absolute;
-  z-index: 20;
-  top: calc(100% + 5px);
+  z-index: 30;
+  top: calc(100% + 3px);
   right: 0;
   width: 235px;
   max-height: 360px;
@@ -37,20 +40,113 @@
 .telemetry-picker-group label { display: flex; align-items: center; gap: 7px; padding: 5px 3px; font-size: 10px; }
 .telemetry-picker-group input { accent-color: var(--color-text); }
 
-.blueprint-telemetry-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1px; margin-top: 9px; background: var(--line-soft); }
-.blueprint-telemetry-card { min-width: 0; padding: 11px 12px 9px; background: var(--surface); }
-.blueprint-telemetry-card header { min-height: 34px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.blueprint-telemetry-card header span, .blueprint-telemetry-card header strong { display: block; }
-.blueprint-telemetry-card header span { color: var(--muted); font-size: 8px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-.blueprint-telemetry-card header strong { margin-top: 2px; font-size: 11px; }
-.blueprint-telemetry-card output { color: var(--text); font: 600 17px ui-monospace, monospace; }
-.blueprint-telemetry-card canvas { height: 190px; margin-top: 6px; background: var(--color-input); }
-.telemetry-empty { margin-top: 12px; padding: 18px; border: 1px dashed var(--line); text-align: center; }
+.dashboard-signal-groups {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  align-items: start;
+  gap: 1px;
+  flex: 1;
+  background: var(--line-soft);
+}
+
+.dashboard-signal-group {
+  min-width: 0;
+  align-self: stretch;
+  background: var(--surface);
+}
+
+.dashboard-signal-group > h2 {
+  min-height: 27px;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0 9px;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.dashboard-group-grid { display: grid; gap: 1px; background: var(--line-soft); }
+.dashboard-signal-card { min-width: 0; padding: 8px 9px 9px; background: var(--surface); }
+.dashboard-signal-card header { min-height: 27px; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.dashboard-signal-card header strong { min-width: 0; overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.dashboard-signal-card output[data-signal-value] { flex: none; color: var(--text); font: 600 14px ui-monospace, monospace; }
+.dashboard-signal-card[data-display="number"] { min-height: 50px; display: flex; align-items: center; }
+.dashboard-signal-card[data-display="number"] header { width: 100%; }
+
+.dashboard-chart-shell { position: relative; min-width: 0; }
+.dashboard-signal-card canvas {
+  height: 145px;
+  background: var(--color-input);
+  cursor: crosshair;
+  touch-action: none;
+}
+.dashboard-chart-tooltip {
+  position: absolute;
+  z-index: 4;
+  top: 8px;
+  padding: 3px 5px;
+  color: var(--color-canvas);
+  background: var(--color-text);
+  font: 8px ui-monospace, monospace;
+  pointer-events: none;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.telemetry-empty {
+  min-height: 45vh;
+  display: grid;
+  place-items: center;
+  flex: 1;
+}
+.telemetry-empty[hidden] { display: none; }
 .telemetry-empty a { display: inline-flex; align-items: center; gap: 7px; color: var(--color-text-muted); font-size: 10px; font-weight: 800; text-decoration: none; }
 .telemetry-empty a:hover { color: var(--color-text); }
 
+.telemetry-time-control {
+  position: sticky;
+  z-index: 20;
+  bottom: 0;
+  min-height: 78px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px;
+  align-items: stretch;
+  flex: none;
+  padding: 4px 0 6px;
+  border-top: 1px solid var(--line-soft);
+  background: var(--color-canvas);
+}
+.telemetry-time-control[hidden] { display: none; }
+.telemetry-navigator-wrap { position: relative; min-width: 0; }
+#telemetry-tier-navigator { height: 68px; cursor: crosshair; touch-action: none; }
+.telemetry-time-tooltip {
+  position: absolute;
+  z-index: 3;
+  padding: 3px 5px;
+  color: var(--color-canvas);
+  background: var(--color-text);
+  font: 8px ui-monospace, monospace;
+  pointer-events: none;
+  transform: translate(-50%, -115%);
+  white-space: nowrap;
+}
+.telemetry-time-actions { display: flex; align-items: center; gap: 2px; }
+.telemetry-time-actions .telemetry-signal-options { top: auto; bottom: calc(100% + 3px); }
+.telemetry-return-tail { align-self: center; }
+
+@media (min-width: 1450px) {
+  .dashboard-signal-groups { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .dashboard-signal-card canvas { height: 160px; }
+}
+
 @media (max-width: 760px) {
-  .page-heading { align-items: flex-start; }
-  .telemetry-actions { align-items: flex-end; flex-direction: column-reverse; }
-  .blueprint-telemetry-grid { grid-template-columns: 1fr; }
+  .dashboard-page { padding: 6px 7px 0; }
+  .dashboard-signal-groups { grid-template-columns: 1fr; }
+  .dashboard-signal-card canvas { height: 170px; }
 }

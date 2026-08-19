@@ -8,7 +8,6 @@
     <div><dt>P1 rack <span class="info-tip" tabindex="0" title="One P1 rack; valve outputs target module slot 2.">i</span></dt><dd>{% if cart.p1_initialized %}{{ cart.modules_detected }} I/O modules{% else %}Not initialized{% endif %}</dd></div>
     <div><dt>Failures</dt><dd>{{ cart.consecutive_failures }}</dd></div><div><dt>Last seen</dt><dd>{{ cart.last_seen or "—" }}</dd></div>
   </dl>
-  <p class="health-error">{{ cart.error or "" }}</p>
   <div class="device-actions">
     {{ action_button("Rack initialized" if cart.p1_initialized else "Initialize P1 rack", "post", "/ui/cart/initialize", "#p1am-health", disabled=(not cart.connected or cart.p1_initialized or cart.initialization_status == "initializing"), class_name="primary-button initialize-button") }}
     {{ action_button("Restart controller", "post", "/ui/cart/reset", "#p1am-health", disabled=(not cart.connected), class_name="secondary-button reset-controller", confirm="Restart the P1AM controller? Initialized outputs will be closed and the rack must be initialized again.") }}
@@ -17,7 +16,7 @@
     {% if cart.initialization_status == "initializing" %}Searching for P1 modules…
     {% elif cart.initialization_status == "succeeded" %}{{ cart.modules_detected }} I/O modules detected.
     {% elif cart.initialization_status == "failed" %}Initialization failed: {{ cart.initialization_error or "unknown error" }}
-    {% else %}Initialization has not been started.{% endif %}
+    {% endif %}
   </p>
   {% if cart.reset_message %}<p class="initialization-status">{{ cart.reset_message }}</p>{% endif %}
 </section>

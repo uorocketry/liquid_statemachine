@@ -1,21 +1,36 @@
 import { loadConfiguration, previewConfiguration } from './daq-config/api.js';
+import { DashboardTimeController } from './dashboard-time-controller.js';
 
+const GROUPS = ['Fuel', 'LOX', 'Engine'];
+const POLL_MS = 250;
+const MAX_HISTORY_POINTS = 100_000;
+const PLACEHOLDER_LABELS = new Set(['dashboard signal', 'signal']);
+
+const page = document.querySelector('.dashboard-page');
 const grid = document.querySelector('#telemetry-signal-grid');
 const picker = document.querySelector('#telemetry-signal-options');
-const status = document.querySelector('#telemetry-live-state');
+const pickerDetails = document.querySelector('.telemetry-signal-picker');
 const empty = document.querySelector('#telemetry-empty');
+const timeControl = document.querySelector('#telemetry-time-control');
+const navigator = document.querySelector('#telemetry-tier-navigator');
+const timeTooltip = document.querySelector('#telemetry-time-tooltip');
+const returnTail = document.querySelector('#telemetry-return-tail');
+
 const histories = new Map();
 let graph = { nodes: [], links: [] };
 let signals = [];
 let selected = new Set();
 let timer = null;
 let inFlight = false;
-
-start().catch((error) => setStatus(error.message, 'error'));
+let sessionStart = null;
+let timeline = null;
 
 async function start() {
   graph = (await loadConfiguration()).graph;
-  signals = graph.nodes.filter((node) => node.nodeType === 'dashboard-signal');
+  signals = graph.nodes
+    .filter((node) => node.nodeType === 'dashboard-signal')
+    .filter(hasOperatorLabel);
+  pickerDetails.hidden = signals.length === 0;
   selected = loadSelection(signals);
   renderPicker();
   renderCards();
@@ -24,12 +39,18 @@ async function start() {
     if (document.hidden) stopPolling();
     else schedule(0);
   });
+  window.addEventListener('resize', () => timeline.render());
   schedule(0);
+}
+
+function hasOperatorLabel(signal) {
+  const label = String(signal.config?.label ?? '').trim();
+  return Boolean(label) && !PLACEHOLDER_LABELS.has(label.toLowerCase());
 }
 
 function renderPicker() {
   picker.replaceChildren();
-  for (const group of ['Fuel', 'LOX', 'Engine']) {
+  for (const group of GROUPS) {
     const groupSignals = signals.filter((node) => node.config?.group === group);
     if (!groupSignals.length) continue;
     const section = document.createElement('div');
@@ -38,7 +59,7 @@ function renderPicker() {
     for (const signal of groupSignals) {
       const label = document.createElement('label');
       label.innerHTML = `<input type="checkbox" value="${escapeAttribute(signal.id)}" ${selected.has(signal.id) ? 'checked' : ''} />
-        <span>${escapeHtml(signal.config?.label || signal.title)}</span>`;
+        <span>${escapeHtml(signal.config.label)}</span>`;
       section.append(label);
     }
     picker.append(section);
@@ -56,75 +77,87 @@ function renderCards() {
   grid.replaceChildren();
   const visible = signals.filter((signal) => selected.has(signal.id));
   empty.hidden = visible.length > 0;
-  for (const signal of visible) grid.append(signalCard(signal));
+  timeControl.hidden = visible.length === 0;
+
+  for (const group of GROUPS) {
+    const groupSignals = visible.filter((signal) => signal.config?.group === group);
+    if (!groupSignals.length) continue;
+    const section = document.createElement('section');
+    section.className = 'dashboard-signal-group';
+    const heading = document.createElement('h2');
+    heading.textContent = group;
+    const cards = document.createElement('div');
+    cards.className = 'dashboard-group-grid';
+    for (const signal of groupSignals) cards.append(signalCard(signal));
+    section.append(heading, cards);
+    grid.append(section);
+  }
+  timeline.setSignals(visible);
 }
 
 function signalCard(signal) {
   const article = document.createElement('article');
   const display = signal.config?.display ?? 'both';
-  article.className = 'blueprint-telemetry-card';
+  article.className = 'dashboard-signal-card';
   article.dataset.signalId = signal.id;
+  article.dataset.display = display;
   article.innerHTML = `
-    <header><div><span>${escapeHtml(signal.config?.group ?? '')}</span><strong>${escapeHtml(signal.config?.label || signal.title)}</strong></div>
-      ${display !== 'plot' ? '<output data-signal-value>—</output>' : ''}</header>
-    ${display !== 'number' ? '<canvas data-signal-chart aria-label="Live signal plot"></canvas>' : ''}`;
+    <header>
+      <strong>${escapeHtml(signal.config.label)}</strong>
+      ${display !== 'plot' ? '<output data-signal-value>—</output>' : ''}
+    </header>
+    ${display !== 'number' ? `<div class="dashboard-chart-shell">
+      <canvas data-signal-chart aria-label="${escapeAttribute(signal.config.label)} history"></canvas>
+      <output class="dashboard-chart-tooltip" data-chart-tooltip hidden></output>
+    </div>` : ''}`;
   return article;
 }
 
 async function poll() {
-  if (inFlight || document.hidden) return schedule(650);
+  if (inFlight || document.hidden || !signals.length) return schedule(POLL_MS);
   inFlight = true;
   try {
     const payload = await previewConfiguration(graph);
+    const timestamp = elapsedSeconds();
     for (const signal of signals) {
       if (!selected.has(signal.id)) continue;
-      updateCard(signal, payload.values?.[signal.id]);
+      const reading = payload.values?.[signal.id];
+      if (reading && Number.isFinite(Number(reading.value))) appendReading(signal, reading, timestamp);
+      updateValue(signal, reading);
     }
-    setStatus(payload.errors?.[0] ?? 'Live', payload.errors?.length ? 'warning' : 'live');
+    page.dataset.telemetryState = payload.errors?.length ? 'unavailable' : 'ready';
+    timeline.ingest(timestamp);
   } catch (error) {
-    setStatus(error.status === 422 ? 'Configuration needs attention' : error.message, 'error');
+    page.dataset.telemetryState = error.status === 422 ? 'configuration' : 'error';
+    clearCurrentValues();
   } finally {
     inFlight = false;
-    schedule(650);
+    schedule(POLL_MS);
   }
 }
 
-function updateCard(signal, reading) {
+function elapsedSeconds() {
+  const now = performance.now() / 1000;
+  if (sessionStart === null) sessionStart = now;
+  return now - sessionStart;
+}
+
+function appendReading(signal, reading, timestamp) {
+  const history = histories.get(signal.id) ?? [];
+  history.push({ time: timestamp, value: Number(reading.value), unit: reading.unit ?? '' });
+  if (history.length > MAX_HISTORY_POINTS) history.splice(0, history.length - MAX_HISTORY_POINTS);
+  histories.set(signal.id, history);
+}
+
+function updateValue(signal, reading) {
   const card = grid.querySelector(`[data-signal-id="${cssEscape(signal.id)}"]`);
   if (!card) return;
   const output = card.querySelector('[data-signal-value]');
   if (output) output.textContent = reading ? formatReading(reading, signal.config?.precision) : '—';
-  const canvas = card.querySelector('[data-signal-chart]');
-  if (!canvas || !reading || !Number.isFinite(Number(reading.value))) return;
-  const history = histories.get(signal.id) ?? [];
-  history.push(Number(reading.value));
-  if (history.length > 120) history.shift();
-  histories.set(signal.id, history);
-  drawHistory(canvas, history);
 }
 
-function drawHistory(canvas, values) {
-  const ratio = window.devicePixelRatio || 1;
-  const width = Math.max(1, canvas.clientWidth);
-  const height = Math.max(1, canvas.clientHeight);
-  canvas.width = Math.round(width * ratio);
-  canvas.height = Math.round(height * ratio);
-  const context = canvas.getContext('2d');
-  context.scale(ratio, ratio);
-  context.clearRect(0, 0, width, height);
-  if (values.length < 2) return;
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const span = Math.max(1e-12, max - min);
-  context.beginPath();
-  values.forEach((value, index) => {
-    const x = index / (values.length - 1) * width;
-    const y = height - 8 - (value - min) / span * (height - 16);
-    if (index === 0) context.moveTo(x, y); else context.lineTo(x, y);
-  });
-  context.strokeStyle = '#007c69';
-  context.lineWidth = 1.5;
-  context.stroke();
+function clearCurrentValues() {
+  for (const output of grid.querySelectorAll('[data-signal-value]')) output.textContent = '—';
 }
 
 function loadSelection(available) {
@@ -132,7 +165,7 @@ function loadSelection(available) {
   try {
     const stored = JSON.parse(localStorage.getItem('liquid-dashboard-signals') ?? 'null');
     if (Array.isArray(stored)) return new Set(stored.filter((id) => ids.has(id)));
-  } catch { /* use all signals */ }
+  } catch { /* use all configured operator signals */ }
   return ids;
 }
 
@@ -141,13 +174,35 @@ function formatReading(reading, precision = 1) {
   return Number.isFinite(value) ? `${value.toFixed(Number(precision))}${reading.unit ? ` ${reading.unit}` : ''}` : '—';
 }
 
-function setStatus(message, kind) {
-  status.textContent = message;
-  status.className = `telemetry-live-state ${kind}`;
+function schedule(delay) {
+  stopPolling();
+  timer = window.setTimeout(poll, delay);
 }
 
-function schedule(delay) { stopPolling(); timer = window.setTimeout(poll, delay); }
-function stopPolling() { if (timer) window.clearTimeout(timer); timer = null; }
+function stopPolling() {
+  if (timer) window.clearTimeout(timer);
+  timer = null;
+}
+
+timeline = new DashboardTimeController({
+  histories,
+  grid,
+  navigator,
+  tooltip: timeTooltip,
+  returnTail,
+  cardFor: (signalId) => grid.querySelector(`[data-signal-id="${cssEscape(signalId)}"]`),
+  loadTier,
+  onTierChange: () => localStorage.setItem('liquid-dashboard-tier', timeline.selectedTier),
+});
+
+start().catch(() => {
+  page.dataset.telemetryState = 'error';
+});
+
+function loadTier() {
+  const saved = localStorage.getItem('liquid-dashboard-tier');
+  return ['full', 'context', 'detail'].includes(saved) ? saved : 'detail';
+}
 function cssEscape(value) { return globalThis.CSS?.escape ? CSS.escape(value) : value; }
 function escapeHtml(value) { return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;'); }
 function escapeAttribute(value) { return escapeHtml(value).replaceAll('`', '&#96;'); }

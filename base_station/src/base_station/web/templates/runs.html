@@ -4,11 +4,10 @@
 {% block styles %}<link rel="stylesheet" href="/static/runs.css" />{% endblock %}
 {% block content %}
 <main class="page runs-page">
-  <header class="page-heading">
-    <h1>Runs</h1>
+  <div class="runs-toolbar">
+    {% include "fragments/labjack.html" %}
     <a class="icon-button" href="/runs/backup/database" aria-label="Download database backup" title="Download database backup"><span class="ui-icon icon-download" aria-hidden="true"></span></a>
-  </header>
-  {% include "fragments/labjack.html" %}
+  </div>
   {% include "fragments/run_table.html" %}
 </main>
 {% endblock %}

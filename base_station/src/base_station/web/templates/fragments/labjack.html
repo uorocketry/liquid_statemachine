@@ -1,7 +1,7 @@
 {% set acquisition_active = labjack.acquisition_state in ["starting", "running", "stopping"] %}
 <div id="labjack-fragment" class="runs-recorder"{% if acquisition_active %} hx-get="/fragments/labjack" hx-trigger="every 500ms" hx-swap="outerHTML" hx-sync="this:queue last"{% endif %}>
   <div class="runs-recorder-meta">
-    <span class="recording-badge {% if labjack.acquisition_state == 'running' %}active{% endif %}">{{ labjack.acquisition_state|capitalize }}</span>
+    {% if acquisition_active %}<span class="recording-badge {% if labjack.acquisition_state == 'running' %}active{% endif %}">{{ labjack.acquisition_state|capitalize }}</span>{% endif %}
     <span>{{ configured_scan_rate }} samples/s</span>
     {% if labjack.current_run_id %}<a class="detail-link" href="/runs/{{ labjack.current_run_id }}">Run {{ labjack.current_run_id }}</a>{% endif %}
   </div>
@@ -14,5 +14,5 @@
     <span class="record-symbol" aria-hidden="true"></span><strong>Record</strong><span class="request-indicator" aria-hidden="true"></span>
   </button>
   {% endif %}
-  {% if labjack.operation_message %}<span class="operation-status {% if labjack.acquisition_state in ['starting', 'stopping'] %}pending{% endif %}">{{ labjack.operation_message }}</span>{% endif %}
+  {% if acquisition_active and labjack.operation_message %}<span class="operation-status {% if labjack.acquisition_state in ['starting', 'stopping'] %}pending{% endif %}">{{ labjack.operation_message }}</span>{% endif %}
 </div>

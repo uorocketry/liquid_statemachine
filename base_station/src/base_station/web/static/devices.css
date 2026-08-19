@@ -5,7 +5,6 @@
 .detail-list div { min-width: 0; }
 .detail-list dt { color: var(--muted); font-size: 8px; text-transform: uppercase; letter-spacing: .09em; }
 .detail-list dd { margin: 3px 0 0; font: 11px ui-monospace, monospace; overflow-wrap: anywhere; }
-.health-error { min-height: 12px; margin: 12px 0 0; color: var(--red); font-size: 9px; }
 .device-actions { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
 .initialize-button { width: auto; margin: 0; }
 .initialization-status, .device-note { margin: 8px 0 0; color: var(--muted); font-size: 9px; }
