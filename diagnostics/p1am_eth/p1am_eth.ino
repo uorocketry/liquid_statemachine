@@ -6,7 +6,7 @@ constexpr uint8_t ETHERNET_CHIP_SELECT = 5;
 constexpr uint16_t SERVER_PORT = 80;
 
 byte macAddress[] = {0x60, 0x52, 0xD0, 0x08, 0x17, 0x38};
-IPAddress localAddress(192, 168, 0, 50);
+IPAddress localAddress(192, 168, 8, 50);
 EthernetServer server(SERVER_PORT);
 
 const char* hardwareName(EthernetHardwareStatus status) {

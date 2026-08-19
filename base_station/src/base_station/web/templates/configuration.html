@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% set active_page = "configuration" %}
+{% block title %}DAQ Setup · Liquid State Machine{% endblock %}
+{% block styles %}
+<link rel="stylesheet" href="/static/blueprint/blueprint.css" />
+<link rel="stylesheet" href="/static/daq-config/setup.css" />
+{% endblock %}
+{% block content %}
+<main class="daq-setup-page">
+  <header class="daq-setup-header">
+    <label class="daq-scan-rate-setting">
+      <span>Scan rate</span>
+      <span class="daq-inline-setting"><input id="daq-scan-rate" type="number" min="1" max="100000" step="1" /><em>samples/s</em></span>
+    </label>
+    <div class="daq-header-actions">
+      <button id="daq-reload" type="button" class="secondary-button">Reload saved</button>
+      <button id="daq-save" type="button">Save</button>
+      <span id="daq-save-state" class="saved">—</span>
+    </div>
+  </header>
+  <div class="daq-setup-grid">
+    <aside class="daq-palette-rail">
+      <div class="daq-rail-heading"><span>Nodes</span></div>
+      <div id="daq-palette"></div>
+      <div id="daq-issue-summary" class="daq-issue-summary"></div>
+    </aside>
+    <section class="daq-graph-stage">
+      <liquid-blueprint-editor id="daq-blueprint"></liquid-blueprint-editor>
+    </section>
+  </div>
+</main>
+{% endblock %}
+{% block scripts %}<script type="module" src="/static/daq-config/app.js"></script>{% endblock %}

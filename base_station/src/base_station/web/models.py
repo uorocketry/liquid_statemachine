@@ -13,7 +13,7 @@ from typing import Any
 class CartStatus:
     connected: bool = False
     health: str = "offline"
-    host: str = "192.168.0.50"
+    host: str = "192.168.8.50"
     state: int | None = None
     transitions: list[int] = field(default_factory=list)
     pending_state: int | None = None
@@ -39,7 +39,7 @@ class LabJackStatus:
     acquisition_state: str = "idle"
     operation_message: str | None = None
     current_run_id: int | None = None
-    ip: str = "192.168.0.250"
+    ip: str = "192.168.8.51"
     serial_number: int | None = None
     scan_rate: int = 1000
     sample_count: int = 0

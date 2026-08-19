@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% set active_page = "state" %}
+{% block title %}State Machine · Liquid State Machine{% endblock %}
+{% block subtitle %}PHIL cart control{% endblock %}
+{% block styles %}<link rel="stylesheet" href="/static/state.css" />{% endblock %}
+{% block content %}
+<main class="state-page">
+  <section class="state-control-surface">
+    {% include "fragments/cart.html" %}
+  </section>
+</main>
+{% endblock %}

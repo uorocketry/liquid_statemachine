@@ -16,6 +16,8 @@ gui = "base_station.app:main"
 web = "base_station.app:main"
 compile = "base_station.cli:compile_firmware"
 upload = "base_station.cli:upload_firmware"
+ota = "base_station.cli:ota_firmware"
+system = "base_station.cli:system_firmware"
 
 [build-system]
 requires = ["uv_build>=0.8.15,<0.9.0"]

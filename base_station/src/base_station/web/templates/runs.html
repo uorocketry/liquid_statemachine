@@ -9,6 +9,9 @@
     <div><span class="eyebrow">Recorded data</span><h1>Acquisition runs</h1></div>
     <a class="secondary-button download-link" href="/runs/backup/database">Download database backup</a>
   </header>
+  <section class="runs-acquisition-control">
+    {% include "fragments/labjack.html" %}
+  </section>
   <p class="page-intro">Every acquisition is retained automatically. Open a run to inspect time windows or export its samples to CSV.</p>
   {% include "fragments/run_table.html" %}
 </main>

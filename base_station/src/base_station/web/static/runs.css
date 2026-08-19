@@ -3,6 +3,15 @@
 .page-heading h1 { margin: 2px 0 0; font-size: 23px; }
 .page-intro { max-width: 700px; margin: 0 0 18px; color: var(--muted); font-size: 10px; line-height: 1.5; }
 .download-link { display: inline-grid; place-items: center; width: auto; margin: 0; text-decoration: none; }
+.runs-acquisition-control {
+  max-width: 520px;
+  margin: 18px 0;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  background: #fafbfa;
+}
+.runs-acquisition-control .panel { padding: 14px 0; }
+.runs-acquisition-control .field-note { max-width: 460px; }
 .run-table-wrap { margin-top: 15px; overflow-x: auto; border-top: 1px solid var(--line); }
 .run-table { width: 100%; border-collapse: collapse; text-align: left; }
 .run-table th { padding: 8px; color: var(--muted); border-bottom: 1px solid var(--line); font-size: 8px; letter-spacing: .08em; text-transform: uppercase; }

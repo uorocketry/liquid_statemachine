@@ -17,6 +17,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
 from base_station.web.cart_service import CartService, STATE_NAMES
+from base_station.web.daq_config import build_daq_router
 from base_station.web.labjack_service import LabJackService
 from base_station.web.models import DashboardState
 from base_station.web.run_repository import RunRepository
@@ -46,6 +47,12 @@ class StateRequest(BaseModel):
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     cart.start()
+    try:
+        labjack.connect(dashboard.labjack.ip)
+    except RuntimeError as error:
+        dashboard.log(
+            f"LabJack auto-connect failed: {error}", "warning", "labjack"
+        )
     yield
     cart.stop()
     labjack.disconnect()
@@ -53,6 +60,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title="Liquid State Machine", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.include_router(build_daq_router(dashboard, labjack, DATA_DIR / "daq-blueprint.json"))
 
 
 def template_context(request: Request) -> dict:
@@ -82,9 +90,22 @@ def index(request: Request):
     return templates.TemplateResponse(request, "index.html", template_context(request))
 
 
+@app.get("/state", include_in_schema=False)
+def state_machine(request: Request):
+    return templates.TemplateResponse(request, "state.html", template_context(request))
+
+
 @app.get("/diagnostics", include_in_schema=False)
 def diagnostics(request: Request):
     return templates.TemplateResponse(request, "diagnostics.html", template_context(request))
+
+
+@app.get("/configuration", include_in_schema=False)
+def configuration(request: Request):
+    """Operator-facing LabJack and signal graph configuration surface."""
+    return templates.TemplateResponse(
+        request, "configuration.html", template_context(request)
+    )
 
 
 @app.get("/runs", include_in_schema=False)

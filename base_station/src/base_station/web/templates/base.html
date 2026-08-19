@@ -17,6 +17,8 @@
       </div>
       <nav class="page-nav" aria-label="Primary navigation">
         <a class="{% if active_page == 'dashboard' %}active{% endif %}" href="/">Dashboard</a>
+        <a class="{% if active_page == 'state' %}active{% endif %}" href="/state">State Machine</a>
+        <a class="{% if active_page == 'configuration' %}active{% endif %}" href="/configuration">DAQ Setup</a>
         <a class="{% if active_page == 'runs' %}active{% endif %}" href="/runs">Runs</a>
         <a class="{% if active_page == 'diagnostics' %}active{% endif %}" href="/diagnostics">Diagnostics</a>
       </nav>

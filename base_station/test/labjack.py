@@ -4,7 +4,7 @@ import time
 import math
 
 # --- Use the same IP as your GUI ---
-identifier = "192.168.1.200"
+identifier = "192.168.8.51"
 
 try:
     handle = ljm.openS("T7", "ETHERNET", identifier)

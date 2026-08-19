@@ -1,0 +1,23 @@
+.state-page {
+  min-height: calc(100vh - 54px);
+  padding: 20px;
+  background: #eef1ed;
+}
+
+.state-control-surface {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  padding: 0 18px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.state-control-surface .panel { padding: 18px 0; }
+.state-control-surface .state-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.state-control-surface .health-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+@media (max-width: 700px) {
+  .state-page { padding: 10px; }
+  .state-control-surface .state-grid,
+  .state-control-surface .health-summary { grid-template-columns: 1fr 1fr; }
+}
