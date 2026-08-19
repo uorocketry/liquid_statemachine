@@ -78,6 +78,14 @@ class FrontendContractTests(TestCase):
         self.assertIn("liquid-appearance", theme)
         self.assertIn('--color-surface-hover:', tokens)
         self.assertIn(':root[data-theme="dark"]', tokens)
+        self.assertIn('--color-canvas: #000000;', tokens)
+
+    def test_daq_editor_background_tracks_light_and_dark_canvas(self) -> None:
+        setup = read("static/daq-config/setup.css")
+        blueprint = read("static/blueprint/blueprint.css")
+        self.assertIn('.daq-graph-stage .liquid-blueprint-editor { --blueprint-bg: var(--color-canvas);', setup)
+        self.assertIn('linear-gradient(to right, var(--blueprint-grid-major) 1px, transparent 1px)', blueprint)
+        self.assertIn('linear-gradient(to right, var(--blueprint-grid-minor) 1px, transparent 1px)', blueprint)
 
     def test_devices_keep_active_state_during_status_refresh(self) -> None:
         status = read("templates/fragments/system_status.html")
