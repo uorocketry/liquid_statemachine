@@ -7,5 +7,6 @@
 
 `lit.js` is a browser ESM bundle containing only the APIs used by the Liquid
 blueprint editor (`LitElement`, `html`, `svg`, `render`, `nothing`, and
-`repeat`). It is generated from the published npm package and is committed so
-the base station has no Node/Bun/Vite runtime or build dependency.
+`repeat`). It is generated from the published npm package with esbuild targeting
+ES2015 and is committed so the base station has no Node/Bun/Vite runtime or
+build dependency.

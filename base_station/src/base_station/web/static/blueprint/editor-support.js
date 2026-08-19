@@ -143,6 +143,17 @@ export const supportMethods = {
     return this._graph.nodes.find((node) => node.id === nodeId);
   },
 
+  _fitGraphAfterRender() {
+    if (!this.isConnected || !this._graph.nodes.length) return;
+    requestAnimationFrame(async () => {
+      const pending = this._graph.nodes
+        .map((node) => this._nodeElement(node.id)?.updateComplete)
+        .filter(Boolean);
+      if (pending.length) await Promise.all(pending);
+      this.fitGraph();
+    });
+  },
+
   _nodeElement(nodeId) {
     return this._nodeLayer?.querySelector(`liquid-blueprint-node[data-node-id="${cssEscape(nodeId)}"]`);
   },

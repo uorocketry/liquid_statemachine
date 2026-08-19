@@ -16,7 +16,7 @@ export const editorApi = {
     this._selectedLinks.clear();
     this._renderGraph();
     this._emitSelection();
-    if (this.isConnected && this._graph.nodes.length) requestAnimationFrame(() => this.fitGraph());
+    this._fitGraphAfterRender();
   },
 
   /** @returns {BlueprintGraph} */
@@ -229,8 +229,8 @@ export const editorApi = {
       const element = this._nodeElement(node.id);
       return {
         x: node.x, y: node.y,
-        width: element?.offsetWidth ?? node.width ?? NODE_FALLBACK_WIDTH,
-        height: element?.offsetHeight ?? NODE_FALLBACK_HEIGHT,
+        width: element?.offsetWidth || node.width || NODE_FALLBACK_WIDTH,
+        height: element?.offsetHeight || NODE_FALLBACK_HEIGHT,
       };
     });
     const minX = Math.min(...boxes.map((box) => box.x));

@@ -1,6 +1,7 @@
 """Static contract checks for operator-facing controls and production routes."""
 
 from pathlib import Path
+from hashlib import sha256
 from unittest import TestCase
 
 
@@ -80,6 +81,13 @@ class FrontendContractTests(TestCase):
         self.assertIn("repeat(views", render)
         self.assertNotIn("replaceChildren", render)
         self.assertNotIn("_wireLayer.innerHTML", render)
+
+    def test_vendored_lit_keeps_attribute_parser_whitespace(self) -> None:
+        vendor = WEB / "static" / "vendor" / "lit" / "lit.js"
+        self.assertEqual(
+            sha256(vendor.read_bytes()).hexdigest(),
+            "2d739f3737b4df8a4ae9bb97b57bc723c80f83b4e1e8d864ae33ef748436216d",
+        )
 
     def test_blueprint_inline_controls_keep_units_and_select_state_clean(self) -> None:
         node_template = read("static/blueprint/node-template.js")

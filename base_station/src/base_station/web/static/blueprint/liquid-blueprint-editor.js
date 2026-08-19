@@ -69,7 +69,7 @@ export class LiquidBlueprintEditor extends HTMLElement {
     this._renderGraph();
     this._resizeObserver = new ResizeObserver(() => this._scheduleWireRender());
     this._resizeObserver.observe(this._viewport);
-    if (this._graph.nodes.length) requestAnimationFrame(() => this.fitGraph());
+    this._fitGraphAfterRender();
   }
 
   disconnectedCallback() {
