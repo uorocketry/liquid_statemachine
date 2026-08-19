@@ -8,7 +8,7 @@
     <div class="current-state">
       <span>Current state</span>
       <strong>{{ state_names[cart.state] if cart.connected and cart.state is not none else "Disconnected" }}</strong>
-      <small>{% if cart.connected %}Controller online · state {{ cart.state }}{% else %}Waiting for {{ cart.host }}{% endif %}</small>
+      {% if not cart.connected %}<small>Waiting for {{ cart.host }}</small>{% endif %}
       {% if cart.transition_message %}<p class="operation-status {% if cart.pending_state is not none %}pending{% endif %}">{{ cart.transition_message }}</p>{% endif %}
     </div>
     <div class="state-grid" aria-label="State controls">
@@ -21,7 +21,6 @@
       ) }}
       {% endfor %}
     </div>
-    <p class="hint">Only transitions authorized by the controller are enabled.</p>
   </section>
   <section class="panel controller-health">
     <div class="section-heading compact">
@@ -35,12 +34,5 @@
       <div><dt>Last seen</dt><dd>{{ cart.last_seen[11:19] if cart.last_seen else "—" }}</dd></div>
     </dl>
     <a class="detail-link" href="/diagnostics">Open diagnostics →</a>
-  </section>
-  <section class="panel mini-panel">
-    <span class="eyebrow">Run summary</span>
-    <div class="stat-row">
-      <div><span>Samples</span><strong>{{ "{:,}".format(labjack.sample_count) }}</strong></div>
-      <div><span>Scan rate</span><strong>{{ "{:,} Hz".format(labjack.scan_rate) if labjack.streaming else "—" }}</strong></div>
-    </div>
   </section>
 </div>

@@ -1,29 +1,21 @@
 {% extends "base.html" %}
 {% set active_page = "dashboard" %}
-{% block subtitle %}Base station · PHIL cart{% endblock %}
+{% block subtitle %}Live telemetry{% endblock %}
+{% block styles %}<link rel="stylesheet" href="/static/dashboard-telemetry.css" />{% endblock %}
 {% block content %}
-<main class="workspace">
-  <aside class="rail">{% include "fragments/cart.html" %}</aside>
-  <section class="telemetry">
+<main class="dashboard-page">
+  <section class="telemetry dashboard-telemetry">
     <div class="telemetry-heading">
-      <div><span class="eyebrow">Live telemetry</span><h2>Differential voltage</h2></div>
-      <div class="timeline-controls"><button id="live-playback" class="secondary-button" type="button">Ⅱ Pause</button><button id="follow-live" class="secondary-button" type="button">Following live</button></div>
-      {% include "fragments/graph_settings.html" %}
+      <h2>Telemetry</h2>
+      <div class="telemetry-actions">
+        <span id="telemetry-live-state" class="telemetry-live-state">—</span>
+        <details class="telemetry-signal-picker"><summary>Signals</summary><div id="telemetry-signal-options" class="telemetry-signal-options"></div></details>
+      </div>
     </div>
-    <div class="chart-grid">
-      <article class="timeline-chart">
-        <div class="timeline-chart-header"><div><span class="channel-key cyan"></span><strong>AIN0 − AIN1</strong></div><output id="value-a">— V</output></div>
-        <canvas id="chart-a" aria-label="AIN0 minus AIN1 voltage chart"></canvas>
-      </article>
-      <article class="timeline-chart">
-        <div class="timeline-chart-header"><div><span class="channel-key lime"></span><strong>AIN2 − AIN3</strong></div><output id="value-b">— V</output></div>
-        <canvas id="chart-b" aria-label="AIN2 minus AIN3 voltage chart"></canvas>
-      </article>
-    </div>
-    <div class="timeline-navigator"><canvas id="live-tier-navigator" aria-label="Drag to navigate live telemetry history"></canvas></div>
+    <div id="telemetry-signal-grid" class="blueprint-telemetry-grid"></div>
+    <div id="telemetry-empty" class="telemetry-empty" hidden><a href="/configuration">Open DAQ Setup</a></div>
     {% include "fragments/events.html" %}
   </section>
-  <aside class="rail settings-rail">{% include "fragments/labjack.html" %}</aside>
 </main>
 {% endblock %}
-{% block scripts %}<script src="/static/timeline-inspection.js"></script><script src="/static/timeline.js"></script><script src="/static/telemetry.js"></script>{% endblock %}
+{% block scripts %}<script type="module" src="/static/dashboard-telemetry.js"></script>{% endblock %}

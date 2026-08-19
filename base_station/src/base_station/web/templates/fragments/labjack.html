@@ -22,7 +22,7 @@
       </button>
       {% endif %}
     </form>
-    <p class="operation-status {% if labjack.acquisition_state in ['starting', 'stopping'] %}pending{% endif %}">{{ labjack.operation_message or "Ready to record" }}</p>
+    {% if labjack.operation_message %}<p class="operation-status {% if labjack.acquisition_state in ['starting', 'stopping'] %}pending{% endif %}">{{ labjack.operation_message }}</p>{% endif %}
     {% if labjack.current_run_id %}<p class="field-note">Run {{ labjack.current_run_id }} · <a class="detail-link" href="/runs/{{ labjack.current_run_id }}">open record</a></p>{% endif %}
     <p class="form-error">{{ labjack.error or "" }}</p>
   </section>

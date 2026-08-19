@@ -7,7 +7,6 @@
 <main class="diagnostics-page">
   <header class="page-heading">
     <div><span class="eyebrow">System detail</span><h1>Diagnostics</h1></div>
-    <button class="secondary-button" hx-get="/fragments/diagnostic-health" hx-target="#diagnostic-health" hx-swap="outerHTML">Refresh now</button>
   </header>
   {% include "fragments/diagnostic_health.html" %}
   {% include "fragments/labjack_connection.html" %}
