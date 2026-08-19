@@ -1,0 +1,134 @@
+.daq-setup-page {
+  height: calc(100vh - 58px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  background: #f6f8f9;
+}
+
+.daq-setup-header {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 7px 12px;
+  border-bottom: 1px solid #c9d0d4;
+  background: #fff;
+}
+.daq-header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.daq-header-actions > button {
+  min-height: 32px;
+  padding: 0 11px;
+  border: 1px solid #8f9ca5;
+  border-radius: 3px;
+  background: #263f50;
+  color: #fff;
+  font: inherit;
+  font-weight: 650;
+}
+.daq-header-actions > button.secondary-button { background: #fff; color: #283740; }
+.daq-header-actions > button:disabled { opacity: .42; }
+#daq-save-state { min-width: 82px; font-size: 10px; }
+#daq-save-state.saved { color: #387354; }
+#daq-save-state.dirty { color: #866319; }
+#daq-save-state.error { color: #a43d3d; }
+
+.daq-scan-rate-setting { display: flex; align-items: center; gap: 8px; color: #66737c; font-size: 9px; font-weight: 700; }
+.daq-inline-setting { display: grid; grid-template-columns: 76px auto; align-items: center; gap: 6px; }
+.daq-inline-setting input { width: 76px; min-width: 0; padding: 5px 6px; border: 1px solid #b7c1c7; }
+.daq-inline-setting em { color: #8a959d; font-size: 8px; font-style: normal; }
+
+.daq-setup-grid {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 205px minmax(560px, 1fr);
+  background: #fff;
+}
+.daq-palette-rail {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  background: #fff;
+}
+.daq-palette-rail { border-right: 1px solid #c9d0d4; }
+.daq-rail-heading { padding: 10px 12px 9px; border-bottom: 1px solid #dce1e4; }
+.daq-rail-heading > span {
+  display: block;
+  color: #74818a;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+.daq-graph-stage { min-width: 0; min-height: 0; background: #edf1f3; }
+.daq-graph-stage .liquid-blueprint-editor { height: 100%; }
+.daq-graph-stage .blueprint-toolbar {
+  min-height: 39px;
+  border: 0;
+  border-bottom: 1px solid #c9d0d4;
+  border-radius: 0;
+  padding: 4px 8px;
+}
+.daq-graph-stage .blueprint-viewport {
+  height: calc(100% - 40px);
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.daq-palette-group { padding: 8px 7px 5px; }
+.daq-palette-group + .daq-palette-group { border-top: 1px solid #edf0f2; }
+.daq-palette-group h3 { margin: 0 5px 4px; color: #7e8b94; font-size: 8px; letter-spacing: .08em; text-transform: uppercase; }
+.daq-palette-item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 5px;
+  border: 0;
+  border-left: 2px solid transparent;
+  background: transparent;
+  color: #24313a;
+  text-align: left;
+  cursor: pointer;
+}
+.daq-palette-item:hover { border-left-color: #527d99; background: #eef3f6; }
+.daq-palette-item > span { text-align: center; color: #536976; font-weight: 800; }
+.daq-palette-item strong { display: block; font-size: 10px; }
+.daq-palette-item small { display: none; }
+#daq-palette.awaiting-placement { border-left: 2px solid #4b94c4; }
+.daq-issue-summary { border-top: 1px solid #dfe4e7; }
+.daq-issue-summary:empty { display: none; }
+.daq-issue-item {
+  width: 100%;
+  display: block;
+  padding: 8px 10px;
+  border: 0;
+  border-bottom: 1px solid #e6eaec;
+  border-left: 3px solid #9ca6ac;
+  background: #fff;
+  color: #37454d;
+  text-align: left;
+  cursor: pointer;
+}
+.daq-issue-item:hover { background: #f4f7f8; }
+.daq-issue-item strong, .daq-issue-item span { display: block; }
+.daq-issue-item strong { margin-bottom: 2px; font-size: 9px; }
+.daq-issue-item span { color: #68757d; font-size: 8px; line-height: 1.35; }
+.daq-issue-item.error { border-left-color: #ad4b4b; }
+.daq-issue-item.error strong { color: #8e3838; }
+.daq-issue-item.warning { border-left-color: #b08a36; }
+.daq-issue-item.warning strong { color: #7b6126; }
+
+@media (max-width: 1120px) {
+  .daq-setup-grid { grid-template-columns: 190px minmax(480px, 1fr); }
+}
+@media (max-width: 760px) {
+  .daq-setup-page { height: auto; overflow: visible; }
+  .daq-setup-header { align-items: flex-start; flex-direction: column; }
+  .daq-setup-grid { display: block; }
+  .daq-palette-rail { position: static; width: auto; border: 0; border-bottom: 1px solid #c9d0d4; box-shadow: none; }
+  .daq-graph-stage { height: 64vh; min-height: 430px; padding-right: 0; }
+}
