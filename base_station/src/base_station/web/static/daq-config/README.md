@@ -3,6 +3,10 @@
 Browser modules for `/configuration`. The graph is saved through FastAPI and
 edited directly on nodes.
 
+Page-specific controls are kept out of the global site sidebar. Nodes,
+acquisition settings, validation issues, history, framing, reload, and save live
+in the graph's bottom toolbar/popovers.
+
 ## Nodes
 
 - channel / channel pair;
@@ -36,3 +40,6 @@ raw AIN voltage plus device cold-junction temperature and host LJM conversion.
 
 MUX80 channel rules remain supported in the model but are not exposed in the
 normal UI until that optional hardware is needed.
+
+Stream resolution and settling are graph-wide acquisition settings. Analog
+input range remains node-specific.

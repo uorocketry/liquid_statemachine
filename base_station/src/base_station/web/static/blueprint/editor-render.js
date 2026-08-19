@@ -21,19 +21,18 @@ export const renderMethods = {
           <div class="blueprint-node-layer"></div>
           <div class="blueprint-selection-marquee" hidden></div>
         </div>
-        <div class="blueprint-hint"><kbd>RMB</kbd> menu/pan <span>·</span><kbd>Pin drag</kbd> connect <span>·</span><kbd>LMB drag</kbd> select <span>·</span><kbd>MMB</kbd> pan <span>·</span><kbd>Wheel</kbd> zoom</div>
         <div class="blueprint-zoom"><button type="button" data-blueprint-action="zoom-out">−</button><span data-blueprint-zoom>100%</span><button type="button" data-blueprint-action="zoom-in">+</button></div>
         <div class="blueprint-menu blueprint-canvas-menu" hidden>
-          <button type="button" data-menu-action="create"><span>＋</span><strong>Add node…</strong></button>
+          <button type="button" data-menu-action="create"><span class="ui-icon icon-add" aria-hidden="true"></span><strong>Add node…</strong></button>
           <button type="button" data-menu-action="paste"><span>⌘V</span><strong>Paste</strong></button>
-          <button type="button" data-menu-action="fit"><span>□</span><strong>Frame graph</strong></button>
+          <button type="button" data-menu-action="fit"><span class="ui-icon icon-frame" aria-hidden="true"></span><strong>Frame graph</strong></button>
         </div>
         <div class="blueprint-menu blueprint-node-menu" hidden>
-          <button type="button" data-menu-action="cut"><span>⌘X</span><strong>Cut</strong></button>
-          <button type="button" data-menu-action="copy"><span>⌘C</span><strong>Copy</strong></button>
-          <button type="button" data-menu-action="duplicate"><span>⌘D</span><strong>Duplicate</strong></button>
-          <button type="button" data-menu-action="break"><span>⨯</span><strong>Break links</strong></button>
-          <button type="button" data-menu-action="delete" class="danger"><span>⌫</span><strong>Delete</strong></button>
+          <button type="button" data-menu-action="cut"><span class="ui-icon icon-cut" aria-hidden="true"></span><strong>Cut</strong></button>
+          <button type="button" data-menu-action="copy"><span class="ui-icon icon-copy" aria-hidden="true"></span><strong>Copy</strong></button>
+          <button type="button" data-menu-action="duplicate"><span class="ui-icon icon-duplicate" aria-hidden="true"></span><strong>Duplicate</strong></button>
+          <button type="button" data-menu-action="break"><span class="ui-icon icon-link" aria-hidden="true"></span><strong>Break links</strong></button>
+          <button type="button" data-menu-action="delete" class="danger"><span class="ui-icon icon-delete" aria-hidden="true"></span><strong>Delete</strong></button>
         </div>
       </section>`;
     this._viewport = this.querySelector('.blueprint-viewport');

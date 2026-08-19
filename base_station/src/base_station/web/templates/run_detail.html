@@ -1,13 +1,12 @@
 {% extends "base.html" %}
 {% set active_page = "runs" %}
 {% block title %}Run {{ run.id }} · Liquid State Machine{% endblock %}
-{% block subtitle %}Acquisition archive{% endblock %}
 {% block styles %}<link rel="stylesheet" href="/static/runs.css" />{% endblock %}
 {% block content %}
-<main class="runs-page run-detail" data-run-id="{{ run.id }}" data-sample-count="{{ run.sample_count }}" data-scan-rate="{{ run.scan_rate }}" data-run-status="{{ run.status }}">
+<main class="page runs-page run-detail" data-run-id="{{ run.id }}" data-sample-count="{{ run.sample_count }}" data-scan-rate="{{ run.scan_rate }}" data-run-status="{{ run.status }}">
   <header class="page-heading">
-    <div><a class="back-link" href="/runs">← All runs</a><h1>Run {{ run.id }}</h1></div>
-    <a class="primary-button download-link" href="/runs/{{ run.id }}/export.csv">Download CSV</a>
+    <div class="run-title-row"><a class="icon-button back-link" href="/runs" aria-label="All runs" title="All runs"><span class="ui-icon icon-back" aria-hidden="true"></span></a><h1>Run {{ run.id }}</h1></div>
+    <a class="icon-button" href="/runs/{{ run.id }}/export.csv" aria-label="Download CSV" title="Download CSV"><span class="ui-icon icon-export" aria-hidden="true"></span></a>
   </header>
   <dl class="run-summary">
     <div><dt>Started</dt><dd>{{ run.started_at|replace("T", " ") }}</dd></div><div><dt>Status</dt><dd id="run-status">{{ run.status }}</dd></div>

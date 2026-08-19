@@ -6,7 +6,7 @@ from unittest import TestCase
 
 from base_station.web.daq_config.migration import migrate_graph
 from base_station.web.daq_config.repository import DaqConfigRepository
-from base_station.web.daq_config.validation import validate_graph
+from base_station.web.daq_config.validation import blocking_issues, validate_graph
 
 
 def source(node_id: str, channel: str = "AIN0") -> dict:
@@ -88,6 +88,27 @@ class DaqConfigTests(TestCase):
         self.assertEqual({link["toPin"] for link in migrated["links"]}, {"channel"})
         self.assertEqual(validate_graph(migrated), [])
 
+    def test_legacy_stream_settings_move_to_graph_metadata(self) -> None:
+        legacy = differential_graph("AIN0")
+        legacy["nodes"][1]["config"].update({"resolutionIndex": 4, "settlingUs": 30})
+        migrated = migrate_graph(legacy)
+        measurement = next(node for node in migrated["nodes"] if node["id"] == "measurement")
+        self.assertEqual(migrated["metadata"]["streamResolutionIndex"], 4)
+        self.assertEqual(migrated["metadata"]["streamSettlingUs"], 30)
+        self.assertEqual(migrated["metadata"]["schemaVersion"], 5)
+        self.assertNotIn("resolutionIndex", measurement["config"])
+        self.assertNotIn("settlingUs", measurement["config"])
+
+    def test_conflicting_legacy_stream_settings_fall_back_to_auto(self) -> None:
+        graph = differential_graph("AIN0")
+        graph["nodes"].append({
+            "id": "second", "nodeType": "labjack-ain", "pins": [],
+            "config": {"rangeV": 1, "resolutionIndex": 7, "settlingUs": 80},
+        })
+        migrated = migrate_graph(graph)
+        self.assertEqual(migrated["metadata"]["streamResolutionIndex"], 0)
+        self.assertEqual(migrated["metadata"]["streamSettlingUs"], 0)
+
     def test_two_channel_reference_nodes_collapse_to_one_pair(self) -> None:
         graph = {
             "nodes": [
@@ -139,6 +160,14 @@ class DaqConfigTests(TestCase):
         graph = {"nodes": [], "links": [], "metadata": {"scanRate": 100001}}
         self.assertIn("Scan rate", validate_graph(graph)[0]["message"])
 
+    def test_invalid_stream_quality_settings_are_rejected(self) -> None:
+        graph = {"nodes": [], "links": [], "metadata": {
+            "scanRate": 1000, "streamResolutionIndex": 9, "streamSettlingUs": -1,
+        }}
+        messages = [issue["message"] for issue in validate_graph(graph)]
+        self.assertIn("Stream resolution must be Auto or index 1 through 8", messages)
+        self.assertIn("Stream settling time cannot be negative", messages)
+
     def test_repository_round_trip(self) -> None:
         with TemporaryDirectory() as directory:
             path = Path(directory) / "daq.json"
@@ -164,6 +193,26 @@ class DaqConfigTests(TestCase):
         self.assertIn("Load cell rated output must be positive", messages)
         self.assertIn("Load cell zero offset is required", messages)
         self.assertIn("Load cell excitation must be positive", messages)
+
+    def test_missing_required_input_is_a_non_blocking_warning(self) -> None:
+        graph = {
+            "nodes": [{
+                "id": "load", "nodeType": "load-cell",
+                "pins": [
+                    {"id": "input", "label": "Bridge voltage", "direction": "input", "type": "V"},
+                    {"id": "load", "label": "Load", "direction": "output", "type": "kg"},
+                ],
+                "config": {
+                    "ratedOutputMvV": 1.0, "capacity": 1.0,
+                    "zeroV": 0.0, "excitationV": 5.0, "unit": "kg",
+                },
+            }],
+            "links": [],
+        }
+        issues = validate_graph(graph)
+        self.assertIn("Bridge voltage is not connected", [issue["message"] for issue in issues])
+        self.assertEqual([issue["severity"] for issue in issues], ["warning"])
+        self.assertEqual(blocking_issues(issues), [])
 
     def test_dashboard_metadata_is_constrained(self) -> None:
         graph = {

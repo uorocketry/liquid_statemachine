@@ -11,10 +11,20 @@ import { daqConnectionAllowed } from './connection-policy.js';
 const editor = document.querySelector('#daq-blueprint');
 const palette = document.querySelector('#daq-palette');
 const issueSummary = document.querySelector('#daq-issue-summary');
+const nodeTools = document.querySelector('#daq-node-tools');
+const acquisitionTools = document.querySelector('#daq-acquisition-tools');
+const issueTools = document.querySelector('#daq-issue-tools');
+const issueCount = document.querySelector('#daq-issue-count');
 const saveButton = document.querySelector('#daq-save');
 const reloadButton = document.querySelector('#daq-reload');
+const undoButton = document.querySelector('#daq-undo');
+const redoButton = document.querySelector('#daq-redo');
+const frameButton = document.querySelector('#daq-frame');
 const saveState = document.querySelector('#daq-save-state');
 const scanRate = document.querySelector('#daq-scan-rate');
+const streamResolution = document.querySelector('#daq-stream-resolution');
+const streamSettling = document.querySelector('#daq-stream-settling');
+const signalQuality = document.querySelector('#daq-signal-quality');
 
 let capabilities = null;
 let insertionPoint = null;
@@ -24,7 +34,7 @@ let preview = null;
 
 bootstrap().catch((error) => {
   saveState.textContent = `Failed to load: ${error.message}`;
-  saveState.className = 'error';
+  saveState.className = 'daq-save-state error';
 });
 
 async function bootstrap() {
@@ -35,9 +45,9 @@ async function bootstrap() {
   capabilities = capabilityPayload;
   editor.nodeDecorator = (node, graph) => {
     const displayNode = decorateNode(node, graph, capabilities);
-    const nodeIssues = issues.filter((issue) => issue.subject === node.id);
-    const primary = nodeIssues.find((issue) => issue.severity === 'error') ?? nodeIssues[0];
-    if (primary) displayNode.warning = primary.message;
+    displayNode.diagnostics = issues
+      .filter((issue) => issue.subject === node.id)
+      .sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
     return displayNode;
   };
   editor.inlineEditPolicy = patchInlineNode;
@@ -56,8 +66,8 @@ async function bootstrap() {
 function bindEvents() {
   editor.addEventListener('blueprint-create-request', (event) => {
     insertionPoint = event.detail.point;
+    openToolMenu(nodeTools);
     palette.classList.add('awaiting-placement');
-    palette.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   });
   editor.addEventListener('blueprint-selection-change', (event) => {
     highlightPathToSelection(editor, editor.graph, event.detail.nodeIds[0] ?? null);
@@ -69,7 +79,24 @@ function bindEvents() {
   });
   saveButton.addEventListener('click', save);
   reloadButton.addEventListener('click', reload);
+  undoButton.addEventListener('click', () => editor.undo());
+  redoButton.addEventListener('click', () => editor.redo());
+  frameButton.addEventListener('click', () => editor.fitGraph());
   scanRate.addEventListener('change', () => editor.updateMetadata({ scanRate: Number(scanRate.value) }));
+  streamResolution.addEventListener('change', () => editor.updateMetadata({
+    streamResolutionIndex: Number(streamResolution.value),
+  }));
+  streamSettling.addEventListener('change', () => editor.updateMetadata({
+    streamSettlingUs: Number(streamSettling.value),
+  }));
+  for (const menu of [nodeTools, acquisitionTools, issueTools]) {
+    menu.addEventListener('toggle', () => {
+      if (!menu.open) return;
+      for (const other of [nodeTools, acquisitionTools, issueTools]) {
+        if (other !== menu) other.open = false;
+      }
+    });
+  }
   window.addEventListener('keydown', (event) => {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
       event.preventDefault();
@@ -84,6 +111,7 @@ function addNodeFromPalette(nodeType) {
   editor.addNode(node);
   insertionPoint = null;
   palette.classList.remove('awaiting-placement');
+  nodeTools.open = false;
 }
 
 function editorCenterPoint() {
@@ -101,15 +129,22 @@ function refreshUi() {
   renderIssues();
   const errors = blockingIssues(issues);
   saveButton.disabled = errors.length > 0 || !dirty;
+  undoButton.disabled = !editor.canUndo;
+  redoButton.disabled = !editor.canRedo;
   saveState.textContent = errors.length
     ? `Error · ${errors[0].message}`
     : dirty ? 'Unsaved changes' : 'Saved';
-  saveState.className = errors.length ? 'error' : dirty ? 'dirty' : 'saved';
+  saveState.className = `daq-save-state ${errors.length ? 'error' : dirty ? 'dirty' : 'saved'}`;
 }
 
 function renderIssues() {
   issueSummary.replaceChildren();
-  for (const issue of issues) {
+  issueTools.hidden = issues.length === 0;
+  issueTools.classList.toggle('error', issues.some((issue) => issue.severity === 'error'));
+  issueCount.textContent = String(issues.length);
+  if (!issues.length) issueTools.open = false;
+  const orderedIssues = [...issues].sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
+  for (const issue of orderedIssues) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = `daq-issue-item ${issue.severity}`;
@@ -133,7 +168,12 @@ function issueSubjectLabel(subject) {
 
 function focusIssue(issue) {
   if (issue.subject === 'graph') {
-    scanRate.focus({ preventScroll: true });
+    openToolMenu(acquisitionTools);
+    const target = issue.message.toLowerCase().includes('resolution')
+      ? streamResolution
+      : issue.message.toLowerCase().includes('settling') ? streamSettling : scanRate;
+    if (target !== scanRate) signalQuality.open = true;
+    target.focus({ preventScroll: true });
     return;
   }
   if (!editor.graph.nodes.some((node) => node.id === issue.subject)) return;
@@ -152,7 +192,7 @@ async function save() {
     refreshUi();
   } catch (error) {
     saveState.textContent = error.detail?.issues?.[0]?.message ?? error.message;
-    saveState.className = 'error';
+    saveState.className = 'daq-save-state error';
   }
 }
 
@@ -169,4 +209,17 @@ async function reload() {
 function syncAcquisitionControls() {
   const metadata = editor.graph.metadata ?? {};
   scanRate.value = metadata.scanRate ?? 1000;
+  streamResolution.value = metadata.streamResolutionIndex ?? 0;
+  streamSettling.value = metadata.streamSettlingUs ?? 0;
+  signalQuality.open = Number(streamResolution.value) !== 0 || Number(streamSettling.value) > 0;
+}
+
+function openToolMenu(menu) {
+  for (const other of [nodeTools, acquisitionTools, issueTools]) {
+    other.open = other === menu;
+  }
+}
+
+function severityRank(severity) {
+  return severity === 'error' ? 0 : severity === 'warning' ? 1 : 2;
 }

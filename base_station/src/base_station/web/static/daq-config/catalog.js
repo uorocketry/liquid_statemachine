@@ -3,17 +3,17 @@ import { availableChannels, differentialNegative, differentialPositiveChannels }
 /** @typedef {import('../blueprint/model.js').BlueprintNode} BlueprintNode */
 
 export const NODE_CATALOG = [
-  { type: 'labjack-channel', category: 'LabJack', title: 'Channel reference', glyph: 'C', description: 'Reference one physical T7 or MUX80 analog channel.' },
-  { type: 'labjack-channel-pair', category: 'LabJack', title: 'Channel pair', glyph: '↕', description: 'Reference one valid differential T7 or MUX80 channel pair.' },
-  { type: 'labjack-ain', category: 'LabJack', title: 'Analog input', glyph: 'A', description: 'Read one channel or a differential channel pair.' },
-  { type: 'labjack-current', category: 'LabJack', title: 'Current input', glyph: 'I', description: 'Measure current through a shunt supplied by the graph.' },
-  { type: 'labjack-thermocouple', category: 'LabJack', title: 'Thermocouple', glyph: 'T', description: 'Differential thermocouple measurement converted to Kelvin.' },
-  { type: 'pressure-calibration', category: 'Sensors', title: 'Pressure calibration', glyph: 'P', description: 'Map voltage or current into calibrated PSI.' },
-  { type: 'load-cell', category: 'Sensors', title: 'Load cell', glyph: 'W', description: 'Convert bridge voltage and excitation into mass or force.' },
-  { type: 'constant', category: 'Math', title: 'Constant', glyph: '#', description: 'Named engineering constant such as tank dry mass.' },
-  { type: 'subtract', category: 'Math', title: 'Subtract', glyph: '−', description: 'Subtract one engineering signal from another.' },
-  { type: 'rate-of-change', category: 'Math', title: 'Rate of change', glyph: 'Δ', description: 'Time derivative for mass-flow and similar derived signals.' },
-  { type: 'dashboard-signal', category: 'Dashboard', title: 'Dashboard signal', glyph: '▣', description: 'Publish a value, plot, or both to the operator dashboard.' },
+  { type: 'labjack-channel', category: 'LabJack', title: 'Channel reference', icon: 'icon-node-channel', description: 'Reference one physical T7 or MUX80 analog channel.' },
+  { type: 'labjack-channel-pair', category: 'LabJack', title: 'Channel pair', icon: 'icon-node-pair', description: 'Reference one valid differential T7 or MUX80 channel pair.' },
+  { type: 'labjack-ain', category: 'LabJack', title: 'Analog input', icon: 'icon-node-ain', description: 'Read one channel or a differential channel pair.' },
+  { type: 'labjack-current', category: 'LabJack', title: 'Current input', icon: 'icon-node-current', description: 'Measure current through a shunt supplied by the graph.' },
+  { type: 'labjack-thermocouple', category: 'LabJack', title: 'Thermocouple', icon: 'icon-node-thermocouple', description: 'Differential thermocouple measurement converted to Kelvin.' },
+  { type: 'pressure-calibration', category: 'Sensors', title: 'Pressure calibration', icon: 'icon-node-pressure', description: 'Map voltage or current into calibrated PSI.' },
+  { type: 'load-cell', category: 'Sensors', title: 'Load cell', icon: 'icon-node-load', description: 'Convert bridge voltage and excitation into mass or force.' },
+  { type: 'constant', category: 'Math', title: 'Constant', icon: 'icon-node-constant', description: 'Named engineering constant such as tank dry mass.' },
+  { type: 'subtract', category: 'Math', title: 'Subtract', icon: 'icon-node-subtract', description: 'Subtract one engineering signal from another.' },
+  { type: 'rate-of-change', category: 'Math', title: 'Rate of change', icon: 'icon-node-rate', description: 'Time derivative for mass-flow and similar derived signals.' },
+  { type: 'dashboard-signal', category: 'Dashboard', title: 'Dashboard signal', icon: 'icon-node-dashboard', description: 'Publish a value, plot, or both to the operator dashboard.' },
 ];
 
 /**
@@ -31,7 +31,7 @@ export function createNode(nodeType, point, capabilities, graph) {
     id,
     nodeType,
     title: definition.title,
-    glyph: definition.glyph,
+    icon: definition.icon,
     tone: toneFor(nodeType),
     x: Math.round(point.x),
     y: Math.round(point.y),
@@ -160,7 +160,7 @@ function pairDefaults(capabilities, graph) {
 }
 
 function measurementDefaults() {
-  return { rangeV: 0.1, resolutionIndex: 0, settlingUs: 0 };
+  return { rangeV: 0.1 };
 }
 
 /** @param {Object} graph @param {string} stem @returns {string} */

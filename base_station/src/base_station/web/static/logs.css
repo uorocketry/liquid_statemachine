@@ -1,0 +1,21 @@
+.logs-workspace { margin-top: 0; padding: 0; }
+.logs-toolbar { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 6px; }
+.log-filters { display: flex; align-items: end; gap: 8px; }
+.log-filters label { color: var(--muted); font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+.log-filters select { display: block; min-width: 120px; margin-top: 4px; padding: 6px 24px 6px 7px; border: 1px solid var(--line); border-radius: 2px; background: var(--color-input); color: var(--color-text); }
+.log-count { margin: 0 0 7px; color: var(--muted); font-size: 9px; }
+.log-table-wrap { max-height: calc(100vh - 180px); overflow: auto; }
+.log-table { width: 100%; border-collapse: collapse; text-align: left; }
+.log-table th { position: sticky; top: 0; padding: 7px 8px; color: var(--muted); border-bottom: 1px solid var(--line); background: var(--surface); font-size: 8px; text-transform: uppercase; letter-spacing: .09em; }
+.log-table td { padding: 7px 8px; border-bottom: 1px solid var(--line-soft); color: var(--color-text); font-size: 10px; }
+.log-table td:first-child { width: 84px; color: var(--muted); font: 9px ui-monospace, monospace; }
+.log-table td:nth-child(2), .log-table td:nth-child(3) { width: 100px; text-transform: capitalize; }
+.level.error { color: var(--red); font-weight: 800; }
+.level.warning { color: var(--amber); font-weight: 800; }
+.level.success { color: var(--color-success); font-weight: 800; }
+@media (max-width: 760px) {
+  .logs-toolbar { align-items: flex-start; flex-direction: column; }
+  .log-filters { width: 100%; }
+  .log-filters label { flex: 1; }
+  .log-filters select { width: 100%; }
+}

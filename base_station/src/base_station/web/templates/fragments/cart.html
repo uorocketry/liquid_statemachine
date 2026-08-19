@@ -1,10 +1,6 @@
 {% from "macros/actions.html" import action_button %}
 <div id="cart-fragment" hx-get="/fragments/cart" hx-trigger="every 600ms" hx-swap="outerHTML" hx-sync="this:queue last">
   <section class="panel state-panel">
-    <div class="section-heading">
-      <div><span class="eyebrow">Sequence control</span><h1>PHIL cart</h1></div>
-      <span class="connection-dot {% if cart.connected %}online{% endif %}" title="Cart status"></span>
-    </div>
     <div class="current-state">
       <span>Current state</span>
       <strong>{{ state_names[cart.state] if cart.connected and cart.state is not none else "Disconnected" }}</strong>
@@ -24,7 +20,7 @@
   </section>
   <section class="panel controller-health">
     <div class="section-heading compact">
-      <div><span class="eyebrow">Controller health</span><h2>P1AM-100</h2></div>
+      <h2>P1AM-100</h2>
       <span class="health-badge {{ cart.health }}">{{ cart.health }}</span>
     </div>
     <dl class="health-summary">
@@ -33,6 +29,6 @@
       <div><dt>Firmware</dt><dd>{{ cart.firmware_version or "—" }}</dd></div>
       <div><dt>Last seen</dt><dd>{{ cart.last_seen[11:19] if cart.last_seen else "—" }}</dd></div>
     </dl>
-    <a class="detail-link" href="/diagnostics">Open diagnostics →</a>
+    <a class="detail-link" href="/devices/p1am">Open device setup →</a>
   </section>
 </div>

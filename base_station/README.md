@@ -8,7 +8,7 @@ Operator UI, LabJack DAQ, run archive, and P1AM firmware tooling.
 - [Arduino CLI](https://arduino.github.io/arduino-cli/latest/installation/)
 - [LabJack LJM](https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit)
 - The P1AM Arduino board core and the libraries listed in
-  [`../phil_cart/README.txt`](../phil_cart/README.txt)
+  [`../fill_cart/README.txt`](../fill_cart/README.txt)
 
 Install the locked Python environment:
 
@@ -55,10 +55,13 @@ The macOS `BaseStation.command` and Windows `Base Station.bat` launchers run
 ## Web interface
 
 - `/` — blueprint-published live telemetry.
-- `/state` — PHIL cart state transitions and controller health.
+- `/state` — Fill Cart state transitions and controller health.
 - `/configuration` — LabJack/signal blueprint editor and low-rate preview.
 - `/runs` — Record/Stop, run archive, CSV export, and database backup.
-- `/diagnostics` — detailed P1AM/LabJack health and P1 rack initialization.
+- `/devices/p1am` — P1AM health, P1 rack initialization, and restart.
+- `/devices/labjack` — LabJack connection and device health.
+- `/logs` — structured system events.
+- `/settings` — System/Light/Dark appearance.
 
 DAQ configuration is saved to `data/daq-blueprint.json`. Live preview starts
 automatically when the LabJack is available and acquisition is idle.
@@ -73,10 +76,28 @@ There is no frontend build step. Jinja/HTMX handles ordinary controls; native
 custom elements use vendored Lit for blueprint DOM updates. All browser
 dependencies are served locally from `static/vendor/`.
 
+The persistent sidebar is global-only and collapses from 260 px to a 52 px icon
+rail. Page-specific actions stay in page content. Shared app chrome uses semantic
+tokens from `static/design-tokens.css`; appearance can follow the OS or be pinned
+to Light/Dark. Ordinary interaction/selection chrome is neutral rather than using
+a global accent color; green is reserved for semantic success/healthy state.
+First-party UI CSS intentionally avoids `box-shadow`.
+
+UI chrome is intentionally sparse. Prefer typography, headings, grouping, and
+whitespace over decorative separators, cards, or filled containers. Borders and
+backgrounds should only exist when they communicate a real control/data boundary,
+interaction affordance, or semantic state. Familiar icon actions stay visually
+bare; route selection uses the same neutral surface family as hover rather than
+the green accent. Standard rounded app chrome uses `--radius-ui` (10 px), while
+tighter engineering controls may use smaller radii when appropriate. Large
+canvas/editor surfaces should not receive page-sized focus outlines; focus rings
+belong on the actual interactive control.
+
 FastAPI polls the P1AM once per process, so opening more browsers does not
 multiply controller traffic.
 
-The run scan rate locks while recording. Start/Stop is guarded by an explicit
+DAQ Setup owns the acquisition scan rate. Runs displays that saved rate and
+uses it when recording starts. Start/Stop is guarded by an explicit
 starting/running/stopping/idle lifecycle.
 
 Runs are stored in `data/acquisition.sqlite3`. CSV is generated on demand; no

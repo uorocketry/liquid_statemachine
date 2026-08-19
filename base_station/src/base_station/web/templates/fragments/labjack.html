@@ -1,29 +1,18 @@
 {% set acquisition_active = labjack.acquisition_state in ["starting", "running", "stopping"] %}
-<div id="labjack-fragment"{% if acquisition_active %} hx-get="/fragments/labjack" hx-trigger="every 500ms" hx-swap="outerHTML" hx-sync="this:queue last"{% endif %}>
-  <section class="panel acquisition-panel">
-    <div class="section-heading compact">
-      <div><span class="eyebrow">Data acquisition</span><h2>Recorded run</h2></div>
-      <span class="recording-badge {% if labjack.acquisition_state == 'running' %}active{% endif %}">{{ labjack.acquisition_state|capitalize }}</span>
-    </div>
-    <p class="device-detail">
-      {% if labjack.connected %}LabJack {{ labjack.serial_number }} connected
-      {% else %}LabJack offline · <a class="detail-link" href="/diagnostics">configure in Diagnostics</a>{% endif %}
-    </p>
-    <form hx-post="/ui/labjack/stream/start" hx-target="#labjack-fragment" hx-swap="outerHTML">
-      <label class="field"><span>Scan rate <em>{% if acquisition_active %}locked · {% endif %}Hz</em></span><input name="scan_rate" type="number" min="1" max="100000" value="{{ labjack.scan_rate }}" {% if acquisition_active %}disabled{% endif %} /></label>
-      <p class="field-note">The scan rate locks during recording. Runs always retain raw samples; graph filtering does not alter recorded data.</p>
-      {% if acquisition_active %}
-      <button type="button" class="record-control stop-record" hx-post="/ui/labjack/stream/stop" hx-target="#labjack-fragment" hx-swap="outerHTML" hx-disabled-elt="this" {% if labjack.acquisition_state == "stopping" %}disabled{% endif %}>
-        <span class="record-symbol" aria-hidden="true"></span><span><strong>Stop recording</strong><small>{{ format_duration(labjack.sample_count / labjack.scan_rate) }}</small></span><span class="request-indicator" aria-hidden="true"></span>
-      </button>
-      {% else %}
-      <button type="button" class="record-control" hx-post="/ui/labjack/stream/start" hx-target="#labjack-fragment" hx-swap="outerHTML" hx-include="closest form" hx-disabled-elt="this" {% if not labjack.connected %}disabled{% endif %}>
-        <span class="record-symbol" aria-hidden="true"></span><span><strong>Record</strong><small>Start a new durable run</small></span><span class="request-indicator" aria-hidden="true"></span>
-      </button>
-      {% endif %}
-    </form>
-    {% if labjack.operation_message %}<p class="operation-status {% if labjack.acquisition_state in ['starting', 'stopping'] %}pending{% endif %}">{{ labjack.operation_message }}</p>{% endif %}
-    {% if labjack.current_run_id %}<p class="field-note">Run {{ labjack.current_run_id }} · <a class="detail-link" href="/runs/{{ labjack.current_run_id }}">open record</a></p>{% endif %}
-    <p class="form-error">{{ labjack.error or "" }}</p>
-  </section>
+<div id="labjack-fragment" class="runs-recorder"{% if acquisition_active %} hx-get="/fragments/labjack" hx-trigger="every 500ms" hx-swap="outerHTML" hx-sync="this:queue last"{% endif %}>
+  <div class="runs-recorder-meta">
+    <span class="recording-badge {% if labjack.acquisition_state == 'running' %}active{% endif %}">{{ labjack.acquisition_state|capitalize }}</span>
+    <span>{{ configured_scan_rate }} samples/s</span>
+    {% if labjack.current_run_id %}<a class="detail-link" href="/runs/{{ labjack.current_run_id }}">Run {{ labjack.current_run_id }}</a>{% endif %}
+  </div>
+  {% if acquisition_active %}
+  <button type="button" class="record-control stop-record" hx-post="/ui/labjack/stream/stop" hx-target="#labjack-fragment" hx-swap="outerHTML" hx-disabled-elt="this" {% if labjack.acquisition_state == "stopping" %}disabled{% endif %}>
+    <span class="record-symbol" aria-hidden="true"></span><strong>Stop</strong><small>{{ format_duration(labjack.sample_count / labjack.scan_rate) }}</small><span class="request-indicator" aria-hidden="true"></span>
+  </button>
+  {% else %}
+  <button type="button" class="record-control" hx-post="/ui/labjack/stream/start" hx-target="#labjack-fragment" hx-swap="outerHTML" hx-disabled-elt="this" {% if not labjack.connected %}disabled{% endif %}>
+    <span class="record-symbol" aria-hidden="true"></span><strong>Record</strong><span class="request-indicator" aria-hidden="true"></span>
+  </button>
+  {% endif %}
+  {% if labjack.operation_message %}<span class="operation-status {% if labjack.acquisition_state in ['starting', 'stopping'] %}pending{% endif %}">{{ labjack.operation_message }}</span>{% endif %}
 </div>

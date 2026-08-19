@@ -1,0 +1,47 @@
+.ui-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-block;
+  flex: none;
+  background: currentColor;
+  mask: var(--ui-icon) center / contain no-repeat;
+  -webkit-mask: var(--ui-icon) center / contain no-repeat;
+}
+
+.icon-back { --ui-icon: url('/static/icons/sf/chevron.left.svg'); }
+.icon-download { --ui-icon: url('/static/icons/sf/arrow.down.circle.svg'); }
+.icon-export { --ui-icon: url('/static/icons/sf/arrow.down.doc.svg'); }
+.icon-delete { --ui-icon: url('/static/icons/sf/trash.svg'); }
+.icon-settings { --ui-icon: url('/static/icons/sf/gear.svg'); }
+.icon-sidebar { --ui-icon: url('/static/icons/sf/sidebar.left.svg'); }
+.icon-system { --ui-icon: url('/static/icons/sf/desktopcomputer.svg'); }
+.icon-dark { --ui-icon: url('/static/icons/sf/moon.svg'); }
+.icon-light { --ui-icon: url('/static/icons/sf/sun.max.svg'); }
+.icon-display-settings { --ui-icon: url('/static/icons/sf/slider.horizontal.3.svg'); }
+.icon-signals { --ui-icon: url('/static/icons/sf/waveform.svg'); }
+.icon-open-daq { --ui-icon: url('/static/icons/sf/wrench.and.screwdriver.svg'); }
+.icon-add { --ui-icon: url('/static/icons/sf/plus.svg'); }
+.icon-issues { --ui-icon: url('/static/icons/sf/exclamationmark.triangle.svg'); }
+.icon-undo { --ui-icon: url('/static/icons/sf/arrow.uturn.backward.svg'); }
+.icon-redo { --ui-icon: url('/static/icons/sf/arrow.uturn.forward.svg'); }
+.icon-frame { --ui-icon: url('/static/icons/sf/viewfinder.svg'); }
+.icon-reload { --ui-icon: url('/static/icons/sf/arrow.clockwise.svg'); }
+.icon-save { --ui-icon: url('/static/icons/sf/square.and.arrow.down.svg'); }
+.icon-cut { --ui-icon: url('/static/icons/sf/scissors.svg'); }
+.icon-copy { --ui-icon: url('/static/icons/sf/doc.on.doc.svg'); }
+.icon-duplicate { --ui-icon: url('/static/icons/sf/square.on.square.svg'); }
+.icon-link { --ui-icon: url('/static/icons/sf/link.svg'); }
+.icon-play { --ui-icon: url('/static/icons/sf/play.fill.svg'); }
+.icon-end { --ui-icon: url('/static/icons/sf/forward.end.fill.svg'); }
+
+.icon-node-channel { --ui-icon: url('/static/icons/sf/sensor.svg'); }
+.icon-node-pair { --ui-icon: url('/static/icons/sf/point.3.filled.connected.trianglepath.dotted.svg'); }
+.icon-node-ain { --ui-icon: url('/static/icons/sf/waveform.svg'); }
+.icon-node-current { --ui-icon: url('/static/icons/sf/bolt.svg'); }
+.icon-node-thermocouple { --ui-icon: url('/static/icons/sf/thermometer.svg'); }
+.icon-node-pressure { --ui-icon: url('/static/icons/sf/gauge.with.dots.needle.50percent.svg'); }
+.icon-node-load { --ui-icon: url('/static/icons/sf/scalemass.svg'); }
+.icon-node-constant { --ui-icon: url('/static/icons/sf/number.svg'); }
+.icon-node-subtract { --ui-icon: url('/static/icons/sf/minus.svg'); }
+.icon-node-rate { --ui-icon: url('/static/icons/sf/function.svg'); }
+.icon-node-dashboard { --ui-icon: url('/static/icons/sf/chart.xyaxis.line.svg'); }

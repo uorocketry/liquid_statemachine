@@ -5,13 +5,15 @@ import {
   differentialNegative,
   differentialPositiveChannels,
 } from './channels.js';
+import { NODE_CATALOG } from './catalog.js';
 
 /** Add view-only inline controls, literals and inferred pin units. */
 export function decorateNode(node, graph, capabilities) {
   const next = structuredClone(node);
+  next.icon = NODE_CATALOG.find((item) => item.type === node.nodeType)?.icon ?? null;
   const connected = connectedInputs(node, graph);
   const config = node.config ?? {};
-  const acquisition = acquisitionControls(config, capabilities);
+  const range = rangeControl(config, capabilities);
 
   if (node.nodeType === 'labjack-channel') {
     const mux = Boolean(graph?.metadata?.mux80Enabled);
@@ -31,16 +33,16 @@ export function decorateNode(node, graph, capabilities) {
       differentialPositiveChannels(capabilities, mux).map((channel) => [channel, channelPairLabel(channel)]),
     )];
   } else if (node.nodeType === 'labjack-ain') {
-    next.controls = acquisition;
+    next.controls = [range];
   } else if (node.nodeType === 'labjack-current') {
-    next.controls = acquisition;
+    next.controls = [range];
     setLiteral(next, connected, 'shunt', numberControl('shuntOhms', config.shuntOhms, 'Ω', { min: 0.001 }));
   } else if (node.nodeType === 'labjack-thermocouple') {
     next.controls = [
       selectControl('thermocoupleType', 'Type', config.thermocoupleType ?? '', [
         ['', '—'], ...(capabilities?.thermocouple?.types ?? []).map((value) => [value, value]),
       ]),
-      ...acquisition,
+      range,
     ];
   } else if (node.nodeType === 'pressure-calibration') {
     decoratePressure(next, graph, connected);
@@ -107,14 +109,12 @@ function decorateInferredMath(node, graph, inputPins, outputPin) {
   node.badge = unit;
 }
 
-function acquisitionControls(config, capabilities) {
+function rangeControl(config, capabilities) {
   const ranges = capabilities?.analog?.ranges_v ?? [10, 1, 0.1, 0.01];
-  const resolutions = capabilities?.analog?.resolution_indices ?? [0, 1, 2, 3, 4, 5, 6, 7, 8];
-  return [
-    selectControl('rangeV', 'Range', config.rangeV ?? 0.1, ranges.map((value) => [String(value), `±${value} V`]), 'number'),
-    selectControl('resolutionIndex', 'Resolution', config.resolutionIndex ?? 0, resolutions.map((value) => [String(value), String(value)]), 'number'),
-    numberControl('settlingUs', config.settlingUs ?? 0, 'µs', { min: 0, step: 1, label: 'Settling' }),
-  ];
+  return selectControl(
+    'rangeV', 'Range', config.rangeV ?? 0.1,
+    ranges.map((value) => [String(value), `±${value} V`]), 'number',
+  );
 }
 
 function connectedInputs(node, graph) {

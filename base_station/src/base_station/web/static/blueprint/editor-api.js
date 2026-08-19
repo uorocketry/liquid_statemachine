@@ -28,6 +28,8 @@ export const editorApi = {
 
   get camera() { return { ...this._camera }; },
   get previewPath() { return [...this._previewPath]; },
+  get canUndo() { return this._history.canUndo; },
+  get canRedo() { return this._history.canRedo; },
 
   /** @param {string[]} nodeIds */
   setPreviewPath(nodeIds) {

@@ -4,30 +4,51 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#ffffff" />
+    <link rel="icon" href="data:," />
     <title>{% block title %}Liquid State Machine{% endblock %}</title>
+    <script src="/static/theme.js"></script>
+    <link rel="stylesheet" href="/static/design-tokens.css" />
+    <link rel="stylesheet" href="/static/icons.css" />
     <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="stylesheet" href="/static/site-shell.css" />
     {% block styles %}{% endblock %}
     <script src="/static/vendor/htmx-2.0.10.min.js" defer></script>
   </head>
   <body>
-    <header class="topbar">
-      <div class="brand">
-        <span class="brand-mark" aria-hidden="true"></span>
-        <div><strong>Liquid State Machine</strong><span>{% block subtitle %}Base station{% endblock %}</span></div>
-      </div>
-      <nav class="page-nav" aria-label="Primary navigation">
-        <a class="{% if active_page == 'dashboard' %}active{% endif %}" href="/">Dashboard</a>
-        <a class="{% if active_page == 'state' %}active{% endif %}" href="/state">State Machine</a>
-        <a class="{% if active_page == 'configuration' %}active{% endif %}" href="/configuration">DAQ Setup</a>
-        <a class="{% if active_page == 'runs' %}active{% endif %}" href="/runs">Runs</a>
-        <a class="{% if active_page == 'diagnostics' %}active{% endif %}" href="/diagnostics">Diagnostics</a>
-      </nav>
-      <div class="system-status">
-        {% include "fragments/system_status.html" %}
-      </div>
-    </header>
-    {% block content %}{% endblock %}
+    <div id="site-shell" class="site-shell">
+      <aside id="site-sidebar" class="site-sidebar">
+        <div class="site-sidebar-scroll">
+          <div class="site-brand">
+            <strong>FillCart</strong>
+          </div>
+          <section class="site-sidebar-section site-status-section">
+            <h2>Devices</h2>
+            {% include "fragments/system_status.html" %}
+          </section>
+          <nav class="site-sidebar-section site-nav" aria-label="Primary navigation">
+            <h2>Navigation</h2>
+            <a class="{% if active_page == 'dashboard' %}active{% endif %}" href="/"><span class="site-nav-icon icon-dashboard" aria-hidden="true"></span><span>Dashboard</span></a>
+            <a class="{% if active_page == 'state' %}active{% endif %}" href="/state"><span class="site-nav-icon icon-state-machine" aria-hidden="true"></span><span>State Machine</span></a>
+            <a class="{% if active_page == 'configuration' %}active{% endif %}" href="/configuration"><span class="site-nav-icon icon-daq" aria-hidden="true"></span><span>DAQ Setup</span></a>
+            <a class="{% if active_page == 'runs' %}active{% endif %}" href="/runs"><span class="site-nav-icon icon-runs" aria-hidden="true"></span><span>Runs</span></a>
+            <a class="{% if active_page == 'logs' %}active{% endif %}" href="/logs"><span class="site-nav-icon icon-logs" aria-hidden="true"></span><span>Logs</span></a>
+          </nav>
+        </div>
+        <div class="site-sidebar-footer">
+          <a class="site-settings-link {% if active_page == 'settings' %}active{% endif %}" href="/settings" aria-label="Settings" title="Settings">
+            <span class="ui-icon icon-settings" aria-hidden="true"></span>
+            <span class="site-settings-label">Settings</span>
+          </a>
+        </div>
+      </aside>
+      <button id="site-sidebar-toggle" class="site-sidebar-toggle" type="button"
+              aria-expanded="true" aria-controls="site-sidebar" aria-label="Close sidebar">
+        <span class="ui-icon icon-sidebar" aria-hidden="true"></span>
+      </button>
+      <div class="site-content">{% block content %}{% endblock %}</div>
+    </div>
     <script src="/static/graph-settings.js"></script>
+    <script src="/static/site-shell.js"></script>
     {% block scripts %}{% endblock %}
   </body>
 </html>

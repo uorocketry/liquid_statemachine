@@ -1,6 +1,10 @@
 <div id="system-status" class="status-cluster"
      hx-get="/fragments/system-status" hx-trigger="every 1s" hx-swap="outerHTML"
      aria-label="Service status">
-  <span class="service-status {{ cart.health }}"><i></i><b>P1AM</b><em>{{ cart.health }}</em></span>
-  <span class="service-status {{ 'online' if labjack.connected else 'offline' }}"><i></i><b>LabJack</b><em>{{ 'online' if labjack.connected else 'offline' }}</em></span>
+  <a href="/devices/p1am" class="service-status {{ cart.health }}{% if active_device == 'p1am' %} active{% endif %}">
+    <span class="device-nav-icon arduino-icon" aria-hidden="true"></span><b>P1AM</b><em>{{ cart.health }}</em>
+  </a>
+  <a href="/devices/labjack" class="service-status {{ 'online' if labjack.connected else 'offline' }}{% if active_device == 'labjack' %} active{% endif %}">
+    <span class="device-nav-icon labjack-icon" aria-hidden="true"></span><b>LabJack</b><em>{{ 'online' if labjack.connected else 'offline' }}</em>
+  </a>
 </div>

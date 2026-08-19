@@ -13,7 +13,10 @@ EMPTY_GRAPH = {
     "metadata": {
         "name": "Liquid DAQ",
         "scanRate": 1000,
+        "streamResolutionIndex": 0,
+        "streamSettlingUs": 0,
         "mux80Enabled": False,
+        "schemaVersion": 5,
     },
 }
 

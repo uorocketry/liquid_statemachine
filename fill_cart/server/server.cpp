@@ -101,7 +101,7 @@ bool readHeaders(EthernetClient& client, RequestHeaders& headers) {
 String healthJson() {
 	const IPAddress localIp = Ethernet.localIP();
 	String body = "{\"ok\":true,\"firmware_version\":\"";
-	body += PHIL_CART_VERSION;
+	body += FILL_CART_VERSION;
 	body += "\",\"uptime_ms\":";
 	body += millis();
 	body += ",\"ethernet\":{\"link\":";
@@ -145,7 +145,7 @@ String systemJson() {
 	const bool hasState = P1AMOta::loadState(otaState);
 	const P1AMOta::Slot running = P1AMOta::currentSlot();
 	String body = "{\"firmware\":{\"version\":\"";
-	body += PHIL_CART_VERSION;
+	body += FILL_CART_VERSION;
 	body += "\",\"build\":\"";
 	body += P1AM_OTA_BUILD_ID;
 	body += "\",\"slot\":\"";
@@ -301,7 +301,7 @@ void routeRequest(
 		return;
 	}
 	if (method == "POST" && path == "/api/firmware/confirm") {
-		if (!P1AMOta::confirmCurrentApplication(PHIL_CART_VERSION, P1AM_OTA_BUILD_ID)) {
+		if (!P1AMOta::confirmCurrentApplication(FILL_CART_VERSION, P1AM_OTA_BUILD_ID)) {
 			sendJson(client, 500, "Internal Server Error", "{\"error\":\"could not confirm firmware\"}");
 			return;
 		}

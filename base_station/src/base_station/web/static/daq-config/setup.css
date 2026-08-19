@@ -1,134 +1,174 @@
 .daq-setup-page {
-  height: calc(100vh - 58px);
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  position: relative;
+  height: 100vh;
   overflow: hidden;
-  background: #f6f8f9;
+  background: var(--color-surface-subtle);
 }
 
-.daq-setup-header {
-  min-height: 48px;
+.daq-setting-row {
+  min-height: 31px;
+  display: grid;
+  grid-template-columns: minmax(76px, 1fr) 116px;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-muted);
+  font-size: 9px;
+  font-weight: 700;
+}
+.daq-setting-row input, .daq-setting-row select {
+  width: 100%;
+  min-width: 0;
+  height: 26px;
+  padding: 3px 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  outline: 0;
+  background: var(--color-input);
+  color: var(--color-text);
+  font: 9px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.daq-setting-row input:focus, .daq-setting-row select:focus { border-color: var(--color-focus); outline: 2px solid var(--color-focus); outline-offset: 1px; }
+.daq-setting-value { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 5px; }
+.daq-setting-value em { color: var(--color-text-subtle); font-size: 8px; font-style: normal; white-space: nowrap; }
+.daq-signal-quality { margin-top: 6px; border-top: 1px solid var(--color-border-soft); }
+.daq-signal-quality summary { padding: 8px 2px 5px; color: var(--color-text-muted); font-size: 9px; font-weight: 750; cursor: pointer; }
+.daq-signal-quality[open] summary { margin-bottom: 2px; }
+.daq-setting-note { margin: 5px 2px 0; color: var(--color-text-subtle); font-size: 8px; line-height: 1.35; }
+
+.daq-graph-stage { width: 100%; height: 100%; min-width: 0; min-height: 0; background: var(--color-surface-subtle); }
+.daq-graph-stage .liquid-blueprint-editor { height: 100%; }
+.daq-graph-stage .blueprint-toolbar { display: none; }
+.daq-graph-stage .blueprint-viewport {
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+}
+.daq-graph-stage .blueprint-viewport:focus-visible { outline: none; }
+.daq-floating-tools {
+  position: absolute;
+  z-index: 30;
+  left: 50%;
+  bottom: 18px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 7px 12px;
-  border-bottom: 1px solid #c9d0d4;
-  background: #fff;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-raised);
+  transform: translateX(-50%);
 }
-.daq-header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
-.daq-header-actions > button {
-  min-height: 32px;
-  padding: 0 11px;
-  border: 1px solid #8f9ca5;
-  border-radius: 3px;
-  background: #263f50;
-  color: #fff;
-  font: inherit;
-  font-weight: 650;
-}
-.daq-header-actions > button.secondary-button { background: #fff; color: #283740; }
-.daq-header-actions > button:disabled { opacity: .42; }
-#daq-save-state { min-width: 82px; font-size: 10px; }
-#daq-save-state.saved { color: #387354; }
-#daq-save-state.dirty { color: #866319; }
-#daq-save-state.error { color: #a43d3d; }
-
-.daq-scan-rate-setting { display: flex; align-items: center; gap: 8px; color: #66737c; font-size: 9px; font-weight: 700; }
-.daq-inline-setting { display: grid; grid-template-columns: 76px auto; align-items: center; gap: 6px; }
-.daq-inline-setting input { width: 76px; min-width: 0; padding: 5px 6px; border: 1px solid #b7c1c7; }
-.daq-inline-setting em { color: #8a959d; font-size: 8px; font-style: normal; }
-
-.daq-setup-grid {
-  min-height: 0;
+.daq-floating-tools button,
+.daq-tool-menu > summary {
+  width: 38px;
+  height: 38px;
   display: grid;
-  grid-template-columns: 205px minmax(560px, 1fr);
-  background: #fff;
-}
-.daq-palette-rail {
-  min-width: 0;
-  min-height: 0;
-  overflow: auto;
-  background: #fff;
-}
-.daq-palette-rail { border-right: 1px solid #c9d0d4; }
-.daq-rail-heading { padding: 10px 12px 9px; border-bottom: 1px solid #dce1e4; }
-.daq-rail-heading > span {
-  display: block;
-  color: #74818a;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: .09em;
-  text-transform: uppercase;
-}
-.daq-graph-stage { min-width: 0; min-height: 0; background: #edf1f3; }
-.daq-graph-stage .liquid-blueprint-editor { height: 100%; }
-.daq-graph-stage .blueprint-toolbar {
-  min-height: 39px;
+  place-items: center;
+  padding: 0;
   border: 0;
-  border-bottom: 1px solid #c9d0d4;
-  border-radius: 0;
-  padding: 4px 8px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  list-style: none;
 }
-.daq-graph-stage .blueprint-viewport {
-  height: calc(100% - 40px);
-  min-height: 0;
-  border: 0;
-  border-radius: 0;
+.daq-tool-menu { position: relative; }
+.daq-tool-menu[hidden] { display: none; }
+.daq-tool-menu > summary::-webkit-details-marker { display: none; }
+.daq-floating-tools button:hover:not(:disabled),
+.daq-tool-menu > summary:hover,
+.daq-tool-menu[open] > summary { background: var(--color-surface-hover); color: var(--color-text); }
+#daq-save:not(:disabled) { color: var(--color-text); }
+.daq-floating-tools button:focus-visible,
+.daq-tool-menu > summary:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
 }
+.daq-floating-tools button:disabled { opacity: .28; cursor: default; }
+.daq-floating-tools .ui-icon { width: 20px; height: 20px; }
+.daq-tool-divider { width: 1px; height: 24px; margin: 0 2px; background: var(--color-border-soft); }
+.daq-save-state { margin: 0 5px 0 3px; font-size: 8px; white-space: nowrap; }
+.daq-save-state.saved { color: var(--color-text-subtle); }
+.daq-save-state.dirty { color: var(--color-warning); }
+.daq-save-state.error { max-width: 220px; color: var(--color-danger); overflow: hidden; text-overflow: ellipsis; }
 
-.daq-palette-group { padding: 8px 7px 5px; }
-.daq-palette-group + .daq-palette-group { border-top: 1px solid #edf0f2; }
-.daq-palette-group h3 { margin: 0 5px 4px; color: #7e8b94; font-size: 8px; letter-spacing: .08em; text-transform: uppercase; }
+.daq-tool-popover {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 12px);
+  width: min(300px, calc(100vw - 32px));
+  max-height: min(520px, calc(100vh - 110px));
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-ui);
+  background: var(--color-surface-raised);
+  transform: translateX(-50%);
+}
+.daq-node-popover { width: min(270px, calc(100vw - 32px)); padding: 8px; }
+.daq-issues-popover { width: min(330px, calc(100vw - 32px)); padding: 0; }
+.daq-tool-badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  min-width: 14px;
+  height: 14px;
+  display: grid;
+  place-items: center;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--color-warning);
+  color: var(--color-on-warning);
+  font: 700 7px ui-monospace, monospace;
+}
+.daq-tool-menu.error .daq-tool-badge { background: var(--color-danger); color: var(--color-on-danger); }
+
+.daq-palette-group { padding: 6px 0 5px; }
+.daq-palette-group + .daq-palette-group { border-top: 1px solid var(--color-border-soft); }
+.daq-palette-group h3 { margin: 0 10px 4px; color: var(--color-text-subtle); font-size: 8px; letter-spacing: .08em; text-transform: uppercase; }
 .daq-palette-item {
-  width: 100%;
+  width: calc(100% - 8px);
   display: grid;
   grid-template-columns: 22px 1fr;
   gap: 6px;
   align-items: center;
-  padding: 6px 5px;
+  margin: 1px 4px;
+  padding: 7px 8px;
   border: 0;
-  border-left: 2px solid transparent;
+  border-radius: 6px;
   background: transparent;
-  color: #24313a;
+  color: var(--color-text);
   text-align: left;
   cursor: pointer;
 }
-.daq-palette-item:hover { border-left-color: #527d99; background: #eef3f6; }
-.daq-palette-item > span { text-align: center; color: #536976; font-weight: 800; }
+.daq-palette-item:hover { background: var(--color-surface-hover); }
+.daq-palette-item > span { text-align: center; color: var(--color-text-muted); font-weight: 800; }
 .daq-palette-item strong { display: block; font-size: 10px; }
 .daq-palette-item small { display: none; }
-#daq-palette.awaiting-placement { border-left: 2px solid #4b94c4; }
-.daq-issue-summary { border-top: 1px solid #dfe4e7; }
+#daq-palette.awaiting-placement { background: var(--color-surface-subtle); }
 .daq-issue-summary:empty { display: none; }
 .daq-issue-item {
   width: 100%;
   display: block;
   padding: 8px 10px;
   border: 0;
-  border-bottom: 1px solid #e6eaec;
-  border-left: 3px solid #9ca6ac;
-  background: #fff;
-  color: #37454d;
+  border-bottom: 1px solid var(--color-border-soft);
+  border-left: 3px solid var(--color-text-subtle);
+  background: var(--color-surface);
+  color: var(--color-text);
   text-align: left;
   cursor: pointer;
 }
-.daq-issue-item:hover { background: #f4f7f8; }
+.daq-issue-item:hover { background: var(--color-surface-hover); }
 .daq-issue-item strong, .daq-issue-item span { display: block; }
 .daq-issue-item strong { margin-bottom: 2px; font-size: 9px; }
-.daq-issue-item span { color: #68757d; font-size: 8px; line-height: 1.35; }
-.daq-issue-item.error { border-left-color: #ad4b4b; }
-.daq-issue-item.error strong { color: #8e3838; }
-.daq-issue-item.warning { border-left-color: #b08a36; }
-.daq-issue-item.warning strong { color: #7b6126; }
+.daq-issue-item span { color: var(--color-text-muted); font-size: 8px; line-height: 1.35; }
+.daq-issue-item.error { border-left-color: var(--color-danger); }
+.daq-issue-item.error strong { color: var(--color-danger); }
+.daq-issue-item.warning { border-left-color: var(--color-warning); }
+.daq-issue-item.warning strong { color: var(--color-warning); }
 
-@media (max-width: 1120px) {
-  .daq-setup-grid { grid-template-columns: 190px minmax(480px, 1fr); }
-}
 @media (max-width: 760px) {
-  .daq-setup-page { height: auto; overflow: visible; }
-  .daq-setup-header { align-items: flex-start; flex-direction: column; }
-  .daq-setup-grid { display: block; }
-  .daq-palette-rail { position: static; width: auto; border: 0; border-bottom: 1px solid #c9d0d4; box-shadow: none; }
-  .daq-graph-stage { height: 64vh; min-height: 430px; padding-right: 0; }
+  .daq-graph-stage { height: 100%; }
 }

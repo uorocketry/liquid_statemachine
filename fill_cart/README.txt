@@ -1,4 +1,4 @@
-PHIL Cart / P1AM
+Fill Cart / P1AM
 ================
 
 The P1AM owns the cart state machine and drives valves/igniters through the P1
@@ -11,7 +11,7 @@ Network
 P1AM:   192.168.8.50
 LabJack: 192.168.8.51
 
-After a power cycle, use `/diagnostics` to initialize the P1 rack before state
+After a power cycle, use `/devices/p1am` to initialize the P1 rack before state
 transitions. Use `/state` for normal state control.
 
 Valve outputs

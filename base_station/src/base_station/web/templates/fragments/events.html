@@ -1,8 +1,0 @@
-<section id="events-fragment" class="panel log-panel" hx-get="/fragments/events" hx-trigger="every 1s" hx-swap="outerHTML">
-  <div class="section-heading compact"><div><span class="eyebrow">Activity</span><h2>Event log</h2></div><a class="detail-link" href="/diagnostics">View all</a></div>
-  <ol class="event-log" aria-live="polite">
-    {% for entry in logs[-30:]|reverse %}
-    <li class="{{ entry.level }}"><time>{{ entry.time }}</time><i></i><span>{{ entry.message }}</span></li>
-    {% endfor %}
-  </ol>
-</section>

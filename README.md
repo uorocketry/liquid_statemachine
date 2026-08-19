@@ -1,11 +1,11 @@
 # Liquid State Machine
 
-Ground-station software, PHIL cart firmware, and P1AM OTA tooling.
+Ground-station software, Fill Cart firmware, and P1AM OTA tooling.
 
 ## Architecture
 
 - `base_station/` — FastAPI operator UI, LabJack DAQ, run storage, firmware tools.
-- `phil_cart/` — P1AM state machine and P1 rack valve/igniter outputs.
+- `fill_cart/` — P1AM state machine and P1 rack valve/igniter outputs.
 - `p1am_updater/` — second-stage A/B Ethernet OTA updater.
 - `firmware_libs/P1AMOta/` — shared OTA boot-state support.
 
@@ -27,10 +27,16 @@ uv run gui
 Pages:
 
 - `/` — live telemetry.
-- `/state` — PHIL cart state control.
+- `/state` — Fill Cart state control.
 - `/configuration` — DAQ signal graph.
 - `/runs` — Record/Stop and run archive.
-- `/diagnostics` — hardware health and recovery controls.
+- `/devices/p1am` — P1AM health, rack initialization, and restart.
+- `/devices/labjack` — LabJack connection and device health.
+- `/logs` — structured system events.
+- `/settings` — appearance preferences.
+
+The operator UI uses a global 260 px sidebar that collapses to a 52 px icon rail.
+Device/navigation state lives there; route-specific controls stay on their pages.
 
 ## Firmware
 
@@ -48,4 +54,4 @@ USB is only for bootstrap/recovery:
 uv run upload --port /dev/cu.usbmodemNNNN
 ```
 
-See `base_station/README.md` and `phil_cart/README.txt` for details.
+See `base_station/README.md` and `fill_cart/README.txt` for details.

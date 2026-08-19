@@ -77,6 +77,14 @@ export function validateGraph(graph) {
   if (!(scanRate >= 1 && scanRate <= 100000)) {
     issues.push(issue('error', 'graph', 'Scan rate must be between 1 and 100,000 samples/s'));
   }
+  const resolution = Number(graph?.metadata?.streamResolutionIndex ?? 0);
+  if (!Number.isInteger(resolution) || resolution < 0 || resolution > 8) {
+    issues.push(issue('error', 'graph', 'Stream resolution must be Auto or index 1 through 8'));
+  }
+  const settling = Number(graph?.metadata?.streamSettlingUs ?? 0);
+  if (!Number.isFinite(settling) || settling < 0) {
+    issues.push(issue('error', 'graph', 'Stream settling time cannot be negative'));
+  }
   return issues;
 }
 
@@ -124,14 +132,6 @@ function validateChannel(node, mux, usedSources, issues) {
 
 function validateMeasurement(node, graph, incoming, issues) {
   const config = node.config ?? {};
-  const resolution = Number(config.resolutionIndex ?? 0);
-  const settling = Number(config.settlingUs ?? 0);
-  if (!Number.isInteger(resolution) || resolution < 0 || resolution > 8) {
-    issues.push(issue('error', node.id, 'Resolution index must be 0 through 8'));
-  }
-  if (!Number.isFinite(settling) || settling < 0) {
-    issues.push(issue('error', node.id, 'Settling cannot be negative'));
-  }
   if (node.nodeType === 'labjack-thermocouple' && !node.config?.thermocoupleType) {
     issues.push(issue('error', node.id, 'Select the thermocouple type'));
   }

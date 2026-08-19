@@ -27,6 +27,12 @@ def validate_graph(graph: object) -> list[dict[str, str]]:
     scan_rate = metadata.get("scanRate", 1000)
     if not isinstance(scan_rate, (int, float)) or not 1 <= scan_rate <= 100_000:
         issues.append(_issue("graph", "Scan rate must be between 1 and 100,000 samples/s"))
+    resolution = metadata.get("streamResolutionIndex", 0)
+    if not isinstance(resolution, (int, float)) or int(resolution) not in range(9):
+        issues.append(_issue("graph", "Stream resolution must be Auto or index 1 through 8"))
+    settling = metadata.get("streamSettlingUs", 0)
+    if not isinstance(settling, (int, float)) or settling < 0:
+        issues.append(_issue("graph", "Stream settling time cannot be negative"))
 
     node_map: dict[str, dict] = {}
     for node in nodes:
@@ -52,12 +58,35 @@ def validate_graph(graph: object) -> list[dict[str, str]]:
     for node in nodes:
         if not isinstance(node, dict):
             continue
+        _validate_required_inputs(node, incoming, issues)
         if node.get("nodeType") in {"labjack-channel", "labjack-channel-pair"}:
             _validate_channel(node, mux_enabled, issues)
         if node.get("nodeType") in MEASUREMENT_TYPES:
             _validate_measurement(node, node_map, incoming, issues)
         _validate_transform(node, node_map, incoming, issues)
     return issues
+
+
+def blocking_issues(issues: list[dict[str, str]]) -> list[dict[str, str]]:
+    return [issue for issue in issues if issue.get("severity") == "error"]
+
+
+def _validate_required_inputs(
+    node: dict,
+    incoming: dict[str, dict[str, dict]],
+    issues: list[dict[str, str]],
+) -> None:
+    node_id = node.get("id")
+    if not isinstance(node_id, str):
+        return
+    connected = incoming.get(node_id, {})
+    for pin in node.get("pins", []):
+        if not isinstance(pin, dict) or pin.get("direction") != "input" or pin.get("optional"):
+            continue
+        pin_id = pin.get("id")
+        if pin_id not in connected:
+            label = str(pin.get("label") or pin_id or "Input")
+            issues.append(_issue(node_id, f"{label} is not connected", severity="warning"))
 
 
 def _validate_link(link: dict, nodes: dict[str, dict], issues: list[dict[str, str]]) -> None:
@@ -98,12 +127,6 @@ def _validate_measurement(
     config = node.get("config") if isinstance(node.get("config"), dict) else {}
     if float(config.get("rangeV", 0.1)) not in VALID_RANGES:
         issues.append(_issue(node["id"], "AIN range must be one of ±10, ±1, ±0.1, or ±0.01 V"))
-    resolution = config.get("resolutionIndex", 0)
-    if not isinstance(resolution, (int, float)) or int(resolution) not in range(9):
-        issues.append(_issue(node["id"], "Stream-compatible resolution index must be 0 through 8"))
-    settling = config.get("settlingUs", 0)
-    if not isinstance(settling, (int, float)) or settling < 0:
-        issues.append(_issue(node["id"], "AIN settling time cannot be negative"))
     node_type = node.get("nodeType")
     if node_type == "labjack-current":
         _require_channel_ref(node, "channel", nodes, incoming, issues)
@@ -245,8 +268,8 @@ def _valid_differential_positive(channel: int) -> bool:
     return ((channel - 48) // 8) % 2 == 0
 
 
-def _issue(subject: str, message: str) -> dict[str, str]:
-    return {"severity": "error", "subject": subject, "message": message}
+def _issue(subject: str, message: str, severity: str = "error") -> dict[str, str]:
+    return {"severity": severity, "subject": subject, "message": message}
 
 
 def _finite_number(value: object) -> bool:

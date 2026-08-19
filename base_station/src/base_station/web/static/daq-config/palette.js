@@ -12,7 +12,7 @@ export function createPalette(element, onCreate) {
       <h3>${escapeHtml(category)}</h3>
       ${items.map((item) => `
         <button type="button" class="daq-palette-item" data-node-type="${item.type}" title="${escapeHtml(item.description)}">
-          <span>${escapeHtml(item.glyph)}</span>
+          <span class="ui-icon ${escapeHtml(item.icon)}" aria-hidden="true"></span>
           <strong>${escapeHtml(item.title)}</strong>
         </button>`).join('')}
     </section>`).join('');

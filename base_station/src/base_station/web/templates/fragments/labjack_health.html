@@ -1,0 +1,9 @@
+<section id="labjack-health" class="device-card" hx-get="/fragments/labjack-health" hx-trigger="every 1s" hx-swap="outerHTML" hx-sync="this:queue last">
+  <div class="device-status-row"><strong>Status</strong><span class="health-badge {{ 'healthy' if labjack.connected else 'offline' }}">{{ "Healthy" if labjack.connected else "Offline" }}</span></div>
+  <dl class="detail-list">
+    <div><dt>Endpoint</dt><dd>{{ labjack.ip }}</dd></div><div><dt>Serial</dt><dd>{{ labjack.serial_number or "—" }}</dd></div>
+    <div><dt>Connection</dt><dd>{{ "Connected" if labjack.connected else "Disconnected" }}</dd></div><div><dt>Acquisition</dt><dd>{{ labjack.acquisition_state|capitalize }}</dd></div>
+    <div><dt>Active rate</dt><dd>{{ labjack.scan_rate ~ " samples/s" if labjack.streaming else "—" }}</dd></div><div><dt>Samples</dt><dd>{{ "{:,}".format(labjack.sample_count) }}</dd></div>
+  </dl>
+  <p class="device-note">Acquisition rate and signal quality are configured in <a class="detail-link" href="/configuration">DAQ Setup</a>.</p>
+</section>

@@ -1,4 +1,4 @@
-"""PHIL cart HTTP API client and background status polling."""
+"""Fill Cart HTTP API client and background status polling."""
 
 from __future__ import annotations
 
@@ -155,14 +155,14 @@ class CartService:
                         self.dashboard.cart.transition_message = "Transition confirmation timed out"
                         self.pending_since = None
                 if not was_connected:
-                    self.dashboard.log("PHIL cart connected", "success", "p1am")
+                    self.dashboard.log("Fill Cart connected", "success", "p1am")
                     with self.dashboard.lock:
                         if self.dashboard.cart.reset_message:
                             self.dashboard.cart.reset_message = (
                                 "Controller restarted; initialize the P1 rack before operation"
                             )
                 if not healthy and previous_health != "degraded":
-                    self.dashboard.log("PHIL cart health degraded", "warning", "p1am")
+                    self.dashboard.log("Fill Cart health degraded", "warning", "p1am")
                 was_connected = True
             except (OSError, ConnectionError, ValueError, KeyError) as error:
                 with self.dashboard.lock:
@@ -172,6 +172,6 @@ class CartService:
                     self.dashboard.cart.consecutive_failures += 1
                     self.dashboard.cart.error = str(error)
                 if was_connected:
-                    self.dashboard.log("PHIL cart connection lost", "error", "p1am")
+                    self.dashboard.log("Fill Cart connection lost", "error", "p1am")
                 was_connected = False
             self.stop_event.wait(0.6)

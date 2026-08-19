@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}P1AM · Liquid State Machine{% endblock %}
+{% block styles %}<link rel="stylesheet" href="/static/devices.css" />{% endblock %}
+{% block content %}
+<main class="page device-page">
+  <header class="page-heading"><h1>P1AM-100</h1></header>
+  {% include "fragments/p1am_health.html" %}
+</main>
+{% endblock %}

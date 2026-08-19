@@ -9,7 +9,7 @@ import { previewTemplate } from './node-preview-template.js';
 export function renderNodeTemplate({ node, connectionState, preview }) {
   return html`
     <div class="blueprint-node-header">
-      <span class="blueprint-node-glyph">${node.glyph ?? toneGlyph(node.tone)}</span>
+      ${node.icon ? html`<span class=${`blueprint-node-icon ui-icon ${node.icon}`} aria-hidden="true"></span>` : nothing}
       <strong>${node.title}</strong>
       ${node.badge ? html`<span class="blueprint-node-badge">${node.badge}</span>` : nothing}
       ${node.locked ? html`<span class="blueprint-node-lock" title="Structural node">◆</span>` : nothing}
@@ -18,7 +18,21 @@ export function renderNodeTemplate({ node, connectionState, preview }) {
     ${previewTemplate(preview)}
     ${controlsTemplate(node.controls)}
     ${pinsTemplate(node, connectionState)}
-    ${node.warning ? html`<div class="blueprint-node-warning">${node.warning}</div>` : nothing}
+    ${diagnosticsTemplate(node.diagnostics)}
+  `;
+}
+
+function diagnosticsTemplate(diagnostics) {
+  if (!diagnostics?.length) return nothing;
+  return html`
+    <div class="blueprint-node-diagnostics" aria-label="Node diagnostics">
+      ${diagnostics.map((diagnostic) => html`
+        <div class="blueprint-node-diagnostic ${diagnostic.severity ?? 'warning'}">
+          <span aria-hidden="true"></span>
+          <strong>${diagnostic.message}</strong>
+        </div>
+      `)}
+    </div>
   `;
 }
 
@@ -85,13 +99,4 @@ function pinButton(pin, key, state) {
       aria-label=${`${pin.label} ${pin.direction}, ${pin.type ?? '*'}`}
     ></button>
   `;
-}
-
-function toneGlyph(tone) {
-  if (tone === 'source') return '▦';
-  if (tone === 'sensor') return '◉';
-  if (tone === 'transform') return 'ƒ';
-  if (tone === 'result') return '✓';
-  if (tone === 'control') return '◇';
-  return '•';
 }

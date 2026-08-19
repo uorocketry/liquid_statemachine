@@ -1,4 +1,4 @@
-"""Unit tests for the PHIL cart HTTP client."""
+"""Unit tests for the Fill Cart HTTP client."""
 
 from unittest import TestCase
 from unittest.mock import Mock

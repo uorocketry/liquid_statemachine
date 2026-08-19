@@ -10,7 +10,10 @@
         <td>{{ "{:,}".format(run.scan_rate) }} Hz</td>
         <td>{{ "{:,}".format(run.sample_count) }}</td>
         <td>{{ (run.sample_count / run.scan_rate)|round(2) }} s</td>
-        <td class="run-actions"><a href="/runs/{{ run.id }}/export.csv">CSV</a><button hx-delete="/ui/runs/{{ run.id }}" hx-target="#run-table-fragment" hx-swap="outerHTML" hx-confirm="Delete run {{ run.id }} and all of its samples?">Delete</button></td>
+        <td class="run-actions">
+          <a class="icon-button" href="/runs/{{ run.id }}/export.csv" aria-label="Export run {{ run.id }} as CSV" title="Export CSV"><span class="ui-icon icon-export" aria-hidden="true"></span></a>
+          <button class="icon-button danger" aria-label="Delete run {{ run.id }}" title="Delete run" hx-delete="/ui/runs/{{ run.id }}" hx-target="#run-table-fragment" hx-swap="outerHTML" hx-confirm="Delete run {{ run.id }} and all of its samples?"><span class="ui-icon icon-delete" aria-hidden="true"></span></button>
+        </td>
       </tr>
       {% else %}
       <tr><td class="empty-table" colspan="7">No runs recorded yet. Start acquisition from the dashboard.</td></tr>

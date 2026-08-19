@@ -30,12 +30,13 @@ class DaqHardwareTests(TestCase):
                 {"id": "pair", "nodeType": "labjack-channel-pair", "config": {"channel": "AIN0"}},
                 {
                     "id": "pt", "title": "PT", "nodeType": "labjack-ain",
-                    "config": {"rangeV": 0.1, "resolutionIndex": 3, "settlingUs": 20},
+                    "config": {"rangeV": 0.1},
                 },
             ],
             "links": [
                 {"fromNode": "pair", "toNode": "pt", "toPin": "channel"},
             ],
+            "metadata": {"streamResolutionIndex": 3, "streamSettlingUs": 20},
         }
         self.sdk.eReadName.return_value = 0.047
         with patch.object(hardware, "_sdk", return_value=(self.sdk, self.constants)):
@@ -49,6 +50,20 @@ class DaqHardwareTests(TestCase):
             ["AIN0_NEGATIVE_CH", "AIN0_RANGE", "AIN0_RESOLUTION_INDEX", "AIN0_SETTLING_US"],
             [1, 0.1, 3, 20.0],
         )
+
+    def test_auto_stream_resolution_previews_with_stream_default(self) -> None:
+        graph = {
+            "nodes": [
+                {"id": "ain", "nodeType": "labjack-channel", "config": {"channel": "AIN2"}},
+                {"id": "input", "nodeType": "labjack-ain", "config": {"rangeV": 1}},
+            ],
+            "links": [{"fromNode": "ain", "toNode": "input", "toPin": "channel"}],
+            "metadata": {"streamResolutionIndex": 0, "streamSettlingUs": 0},
+        }
+        self.sdk.eReadName.return_value = 0.25
+        with patch.object(hardware, "_sdk", return_value=(self.sdk, self.constants)):
+            hardware.read_physical_sources(self.service, graph)
+        self.assertEqual(self.sdk.eWriteNames.call_args.args[3][2:], [1, 0.0])
 
     def test_current_preview_uses_configured_shunt(self) -> None:
         graph = {

@@ -10,7 +10,7 @@ from base_station.web.daq_config.capabilities import labjack_capabilities
 from base_station.web.daq_config.migration import migrate_graph
 from base_station.web.daq_config.preview import preview_graph
 from base_station.web.daq_config.repository import DaqConfigRepository
-from base_station.web.daq_config.validation import validate_graph
+from base_station.web.daq_config.validation import blocking_issues, validate_graph
 from base_station.web.labjack_service import LabJackService
 from base_station.web.models import DashboardState
 
@@ -39,16 +39,17 @@ def build_daq_router(
     def save_configuration(graph: dict = Body(...)) -> dict:
         graph = migrate_graph(graph)
         issues = validate_graph(graph)
-        if issues:
+        errors = blocking_issues(issues)
+        if errors:
             raise HTTPException(status_code=422, detail={"issues": issues})
         repository.save(graph)
-        return {"saved": True, "issues": []}
+        return {"saved": True, "issues": issues}
 
     @router.post("/preview")
     def preview(graph: dict = Body(...)) -> dict:
         graph = migrate_graph(graph)
         issues = validate_graph(graph)
-        if issues:
+        if blocking_issues(issues):
             raise HTTPException(status_code=422, detail={"issues": issues})
         return preview_graph(labjack, graph)
 

@@ -1,18 +1,14 @@
 {% extends "base.html" %}
 {% set active_page = "runs" %}
 {% block title %}Runs · Liquid State Machine{% endblock %}
-{% block subtitle %}Acquisition archive{% endblock %}
 {% block styles %}<link rel="stylesheet" href="/static/runs.css" />{% endblock %}
 {% block content %}
-<main class="runs-page">
+<main class="page runs-page">
   <header class="page-heading">
-    <div><span class="eyebrow">Recorded data</span><h1>Acquisition runs</h1></div>
-    <a class="secondary-button download-link" href="/runs/backup/database">Download database backup</a>
+    <h1>Runs</h1>
+    <a class="icon-button" href="/runs/backup/database" aria-label="Download database backup" title="Download database backup"><span class="ui-icon icon-download" aria-hidden="true"></span></a>
   </header>
-  <section class="runs-acquisition-control">
-    {% include "fragments/labjack.html" %}
-  </section>
-  <p class="page-intro">Every acquisition is retained automatically. Open a run to inspect time windows or export its samples to CSV.</p>
+  {% include "fragments/labjack.html" %}
   {% include "fragments/run_table.html" %}
 </main>
 {% endblock %}

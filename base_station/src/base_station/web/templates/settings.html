@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% set active_page = "settings" %}
+{% block title %}Settings · Liquid State Machine{% endblock %}
+{% block styles %}<link rel="stylesheet" href="/static/settings.css" />{% endblock %}
+{% block content %}
+<main class="page settings-page">
+  <header class="page-heading"><h1>Settings</h1></header>
+  <section class="settings-list">
+    <div class="settings-row">
+      <strong>Appearance</strong>
+      <div class="appearance-control" data-appearance-control role="group" aria-label="Appearance">
+        <button type="button" data-theme-option="system" aria-label="System appearance" title="System" aria-pressed="false">
+          <span class="ui-icon icon-system" aria-hidden="true"></span>
+        </button>
+        <button type="button" data-theme-option="dark" aria-label="Dark appearance" title="Dark" aria-pressed="false">
+          <span class="ui-icon icon-dark" aria-hidden="true"></span>
+        </button>
+        <button type="button" data-theme-option="light" aria-label="Light appearance" title="Light" aria-pressed="false">
+          <span class="ui-icon icon-light" aria-hidden="true"></span>
+        </button>
+      </div>
+    </div>
+  </section>
+</main>
+{% endblock %}

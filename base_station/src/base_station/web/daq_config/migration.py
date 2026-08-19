@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-CURRENT_SCHEMA_VERSION = 4
+from base_station.web.daq_config.acquisition import normalize_acquisition_metadata
+
+CURRENT_SCHEMA_VERSION = 5
 
 
 def migrate_graph(graph: dict) -> dict:
@@ -24,6 +26,7 @@ def migrate_graph(graph: dict) -> dict:
 
     nodes.extend(additions)
     _collapse_explicit_pairs(next_graph, ids)
+    normalize_acquisition_metadata(next_graph)
     _canonicalize_nodes(next_graph)
     next_graph.setdefault("metadata", {})["schemaVersion"] = CURRENT_SCHEMA_VERSION
     return next_graph

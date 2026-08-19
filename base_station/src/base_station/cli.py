@@ -17,7 +17,7 @@ from pathlib import Path
 FQBN = "P1AM-100:samd:P1AM-100_native"
 PROJECT_DIR = Path(__file__).resolve().parents[2]
 REPOSITORY_DIR = PROJECT_DIR.parent
-SKETCH_DIR = REPOSITORY_DIR / "phil_cart"
+SKETCH_DIR = REPOSITORY_DIR / "fill_cart"
 UPDATER_SKETCH_DIR = REPOSITORY_DIR / "p1am_updater"
 FIRMWARE_LIBRARIES_DIR = REPOSITORY_DIR / "firmware_libs"
 BUILD_ROOT = PROJECT_DIR / ".build" / "ota"
@@ -60,12 +60,12 @@ def _run(command: list[str], *, cwd: Path | None = None) -> None:
 def _version() -> str:
     version_header = SKETCH_DIR / "version.h"
     match = re.search(
-        r'^\s*#define\s+PHIL_CART_VERSION\s+"([^"]+)"',
+        r'^\s*#define\s+FILL_CART_VERSION\s+"([^"]+)"',
         version_header.read_text(),
         re.MULTILINE,
     )
     if match is None:
-        raise SystemExit(f"PHIL_CART_VERSION not found in {version_header}")
+        raise SystemExit(f"FILL_CART_VERSION not found in {version_header}")
     return match.group(1)
 
 
@@ -125,7 +125,7 @@ def _compile_sketch(
 
 def _app_artifacts(slot: str) -> tuple[Path, Path]:
     build_dir = SLOT_BUILD_DIRS[slot]
-    return build_dir / "phil_cart.ino.bin", build_dir / "phil_cart.ino.elf"
+    return build_dir / "fill_cart.ino.bin", build_dir / "fill_cart.ino.elf"
 
 
 def _updater_artifacts() -> tuple[Path, Path]:
@@ -218,7 +218,7 @@ def _compile_app(
         f"-DP1AM_OTA_BUILD_TOKEN={build_id}",
         *extra_cpp_flags,
     )
-    print(f"Compiling phil_cart for slot {slot} @ 0x{SLOT_BASES[slot]:05x} (build {build_id})...")
+    print(f"Compiling Fill Cart for slot {slot} @ 0x{SLOT_BASES[slot]:05x} (build {build_id})...")
     _compile_sketch(
         SKETCH_DIR,
         SLOT_BUILD_DIRS[slot],
@@ -419,7 +419,7 @@ def ota_firmware() -> None:
     """Compile for the inactive slot, upload by Ethernet, verify, and confirm it."""
     parser = argparse.ArgumentParser(
         prog="ota",
-        description="Deploy phil_cart to the inactive A/B slot over Ethernet.",
+        description="Deploy Fill Cart to the inactive A/B slot over Ethernet.",
     )
     parser.add_argument("--host", default=DEFAULT_HOST)
     arguments = parser.parse_args()

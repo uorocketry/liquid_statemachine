@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from base_station.web.daq_config.acquisition import preview_resolution_index
+
 from base_station.web.daq_config.signal_math import current_from_shunt, scalar
 
 if TYPE_CHECKING:
@@ -25,20 +27,33 @@ def read_physical_sources(service: LabJackService, graph: dict) -> tuple[dict, l
         errors: list[str] = []
         nodes = {node.get("id"): node for node in graph.get("nodes", []) if isinstance(node, dict)}
         incoming = _incoming_links(graph)
+        acquisition = graph.get("metadata") if isinstance(graph.get("metadata"), dict) else {}
         for node in graph.get("nodes", []):
             node_type = node.get("nodeType")
             if node_type not in {"labjack-ain", "labjack-current", "labjack-thermocouple"}:
                 continue
             try:
-                values[node["id"]] = _read_source(handle, node, nodes, incoming, sdk, constants)
+                values[node["id"]] = _read_source(
+                    handle, node, nodes, incoming, acquisition, sdk, constants
+                )
             except Exception as error:
                 errors.append(f"{node.get('title', node.get('id', 'source'))}: {error}")
         return values, errors
 
 
-def _read_source(handle: int, node: dict, nodes: dict, incoming: dict, sdk, constants) -> dict:
+def _read_source(
+    handle: int,
+    node: dict,
+    nodes: dict,
+    incoming: dict,
+    acquisition: dict,
+    sdk,
+    constants,
+) -> dict:
     node_type = node["nodeType"]
     config = _measurement_config(node, nodes, incoming)
+    config["resolutionIndex"] = preview_resolution_index(acquisition)
+    config["settlingUs"] = float(acquisition.get("streamSettlingUs", 0))
     channel = config["channel"]
     _configure_ain(handle, channel, config, sdk)
     volts = float(sdk.eReadName(handle, channel))

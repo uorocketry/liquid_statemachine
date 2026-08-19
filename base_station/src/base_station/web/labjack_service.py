@@ -149,7 +149,7 @@ class LabJackService:
             with self.dashboard.lock:
                 self.dashboard.labjack.error = str(error)
                 self.dashboard.labjack.acquisition_state = "error"
-                self.dashboard.labjack.operation_message = f"Acquisition failed: {error}"
+                self.dashboard.labjack.operation_message = "Acquisition failed. See Logs."
             self.dashboard.log(f"Acquisition error: {error}", "error", "labjack")
         finally:
             if started and self.handle is not None:

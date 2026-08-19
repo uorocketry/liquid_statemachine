@@ -54,10 +54,10 @@
  * @property {number} [width=236]
  * @property {boolean} [locked=false] Prevents deletion while still allowing selection/movement.
  * @property {string} [tone='default'] Styling hook such as `source`, `transform`, `sensor`, or `result`.
- * @property {string} [glyph]
+ * @property {string} [icon] CSS icon class supplied by the host application.
  * @property {string} [badge]
  * @property {'valid'|'invalid'|'checking'|'unchecked'|string} [status]
- * @property {string} [warning]
+ * @property {{severity:'error'|'warning'|string,message:string}[]} [diagnostics]
  * @property {BlueprintPin[]} pins
  * @property {BlueprintInlineControl[]} [controls] Compact node-local configuration controls.
  */

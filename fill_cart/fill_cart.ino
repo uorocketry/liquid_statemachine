@@ -9,7 +9,7 @@
 
 
 void setup() {
-	P1AMOta::beginApplication(PHIL_CART_VERSION, P1AM_OTA_BUILD_ID);
+	P1AMOta::beginApplication(FILL_CART_VERSION, P1AM_OTA_BUILD_ID);
 #if defined(P1AM_OTA_TEST_HANG)
 	while (true) { }
 #endif

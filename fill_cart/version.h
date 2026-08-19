@@ -1,0 +1,12 @@
+#pragma once
+
+#define FILL_CART_VERSION "0.4.0"
+
+#define FILL_CART_STRINGIZE_INNER(value) #value
+#define FILL_CART_STRINGIZE(value) FILL_CART_STRINGIZE_INNER(value)
+
+#ifndef P1AM_OTA_BUILD_TOKEN
+#define P1AM_OTA_BUILD_TOKEN dev
+#endif
+
+#define P1AM_OTA_BUILD_ID FILL_CART_STRINGIZE(P1AM_OTA_BUILD_TOKEN)

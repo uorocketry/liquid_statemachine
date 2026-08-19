@@ -7,26 +7,76 @@
 {% endblock %}
 {% block content %}
 <main class="daq-setup-page">
-  <header class="daq-setup-header">
-    <label class="daq-scan-rate-setting">
-      <span>Scan rate</span>
-      <span class="daq-inline-setting"><input id="daq-scan-rate" type="number" min="1" max="100000" step="1" /><em>samples/s</em></span>
-    </label>
-    <div class="daq-header-actions">
-      <button id="daq-reload" type="button" class="secondary-button">Reload saved</button>
-      <button id="daq-save" type="button">Save</button>
-      <span id="daq-save-state" class="saved">—</span>
-    </div>
-  </header>
-  <div class="daq-setup-grid">
-    <aside class="daq-palette-rail">
-      <div class="daq-rail-heading"><span>Nodes</span></div>
-      <div id="daq-palette"></div>
-      <div id="daq-issue-summary" class="daq-issue-summary"></div>
-    </aside>
-    <section class="daq-graph-stage">
-      <liquid-blueprint-editor id="daq-blueprint"></liquid-blueprint-editor>
-    </section>
+  <section class="daq-graph-stage">
+    <liquid-blueprint-editor id="daq-blueprint"></liquid-blueprint-editor>
+  </section>
+
+  <div class="daq-floating-tools" role="toolbar" aria-label="DAQ graph tools">
+    <details id="daq-node-tools" class="daq-tool-menu">
+      <summary aria-label="Add node" title="Add node">
+        <span class="ui-icon icon-add" aria-hidden="true"></span>
+      </summary>
+      <div class="daq-tool-popover daq-node-popover">
+        <div id="daq-palette"></div>
+      </div>
+    </details>
+
+    <details id="daq-acquisition-tools" class="daq-tool-menu">
+      <summary aria-label="Acquisition settings" title="Acquisition settings">
+        <span class="ui-icon icon-display-settings" aria-hidden="true"></span>
+      </summary>
+      <div class="daq-tool-popover daq-acquisition-popover">
+        <label class="daq-setting-row">
+          <span>Scan rate</span>
+          <span class="daq-setting-value"><input id="daq-scan-rate" type="number" min="1" max="100000" step="1" /><em>samples/s</em></span>
+        </label>
+        <details id="daq-signal-quality" class="daq-signal-quality">
+          <summary>Signal quality</summary>
+          <label class="daq-setting-row">
+            <span>Resolution</span>
+            <select id="daq-stream-resolution">
+              <option value="0">Auto</option>
+              <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+              <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option>
+            </select>
+          </label>
+          <label class="daq-setting-row">
+            <span>Settling</span>
+            <span class="daq-setting-value"><input id="daq-stream-settling" type="number" min="0" step="1" /><em>µs</em></span>
+          </label>
+          <p class="daq-setting-note">0 µs = Auto · shared by streamed analog inputs</p>
+        </details>
+      </div>
+    </details>
+
+    <details id="daq-issue-tools" class="daq-tool-menu" hidden>
+      <summary aria-label="Validation issues" title="Validation issues">
+        <span class="ui-icon icon-issues" aria-hidden="true"></span>
+        <span id="daq-issue-count" class="daq-tool-badge" aria-hidden="true"></span>
+      </summary>
+      <div class="daq-tool-popover daq-issues-popover">
+        <div id="daq-issue-summary" class="daq-issue-summary"></div>
+      </div>
+    </details>
+
+    <span class="daq-tool-divider" aria-hidden="true"></span>
+    <button id="daq-undo" type="button" aria-label="Undo" title="Undo">
+      <span class="ui-icon icon-undo" aria-hidden="true"></span>
+    </button>
+    <button id="daq-redo" type="button" aria-label="Redo" title="Redo">
+      <span class="ui-icon icon-redo" aria-hidden="true"></span>
+    </button>
+    <button id="daq-frame" type="button" aria-label="Frame graph" title="Frame graph">
+      <span class="ui-icon icon-frame" aria-hidden="true"></span>
+    </button>
+    <span class="daq-tool-divider" aria-hidden="true"></span>
+    <button id="daq-reload" type="button" aria-label="Reload saved graph" title="Reload saved graph">
+      <span class="ui-icon icon-reload" aria-hidden="true"></span>
+    </button>
+    <button id="daq-save" type="button" aria-label="Save graph" title="Save graph">
+      <span class="ui-icon icon-save" aria-hidden="true"></span>
+    </button>
+    <span id="daq-save-state" class="daq-save-state saved" aria-live="polite">Saved</span>
   </div>
 </main>
 {% endblock %}
