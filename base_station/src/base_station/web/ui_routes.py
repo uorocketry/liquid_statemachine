@@ -41,8 +41,11 @@ def build_ui_router(
     router = APIRouter()
 
     def context(request: Request) -> dict:
-        current_url = request.headers.get("HX-Current-URL") or request.headers.get("referer")
-        path = urlparse(current_url).path if current_url else request.url.path
+        path = request.url.path
+        if path == "/fragments/system-status":
+            current_url = request.headers.get("HX-Current-URL")
+            if current_url:
+                path = urlparse(current_url).path
         active_device = path.removeprefix("/devices/") if path.startswith("/devices/") else None
         return {
             "request": request,

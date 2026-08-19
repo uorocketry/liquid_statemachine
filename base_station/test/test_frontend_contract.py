@@ -85,7 +85,10 @@ class FrontendContractTests(TestCase):
         shell_styles = read("static/site-shell.css")
         self.assertIn("active_device == 'p1am'", status)
         self.assertIn("active_device == 'labjack'", status)
+        self.assertIn('path = request.url.path', ui)
+        self.assertIn('if path == "/fragments/system-status"', ui)
         self.assertIn('request.headers.get("HX-Current-URL")', ui)
+        self.assertNotIn('request.headers.get("referer")', ui)
         self.assertIn(".service-status.active", shell_styles)
 
     def test_blueprint_has_no_tutorial_overlay(self) -> None:
