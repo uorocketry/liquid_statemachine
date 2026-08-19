@@ -33,62 +33,39 @@ slot configuration.
 
 If you encounter an error like "No device found on ttyACM0", this probably means you don't have the right permissions for the /dev/ttyACM0 file. See https://stackoverflow.com/a/49063205.
 
-Ethernet Setup Instructions
----------------------------
+Ethernet / OTA Setup
+--------------------
 
-2. Connect ethernet shield to computer (no power source is needed, it seems like the computer by itself can power the P1AM).
+The machine LAN is `192.168.8.0/24` behind the GL.iNet router. The controller is
+static at `192.168.8.50`; the LabJack T7 is static at `192.168.8.51`.
 
-3. Give ethernet an ip address. Linux instructions:
+The controller exposes HTTP/1.1 JSON at `http://192.168.8.50`:
 
-    $ ip a
-    ...
-    7: enp0s20f0u2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
-        link/ether 00:e0:4c:88:fb:b3 brd ff:ff:ff:ff:ff:ff
-        altname enx00e04c88fbb3
-        inet6 fe80::5d3b:7df6:d4bc:8a15/64 scope link tentative noprefixroute
-           valid_lft forever preferred_lft forever
-
-Note that the id here is enp0s20f0u2
-
-    $ sudo ifconfig enp0s20f0u2 192.168.1.1
-
-    $ ip a
-    ...
-    7: enp0s20f0u2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
-        link/ether 00:e0:4c:88:fb:b3 brd ff:ff:ff:ff:ff:ff
-        altname enx00e04c88fbb3
-        inet 192.168.1.1/24 brd 192.168.1.255 scope global enp0s20f0u2
-           valid_lft forever preferred_lft forever
-        inet6 fe80::5d3b:7df6:d4bc:8a15/64 scope link noprefixroute
-           valid_lft forever preferred_lft forever
-
-Now, we have the ip 192.168.1.1, and can connect.
-
-
-Talking to the Arduino
-----------------------
-
-The controller exposes an HTTP/1.1 JSON API at `http://192.168.0.50`:
-
-- `GET /api/status` — health, current state, and allowed transitions in one
-  response.
+- `GET /api/status` — health, current state, and allowed transitions.
+- `GET /api/system` — running version/build/slot plus OTA/rollback state.
 - `POST /api/p1/initialize` — initialize the P1 rack explicitly.
-- `POST /api/reset` — close initialized valve outputs and software-restart the
-  controller. Rack initialization is required again after restart.
-- `PUT /api/state/{id}` — request a validated transition.
+- `POST /api/reset` — put initialized outputs in the reset state and reboot.
+- `PUT /api/state/{id}` — request a validated state transition.
+- `POST /api/firmware` — stream a raw inactive-slot application image.
+- `POST /api/firmware/confirm` — make the currently running trial known-good.
 
-Responses use JSON and standard HTTP status codes. A valid transition request
-returns `202 Accepted`; an unavailable transition returns `409 Conflict`.
-The firmware has no legacy binary-protocol compatibility path.
-Ethernet and health start before rack initialization. Until initialization
-succeeds, health reports a degraded controller, transitions are empty, and
-state-change requests return `503 Service Unavailable`.
+Do not normally call the firmware endpoints by hand. From `base_station/`, use:
+
+    uv run system
+    uv run ota
+
+The factory P1AM USB bootloader remains untouched. `uv run upload` is reserved
+for first-time bootstrap or recovery and installs the tiny second-stage updater
+plus a known-good App A. Normal Ethernet deployment alternates between App A
+and App B. The new slot must come back over HTTP and be explicitly confirmed;
+otherwise watchdog/reset recovery returns to the last known-good slot.
+
+Ethernet and health start before rack initialization. Until P1 initialization
+succeeds, health is degraded, transitions are empty, and state-change requests
+return `503 Service Unavailable`.
 
 State indices are: valve testing `0`, initialize `1`, fuel fill `2`, LOX fill
 `3`, fire `4`, purge `5`, overload `6`, and abort `7`.
-
-The base station provides the preferred interface; run it from `base_station/`
-with `uv run gui` (or the equivalent alias `uv run web`).
 
 
 Starting the Box

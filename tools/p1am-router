@@ -5,8 +5,8 @@ ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 ENV_FILE="$ROOT_DIR/.env"
 ROUTER_HOST=${ROUTER_HOST:-192.168.8.1}
 ROUTER_USER=${ROUTER_USER:-root}
-REMOTE_FIRMWARE=${REMOTE_FIRMWARE:-/tmp/phil_cart.ino.bin}
-LOCAL_FIRMWARE="$ROOT_DIR/base_station/.build/arduino/phil_cart.ino.bin"
+REMOTE_FIRMWARE=${REMOTE_FIRMWARE:-/tmp/p1am-recovery.bin}
+LOCAL_FIRMWARE="$ROOT_DIR/base_station/.build/ota/p1am-recovery.bin"
 
 usage() {
     cat <<'EOF'
@@ -15,9 +15,9 @@ Usage: tools/p1am-router <command>
 Commands:
   probe      Verify that the GL.iNet router sees the P1AM over USB.
   bootstrap  Install the OpenWrt BOSSA uploader package on the router.
-  compile    Compile phil_cart firmware locally without touching hardware.
-  stage      Compile and copy firmware to the router without flashing it.
-  flash      Compile, copy the .bin to the router, and flash the attached P1AM.
+  compile    Build updater + A/B apps + the combined USB recovery image.
+  stage      Build and copy the recovery image without flashing it.
+  flash      Build, copy, and USB-bootstrap/recover the attached P1AM.
 
 Environment overrides:
   ROUTER_HOST       Router address (default: 192.168.8.1)
@@ -137,7 +137,7 @@ stage() {
 
     remote 'command -v bossac >/dev/null 2>&1 || { echo "bossac is missing; run: tools/p1am-router bootstrap" >&2; exit 5; }'
 
-    echo "Compiling firmware on the Mac..."
+    echo "Building P1AM OTA recovery image on the Mac..."
     compile_firmware
 
     echo "Copying firmware to $ROUTER_HOST:$REMOTE_FIRMWARE..."
@@ -145,7 +145,7 @@ stage() {
 
     local_sha=$(shasum -a 256 "$LOCAL_FIRMWARE" | awk '{print $1}')
     remote "echo '$local_sha  $REMOTE_FIRMWARE' | sha256sum -c -"
-    echo "Firmware is staged on the router; the P1AM has not been reset or modified."
+    echo "Recovery image is staged on the router; the P1AM has not been reset or modified."
 }
 
 flash() {
@@ -157,7 +157,7 @@ command -v bossac >/dev/null 2>&1 || { echo "bossac is missing; run: tools/p1am-
 command -v stty >/dev/null 2>&1 || { echo "stty is missing; run: tools/p1am-router bootstrap" >&2; exit 5; }
 '
 
-    echo "Compiling firmware on the Mac..."
+    echo "Building P1AM OTA recovery image on the Mac..."
     compile_firmware
 
     echo "Copying firmware to $ROUTER_HOST:$REMOTE_FIRMWARE..."
@@ -166,7 +166,7 @@ command -v stty >/dev/null 2>&1 || { echo "stty is missing; run: tools/p1am-rout
     local_sha=$(shasum -a 256 "$LOCAL_FIRMWARE" | awk '{print $1}')
     remote "echo '$local_sha  $REMOTE_FIRMWARE' | sha256sum -c -"
 
-    echo "Flashing P1AM from the router..."
+    echo "Bootstrapping/recovering P1AM from the router USB connection..."
     remote "
 set -eu
 FW='$REMOTE_FIRMWARE'

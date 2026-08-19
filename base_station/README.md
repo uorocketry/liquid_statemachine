@@ -29,24 +29,34 @@ Run these from the `base_station` directory:
 # Launch the operator GUI
 uv run gui
 
-# Equivalent, more explicit name
-uv run web
-
-# Compile the P1AM firmware without touching the controller
+# Build the second-stage updater, both A/B application images, and USB recovery image
 uv run compile
 
-# Auto-detect a connected P1AM, compile, and upload
+# Show the running firmware slot/build and the last OTA/rollback result
+uv run system
+
+# Normal deployment: build for the inactive slot, upload by Ethernet, and confirm it
+uv run ota
+
+# Bootstrap/recovery only: flash updater + App A through the factory USB bootloader
 uv run upload
 
-# Select a serial port explicitly
+# Select a directly attached serial port explicitly for USB recovery
 uv run upload --port /dev/cu.usbmodem11301
 ```
 
-`upload` replaces the firmware on the selected controller. `compile` is the
-safe validation command for development and CI.
+The controller remains on `192.168.8.50`. Normal development uses `uv run ota`;
+`upload` is the bootstrap/recovery path and preserves the factory P1AM SAM-BA
+bootloader. The OTA updater uses two 96 KiB application slots. A newly uploaded
+slot is a trial until the host sees `/api/system` from that exact build and sends
+`POST /api/firmware/confirm`. If the trial hangs, resets, or never restores HTTP,
+the watchdog causes the updater to return to the last confirmed slot.
 
-The macOS `BaseStation.command` and Windows `Base Station.bat` launchers also
-run `uv run gui`.
+Build artifacts live under `.build/ota/`; `p1am-recovery.bin` contains the
+second-stage updater plus App A at their fixed flash offsets.
+
+The macOS `BaseStation.command` and Windows `Base Station.bat` launchers run
+`uv run gui`.
 
 ## Web interface
 
