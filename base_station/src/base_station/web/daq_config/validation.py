@@ -6,10 +6,18 @@ import re
 from math import isfinite
 
 from base_station.web.daq_config.link_validation import validate_link_types
-from base_station.web.daq_config.node_specs import validate_spec_node
+from base_station.web.daq_config.node_specs import SPEC_NODE_TYPES, validate_spec_node
 
 AIN_PATTERN = re.compile(r"^AIN(\d{1,3})$")
 MEASUREMENT_TYPES = {"labjack-ain", "labjack-current", "labjack-thermocouple"}
+HARDWARE_NODE_TYPES = {
+    "labjack-channel",
+    "labjack-channel-pair",
+    *MEASUREMENT_TYPES,
+    "pressure-calibration",
+    "load-cell",
+}
+SUPPORTED_NODE_TYPES = SPEC_NODE_TYPES | HARDWARE_NODE_TYPES
 VALID_RANGES = {10.0, 1.0, 0.1, 0.01}
 THERMOCOUPLE_TYPES = {"B", "E", "J", "K", "N", "R", "S", "T", "C"}
 
@@ -46,6 +54,8 @@ def validate_graph(graph: object) -> list[dict[str, str]]:
         node_map[node_id] = node
         if not isinstance(node.get("pins"), list):
             issues.append(_issue(node_id, "Node pins must be an array"))
+        if node.get("nodeType") not in SUPPORTED_NODE_TYPES:
+            issues.append(_issue(node_id, f"Unsupported node type: {node.get('nodeType')}"))
 
     for link in links:
         if not isinstance(link, dict):
@@ -246,12 +256,6 @@ def _ain_number(value: object) -> int | None:
         return None
     match = AIN_PATTERN.fullmatch(value)
     return int(match.group(1)) if match else None
-
-
-def _differential_negative(positive: int) -> int:
-    if positive >= 16:
-        return positive + 8
-    return positive + 1
 
 
 def _valid_differential_positive(channel: int) -> bool:

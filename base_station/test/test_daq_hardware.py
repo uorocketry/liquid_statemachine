@@ -104,14 +104,14 @@ class DaqHardwareTests(TestCase):
         self.assertAlmostEqual(values["tc"]["value"], 326.4)
         self.sdk.tcVoltsToTemp.assert_called_once_with(6004, 0.0012, 296.5)
 
-    def test_preview_evaluates_pressure_and_dashboard_nodes(self) -> None:
+    def test_preview_evaluates_pressure_and_dashboard_widget(self) -> None:
         graph = {
             "nodes": [
                 {"id": "source", "nodeType": "labjack-current"},
                 {"id": "scale", "nodeType": "pressure-calibration", "config": {
                     "inputMin": 0.004, "inputMax": 0.020, "psiMin": 0, "psiMax": 1000,
                 }},
-                {"id": "display", "nodeType": "dashboard-signal", "config": {"unit": "psi"}},
+                {"id": "display", "nodeType": "number", "config": {}},
             ],
             "links": [
                 {"fromNode": "source", "toNode": "scale", "toPin": "input"},
@@ -157,7 +157,7 @@ class DaqHardwareTests(TestCase):
                 {"id": "bias", "nodeType": "constant", "config": {"value": 1.0, "unit": "psi"}},
                 {"id": "sum", "nodeType": "add", "config": {}},
                 {"id": "smooth", "nodeType": "moving-average", "config": {"windowS": 0.5}},
-                {"id": "display", "nodeType": "dashboard-signal", "config": {}},
+                {"id": "display", "nodeType": "time-plot", "config": {}},
             ],
             "links": [
                 {"fromNode": "sine", "toNode": "gain", "toPin": "input"},

@@ -1,17 +1,21 @@
 import { loadConfiguration, previewConfiguration } from './daq-config/api.js';
-import { createSignalCard, updateSignalCard, usesTimeline } from './dashboard-signal-card.js';
+import {
+  DASHBOARD_NODE_TYPES,
+  createDashboardWidget,
+  updateDashboardWidget,
+  usesTimeline,
+} from './dashboard-widget-registry.js';
 import { DashboardTimeController } from './dashboard-time-controller.js';
 import { compactHistory } from './dashboard-time-utils.js';
 
 const GROUPS = ['Fuel', 'LOX', 'Engine'];
 const POLL_MS = 250;
 const MAX_HISTORY_POINTS = 100_000;
-const PLACEHOLDER_LABELS = new Set(['dashboard signal', 'signal']);
 
 const page = document.querySelector('.dashboard-page');
-const grid = document.querySelector('#telemetry-signal-grid');
-const picker = document.querySelector('#telemetry-signal-options');
-const pickerDetails = document.querySelector('.telemetry-signal-picker');
+const grid = document.querySelector('#dashboard-widget-grid');
+const picker = document.querySelector('#dashboard-widget-options');
+const pickerDetails = document.querySelector('.dashboard-widget-picker');
 const empty = document.querySelector('#telemetry-empty');
 const timeControl = document.querySelector('#telemetry-time-control');
 const navigatorWrap = document.querySelector('.telemetry-navigator-wrap');
@@ -21,7 +25,7 @@ const returnTail = document.querySelector('#telemetry-return-tail');
 
 const histories = new Map();
 let graph = { nodes: [], links: [] };
-let signals = [];
+let widgets = [];
 let selected = new Set();
 let timer = null;
 let inFlight = false;
@@ -31,11 +35,11 @@ let sampleSegment = 0;
 
 async function start() {
   graph = (await loadConfiguration()).graph;
-  signals = graph.nodes
-    .filter((node) => node.nodeType === 'dashboard-signal')
+  widgets = graph.nodes
+    .filter((node) => DASHBOARD_NODE_TYPES.has(node.nodeType))
     .filter(hasOperatorLabel);
-  pickerDetails.hidden = signals.length === 0;
-  selected = loadSelection(signals);
+  pickerDetails.hidden = widgets.length === 0;
+  selected = loadSelection(widgets);
   renderPicker();
   renderCards();
   picker.addEventListener('change', onSelectionChange);
@@ -51,23 +55,22 @@ async function start() {
   schedule(0);
 }
 
-function hasOperatorLabel(signal) {
-  const label = String(signal.config?.label ?? '').trim();
-  return Boolean(label) && !PLACEHOLDER_LABELS.has(label.toLowerCase());
+function hasOperatorLabel(widget) {
+  return Boolean(String(widget.config?.label ?? '').trim());
 }
 
 function renderPicker() {
   picker.replaceChildren();
   for (const group of GROUPS) {
-    const groupSignals = signals.filter((node) => node.config?.group === group);
-    if (!groupSignals.length) continue;
+    const groupWidgets = widgets.filter((node) => node.config?.group === group);
+    if (!groupWidgets.length) continue;
     const section = document.createElement('div');
     section.className = 'telemetry-picker-group';
     section.innerHTML = `<strong>${escapeHtml(group)}</strong>`;
-    for (const signal of groupSignals) {
+    for (const widget of groupWidgets) {
       const label = document.createElement('label');
-      label.innerHTML = `<input type="checkbox" value="${escapeAttribute(signal.id)}" ${selected.has(signal.id) ? 'checked' : ''} />
-        <span>${escapeHtml(signal.config.label)}</span>`;
+      label.innerHTML = `<input type="checkbox" value="${escapeAttribute(widget.id)}" ${selected.has(widget.id) ? 'checked' : ''} />
+        <span>${escapeHtml(widget.config.label)}</span>`;
       section.append(label);
     }
     picker.append(section);
@@ -76,51 +79,51 @@ function renderPicker() {
 
 function onSelectionChange() {
   selected = new Set([...picker.querySelectorAll('input:checked')].map((input) => input.value));
-  localStorage.setItem('liquid-dashboard-signals', JSON.stringify([...selected]));
+  localStorage.setItem('liquid-dashboard-widgets', JSON.stringify([...selected]));
   renderCards();
   schedule(0);
 }
 
 function renderCards() {
   grid.replaceChildren();
-  const visible = signals.filter((signal) => selected.has(signal.id));
-  const timelineSignals = visible.filter(usesTimeline);
-  empty.hidden = signals.length > 0;
-  timeControl.hidden = signals.length === 0;
-  navigatorWrap.hidden = timelineSignals.length === 0;
+  const visible = widgets.filter((widget) => selected.has(widget.id));
+  const timelinePlots = visible.filter(usesTimeline);
+  empty.hidden = widgets.length > 0;
+  timeControl.hidden = widgets.length === 0;
+  navigatorWrap.hidden = timelinePlots.length === 0;
 
   for (const group of GROUPS) {
-    const groupSignals = visible.filter((signal) => signal.config?.group === group);
-    if (!groupSignals.length) continue;
+    const groupWidgets = visible.filter((widget) => widget.config?.group === group);
+    if (!groupWidgets.length) continue;
     const section = document.createElement('section');
-    section.className = 'dashboard-signal-group';
+    section.className = 'dashboard-widget-group';
     const heading = document.createElement('h2');
     heading.textContent = group;
     const cards = document.createElement('div');
     cards.className = 'dashboard-group-grid';
-    for (const signal of groupSignals) cards.append(createSignalCard(signal));
+    for (const widget of groupWidgets) cards.append(createDashboardWidget(widget));
     section.append(heading, cards);
     grid.append(section);
   }
-  timeline.setSignals(timelineSignals);
+  timeline.setPlots(timelinePlots);
 }
 
 async function poll() {
   if (document.hidden) return stopPolling();
-  if (inFlight || !signals.length) return schedule(POLL_MS);
+  if (inFlight || !widgets.length) return schedule(POLL_MS);
   inFlight = true;
   try {
     const payload = await previewConfiguration(graph);
     const timestamp = elapsedSeconds();
-    for (const signal of signals) {
-      const reading = payload.values?.[signal.id];
-      if (usesTimeline(signal) && reading && Number.isFinite(Number(reading.value))) {
-        appendReading(signal, reading, timestamp);
+    for (const widget of widgets) {
+      const reading = payload.values?.[widget.id];
+      if (usesTimeline(widget) && reading && Number.isFinite(Number(reading.value))) {
+        appendReading(widget, reading, timestamp);
       }
-      if (selected.has(signal.id)) {
-        updateSignalCard(
-          grid.querySelector(`[data-signal-id="${cssEscape(signal.id)}"]`),
-          signal,
+      if (selected.has(widget.id)) {
+        updateDashboardWidget(
+          grid.querySelector(`[data-widget-id="${cssEscape(widget.id)}"]`),
+          widget,
           reading,
         );
       }
@@ -144,8 +147,8 @@ function elapsedSeconds() {
   return now - sessionStart;
 }
 
-function appendReading(signal, reading, timestamp) {
-  const history = histories.get(signal.id) ?? [];
+function appendReading(widget, reading, timestamp) {
+  const history = histories.get(widget.id) ?? [];
   history.push({
     time: timestamp,
     value: Number(reading.value),
@@ -153,15 +156,15 @@ function appendReading(signal, reading, timestamp) {
     segment: sampleSegment,
   });
   if (history.length > MAX_HISTORY_POINTS) compactHistory(history);
-  histories.set(signal.id, history);
+  histories.set(widget.id, history);
 }
 
 function clearCurrentValues() {
-  for (const signal of signals) {
-    if (selected.has(signal.id)) {
-      updateSignalCard(
-        grid.querySelector(`[data-signal-id="${cssEscape(signal.id)}"]`),
-        signal,
+  for (const widget of widgets) {
+    if (selected.has(widget.id)) {
+      updateDashboardWidget(
+        grid.querySelector(`[data-widget-id="${cssEscape(widget.id)}"]`),
+        widget,
         null,
       );
     }
@@ -171,9 +174,9 @@ function clearCurrentValues() {
 function loadSelection(available) {
   const ids = new Set(available.map((node) => node.id));
   try {
-    const stored = JSON.parse(localStorage.getItem('liquid-dashboard-signals') ?? 'null');
+    const stored = JSON.parse(localStorage.getItem('liquid-dashboard-widgets') ?? 'null');
     if (Array.isArray(stored)) return new Set(stored.filter((id) => ids.has(id)));
-  } catch { /* use all configured operator signals */ }
+  } catch { /* use all configured dashboard widgets */ }
   return ids;
 }
 
@@ -193,7 +196,7 @@ timeline = new DashboardTimeController({
   navigator,
   tooltip: timeTooltip,
   returnTail,
-  cardFor: (signalId) => grid.querySelector(`[data-signal-id="${cssEscape(signalId)}"]`),
+  cardFor: (widgetId) => grid.querySelector(`[data-widget-id="${cssEscape(widgetId)}"]`),
   loadTier,
   onTierChange: () => localStorage.setItem('liquid-dashboard-tier', timeline.selectedTier),
 });

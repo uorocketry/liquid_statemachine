@@ -9,16 +9,7 @@ const GAUGE_TYPES = [
   ['meter-vertical-inverted', 'Vertical meter inverted'],
 ];
 
-const DEFAULT_GAUGE = {
-  type: 'dial-filled',
-  showValue: true,
-  showUnits: true,
-  showRange: true,
-  min: 0,
-  low: 10,
-  high: 90,
-  max: 100,
-};
+const DASHBOARD_GROUPS = ['Fuel', 'LOX', 'Engine'];
 
 const SPECS = {
   'sine-wave': {
@@ -97,26 +88,53 @@ const SPECS = {
     },
     validate: (config) => positive(config.windowS) ? [] : ['Rate-of-change window must be positive'],
   },
-  'dashboard-signal': {
+  number: {
     category: 'Dashboard',
-    title: 'Dashboard signal',
-    icon: 'icon-node-dashboard',
+    title: 'Number',
+    icon: 'icon-node-number',
     tone: 'result',
-    description: 'Publish a number, plot, or gauge to the operator dashboard.',
+    description: 'Show one live engineering value on the operator dashboard.',
+    defaults: { label: '', group: 'Engine', precision: 1, showUnits: true },
+    pins: dashboardPins,
+    controls: (config) => [
+      ...dashboardIdentityControls(config),
+      numberControl('precision', 'Decimals', config.precision, '', { min: 0, max: 6, step: 1 }),
+      toggleControl('showUnits', 'Show units', config.showUnits),
+    ],
+    decorate: decorateDashboardInput,
+    validate: (config) => [
+      ...validateDashboardIdentity(config),
+      ...validatePrecision(config.precision),
+      ...(typeof config.showUnits === 'boolean' ? [] : ['Number showUnits must be on or off']),
+    ],
+  },
+  gauge: {
+    category: 'Dashboard',
+    title: 'Gauge',
+    icon: 'icon-node-gauge',
+    tone: 'result',
+    description: 'Show one live value against configured engineering limits.',
     defaults: {
-      label: '',
-      group: 'Engine',
-      display: 'both',
-      precision: 1,
+      label: '', group: 'Engine', precision: 1,
+      type: 'dial-filled', showValue: true, showUnits: true, showRange: true,
+      min: 0, low: 10, high: 90, max: 100,
     },
-    pins: () => [input('value', 'Value', '*', '*')],
-    controls: dashboardControls,
-    decorate(next, graph, helpers) {
-      const unit = helpers.incomingUnit(next, graph, 'value');
-      if (concrete(unit)) setPinType(next, 'value', unit);
-      if (next.config?.display === 'gauge') next.icon = 'icon-node-gauge';
-    },
-    validate: validateDashboard,
+    pins: dashboardPins,
+    controls: gaugeControls,
+    decorate: decorateDashboardInput,
+    validate: validateGauge,
+  },
+  'time-plot': {
+    category: 'Dashboard',
+    title: 'Time plot',
+    icon: 'icon-node-time-plot',
+    tone: 'result',
+    description: 'Plot one engineering value against the shared dashboard time axis.',
+    defaults: { label: '', group: 'Engine', yScale: 'auto', yMin: 0, yMax: 100 },
+    pins: dashboardPins,
+    controls: timePlotControls,
+    decorate: decorateDashboardInput,
+    validate: validateTimePlot,
   },
 };
 
@@ -147,7 +165,7 @@ export function decorateSpecNode(node, graph, helpers) {
   const spec = SPECS[node.nodeType];
   if (!spec) return null;
   const next = structuredClone(node);
-  const config = normalizedConfig(node.nodeType, spec.defaults ?? {}, next.config ?? {});
+  const config = currentConfig(spec.defaults ?? {}, next.config ?? {});
   next.config = config;
   next.icon = spec.icon;
   next.controls = spec.controls?.(config) ?? [];
@@ -160,7 +178,7 @@ export function decorateSpecNode(node, graph, helpers) {
 export function validateSpecNode(node) {
   const spec = SPECS[node?.nodeType];
   return spec
-    ? (spec.validate?.(normalizedConfig(node.nodeType, spec.defaults ?? {}, node.config ?? {})) ?? [])
+    ? (spec.validate?.(currentConfig(spec.defaults ?? {}, node.config ?? {})) ?? [])
     : null;
 }
 
@@ -217,28 +235,49 @@ function inferredUnarySpec(title, icon, description, outputLabel) {
   };
 }
 
-function dashboardControls(config) {
-  const controls = [
+function dashboardIdentityControls(config) {
+  return [
     textControl('label', 'Label', config.label),
-    selectControl('group', 'Group', config.group, ['Fuel', 'LOX', 'Engine'].map(option)),
-    selectControl('display', 'Display', config.display, [
-      ['number', 'Number'], ['plot', 'Plot'], ['both', 'Number + plot'], ['gauge', 'Gauge'],
-    ]),
-    numberControl('precision', 'Decimals', config.precision, '', { min: 0, max: 6, step: 1 }),
+    selectControl('group', 'Group', config.group, DASHBOARD_GROUPS.map(option)),
   ];
-  if (config.display !== 'gauge') return controls;
-  const gauge = { ...DEFAULT_GAUGE, ...(config.gauge ?? {}) };
-  controls.push(
-    selectControl('gauge.type', 'Gauge type', gauge.type, GAUGE_TYPES),
-    toggleControl('gauge.showValue', 'Show value', gauge.showValue),
-    toggleControl('gauge.showUnits', 'Show units', gauge.showUnits),
-    toggleControl('gauge.showRange', 'Show range', gauge.showRange),
-    numberControl('gauge.min', 'Minimum', gauge.min),
-    numberControl('gauge.low', 'Low limit', gauge.low),
-    numberControl('gauge.high', 'High limit', gauge.high),
-    numberControl('gauge.max', 'Maximum', gauge.max),
-  );
+}
+
+function gaugeControls(config) {
+  return [
+    ...dashboardIdentityControls(config),
+    numberControl('precision', 'Decimals', config.precision, '', { min: 0, max: 6, step: 1 }),
+    selectControl('type', 'Gauge type', config.type, GAUGE_TYPES),
+    toggleControl('showValue', 'Show value', config.showValue),
+    toggleControl('showUnits', 'Show units', config.showUnits),
+    toggleControl('showRange', 'Show range', config.showRange),
+    numberControl('min', 'Minimum', config.min),
+    numberControl('low', 'Low limit', config.low),
+    numberControl('high', 'High limit', config.high),
+    numberControl('max', 'Maximum', config.max),
+  ];
+}
+
+function timePlotControls(config) {
+  const controls = [
+    ...dashboardIdentityControls(config),
+    selectControl('yScale', 'Y range', config.yScale, [['auto', 'Auto'], ['fixed', 'Fixed']]),
+  ];
+  if (config.yScale === 'fixed') {
+    controls.push(
+      numberControl('yMin', 'Y minimum', config.yMin),
+      numberControl('yMax', 'Y maximum', config.yMax),
+    );
+  }
   return controls;
+}
+
+function dashboardPins() {
+  return [input('value', 'Value', '*', '*')];
+}
+
+function decorateDashboardInput(next, graph, helpers) {
+  const unit = helpers.incomingUnit(next, graph, 'value');
+  if (concrete(unit)) setPinType(next, 'value', unit);
 }
 
 function decorateInferred(node, graph, incomingUnit, infer) {
@@ -264,63 +303,57 @@ function validateSine(config) {
   return issues;
 }
 
-function validateDashboard(config) {
+function validateDashboardIdentity(config) {
   const issues = [];
-  if (!String(config.label ?? '').trim()) issues.push('Dashboard signal requires a label');
-  if (!['Fuel', 'LOX', 'Engine'].includes(config.group)) issues.push('Dashboard group must be Fuel, LOX, or Engine');
-  if (!['number', 'plot', 'both', 'gauge'].includes(config.display)) {
-    issues.push('Dashboard display must be number, plot, both, or gauge');
-  }
-  const precision = Number(config.precision);
+  if (!String(config.label ?? '').trim()) issues.push('Dashboard widget requires a label');
+  if (!DASHBOARD_GROUPS.includes(config.group)) issues.push('Dashboard group must be Fuel, LOX, or Engine');
+  return issues;
+}
+
+function validatePrecision(value) {
+  const precision = Number(value);
   if (!Number.isInteger(precision) || precision < 0 || precision > 6) {
-    issues.push('Dashboard decimal places must be 0 through 6');
+    return ['Dashboard decimal places must be 0 through 6'];
   }
-  if (config.display !== 'gauge') return issues;
-  const gauge = { ...DEFAULT_GAUGE, ...(config.gauge ?? {}) };
-  if (!GAUGE_TYPES.some(([value]) => value === gauge.type)) issues.push('Select a supported dashboard gauge type');
+  return [];
+}
+
+function validateGauge(config) {
+  const issues = [...validateDashboardIdentity(config), ...validatePrecision(config.precision)];
+  if (!GAUGE_TYPES.some(([value]) => value === config.type)) issues.push('Select a supported dashboard gauge type');
   for (const key of ['showValue', 'showUnits', 'showRange']) {
-    if (typeof gauge[key] !== 'boolean') issues.push(`Gauge ${key} must be on or off`);
+    if (typeof config[key] !== 'boolean') issues.push(`Gauge ${key} must be on or off`);
   }
-  if (!finite(gauge.min) || !finite(gauge.max) || Number(gauge.max) <= Number(gauge.min)) {
+  if (!finite(config.min) || !finite(config.max) || Number(config.max) <= Number(config.min)) {
     issues.push('Gauge maximum must be greater than minimum');
     return issues;
   }
-  if (gauge.low !== null && gauge.low !== '' && (!finite(gauge.low) || Number(gauge.low) < Number(gauge.min) || Number(gauge.low) >= Number(gauge.max))) {
+  if (config.low !== null && config.low !== '' && (!finite(config.low) || Number(config.low) < Number(config.min) || Number(config.low) >= Number(config.max))) {
     issues.push('Gauge low limit must be within the display range');
   }
-  if (gauge.high !== null && gauge.high !== '' && (!finite(gauge.high) || Number(gauge.high) <= Number(gauge.min) || Number(gauge.high) > Number(gauge.max))) {
+  if (config.high !== null && config.high !== '' && (!finite(config.high) || Number(config.high) <= Number(config.min) || Number(config.high) > Number(config.max))) {
     issues.push('Gauge high limit must be within the display range');
   }
-  if (finite(gauge.low) && finite(gauge.high) && Number(gauge.low) > Number(gauge.high)) {
+  if (finite(config.low) && finite(config.high) && Number(config.low) > Number(config.high)) {
     issues.push('Gauge low limit cannot exceed the high limit');
   }
   return issues;
 }
 
-function mergedConfig(defaults, config) {
-  const result = structuredClone(defaults);
-  for (const [key, value] of Object.entries(config ?? {})) {
-    if (value && typeof value === 'object' && !Array.isArray(value) && result[key] && typeof result[key] === 'object') {
-      result[key] = { ...result[key], ...structuredClone(value) };
-    } else result[key] = structuredClone(value);
+function validateTimePlot(config) {
+  const issues = [...validateDashboardIdentity(config)];
+  if (!['auto', 'fixed'].includes(config.yScale)) issues.push('Time-plot Y range must be Auto or Fixed');
+  if (config.yScale === 'fixed' && (!finite(config.yMin) || !finite(config.yMax) || Number(config.yMax) <= Number(config.yMin))) {
+    issues.push('Time-plot Y maximum must be greater than Y minimum');
   }
-  return result;
+  return issues;
 }
 
-function normalizedConfig(nodeType, defaults, config) {
-  const source = structuredClone(config ?? {});
-  if (nodeType === 'sine-wave') {
-    if (source.periodS === undefined && finite(source.frequencyHz)) {
-      const frequency = Number(source.frequencyHz);
-      source.periodS = frequency === 0 ? 0 : 1 / frequency;
-    }
-    if (source.phaseRad === undefined && finite(source.phaseDeg)) {
-      source.phaseRad = Number(source.phaseDeg) * Math.PI / 180;
-    }
-    delete source.frequencyHz;
-    delete source.phaseDeg;
-  }
-  return mergedConfig(defaults, source);
+function currentConfig(defaults, config) {
+  return Object.fromEntries(Object.entries(defaults).map(([key, fallback]) => [
+    key,
+    structuredClone(Object.hasOwn(config ?? {}, key) ? config[key] : fallback),
+  ]));
 }
 
 function input(id, label, type, expectedType = type, options = {}) {

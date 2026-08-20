@@ -1,8 +1,12 @@
 import { differentialNegative } from './channels.js';
 import { daqConnectionAllowed } from './connection-policy.js';
-import { validateSpecNode } from './node-specs.js';
+import { isSpecNodeType, validateSpecNode } from './node-specs.js';
 
 const MEASUREMENT_TYPES = new Set(['labjack-ain', 'labjack-current', 'labjack-thermocouple']);
+const HARDWARE_NODE_TYPES = new Set([
+  'labjack-channel', 'labjack-channel-pair', ...MEASUREMENT_TYPES,
+  'pressure-calibration', 'load-cell',
+]);
 
 /**
  * Fast client-side checks. The server repeats authoritative validation on save.
@@ -21,6 +25,9 @@ export function validateGraph(graph) {
   const usedSources = new Map();
 
   for (const node of nodes) {
+    if (!isSpecNodeType(node.nodeType) && !HARDWARE_NODE_TYPES.has(node.nodeType)) {
+      issues.push(issue('error', node.id, `Unsupported node type: ${node.nodeType}`));
+    }
     if (node.nodeType === 'labjack-channel' || node.nodeType === 'labjack-channel-pair') {
       validateChannel(node, mux, usedSources, issues);
     }

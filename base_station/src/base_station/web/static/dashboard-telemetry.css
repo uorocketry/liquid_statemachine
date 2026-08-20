@@ -10,8 +10,8 @@
   padding: 0;
 }
 
-.telemetry-signal-picker { position: relative; }
-.telemetry-signal-picker summary {
+.dashboard-widget-picker { position: relative; }
+.dashboard-widget-picker summary {
   min-height: 28px;
   display: grid;
   place-items: center;
@@ -21,9 +21,9 @@
   cursor: pointer;
   list-style: none;
 }
-.telemetry-signal-picker summary::-webkit-details-marker { display: none; }
-.telemetry-signal-picker[open] summary { color: var(--color-text); background: var(--color-surface-hover); }
-.telemetry-signal-options {
+.dashboard-widget-picker summary::-webkit-details-marker { display: none; }
+.dashboard-widget-picker[open] summary { color: var(--color-text); background: var(--color-surface-hover); }
+.dashboard-widget-options {
   position: absolute;
   z-index: 30;
   top: calc(100% + 3px);
@@ -40,7 +40,7 @@
 .telemetry-picker-group label { display: flex; align-items: center; gap: 7px; padding: 5px 3px; font-size: 10px; }
 .telemetry-picker-group input { accent-color: var(--color-text); }
 
-.dashboard-signal-groups {
+.dashboard-widget-groups {
   min-height: 0;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
@@ -49,12 +49,12 @@
   flex: 1;
 }
 
-.dashboard-signal-group {
+.dashboard-widget-group {
   min-width: 0;
   align-self: stretch;
 }
 
-.dashboard-signal-group > h2 {
+.dashboard-widget-group > h2 {
   min-height: 27px;
   display: flex;
   align-items: center;
@@ -69,15 +69,15 @@
 }
 
 .dashboard-group-grid { display: grid; gap: 1px; }
-.dashboard-signal-card { min-width: 0; padding: 8px 9px 9px; background: var(--surface); }
-.dashboard-signal-card header { min-height: 27px; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-.dashboard-signal-card header strong { min-width: 0; overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.dashboard-signal-card output[data-signal-value] { flex: none; color: var(--text); font: 600 14px ui-monospace, monospace; }
-.dashboard-signal-card[data-display="number"] { min-height: 50px; display: flex; align-items: center; }
-.dashboard-signal-card[data-display="number"] header { width: 100%; }
+.dashboard-widget { min-width: 0; padding: 8px 9px 9px; background: var(--surface); }
+.dashboard-widget header { min-height: 27px; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.dashboard-widget header strong { min-width: 0; overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.dashboard-widget output[data-widget-value] { flex: none; color: var(--text); font: 600 14px ui-monospace, monospace; }
+.dashboard-widget[data-widget-type="number"] { min-height: 50px; display: flex; align-items: center; }
+.dashboard-widget[data-widget-type="number"] header { width: 100%; }
 
 .dashboard-chart-shell { position: relative; min-width: 0; }
-.dashboard-signal-card canvas {
+.dashboard-widget canvas {
   height: 145px;
   background: var(--color-input);
   cursor: crosshair;
@@ -134,16 +134,16 @@
   white-space: nowrap;
 }
 .telemetry-time-actions { display: flex; align-items: center; gap: 2px; }
-.telemetry-time-actions .telemetry-signal-options { top: auto; bottom: calc(100% + 3px); }
+.telemetry-time-actions .dashboard-widget-options { top: auto; bottom: calc(100% + 3px); }
 .telemetry-return-tail { align-self: center; }
 
 @media (min-width: 1450px) {
-  .dashboard-signal-groups { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .dashboard-signal-card canvas { height: 160px; }
+  .dashboard-widget-groups { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .dashboard-widget canvas { height: 160px; }
 }
 
 @media (max-width: 760px) {
   .dashboard-page { padding: 6px 7px 0; }
-  .dashboard-signal-groups { grid-template-columns: 1fr; }
-  .dashboard-signal-card canvas { height: 170px; }
+  .dashboard-widget-groups { grid-template-columns: 1fr; }
+  .dashboard-widget canvas { height: 170px; }
 }

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from base_station.web.daq_config.node_specs import SPEC_NODE_TYPES
+from base_station.web.daq_config.node_specs import DASHBOARD_NODE_TYPES, SPEC_NODE_TYPES
 from base_station.web.daq_config.signal_math import (
     add,
     gain,
@@ -83,7 +83,7 @@ def evaluate_spec_node(
         # execution supplies history and can evaluate this node later.
         return None
 
-    if node_type == "dashboard-signal":
+    if node_type in DASHBOARD_NODE_TYPES:
         source = _input_value(incoming, values, "value")
         return source.copy() if source is not None else None
 

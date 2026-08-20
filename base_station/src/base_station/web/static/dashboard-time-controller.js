@@ -6,11 +6,11 @@ const TIERS = ['full', 'context', 'detail'];
 export class DashboardTimeController {
   constructor(options) {
     Object.assign(this, options);
-    this.signals = [];
+    this.plots = [];
     this.following = true;
     this.center = 0;
     this.hoverTime = null;
-    this.hoverSignalId = null;
+    this.hoverPlotId = null;
     this.navigatorHover = null;
     this.navigatorDrag = null;
     this.selectedRange = null;
@@ -21,7 +21,7 @@ export class DashboardTimeController {
     this.renderer = new DashboardTimeRenderer({
       histories: this.histories,
       navigator: this.navigator,
-      cardFor: (signalId) => this.cardFor(signalId),
+      cardFor: (plotId) => this.cardFor(plotId),
     });
 
     this.navigator.addEventListener('pointerdown', (event) => this.startNavigate(event));
@@ -35,19 +35,19 @@ export class DashboardTimeController {
     });
   }
 
-  setSignals(signals) {
-    this.signals = signals;
+  setPlots(plots) {
+    this.plots = plots;
     this.bindCanvases();
     this.render();
   }
 
   bindCanvases() {
-    for (const signal of this.signals) {
-      const canvas = this.cardFor(signal.id)?.querySelector('[data-signal-chart]');
+    for (const plot of this.plots) {
+      const canvas = this.cardFor(plot.id)?.querySelector('[data-signal-chart]');
       if (!canvas || canvas.dataset.timelineBound === 'true') continue;
       canvas.dataset.timelineBound = 'true';
-      canvas.addEventListener('pointerdown', (event) => this.startInspect(event, signal.id));
-      canvas.addEventListener('pointermove', (event) => this.moveInspect(event, signal.id));
+      canvas.addEventListener('pointerdown', (event) => this.startInspect(event, plot.id));
+      canvas.addEventListener('pointermove', (event) => this.moveInspect(event, plot.id));
       canvas.addEventListener('pointerup', (event) => this.finishInspect(event));
       canvas.addEventListener('pointercancel', (event) => this.finishInspect(event));
       canvas.addEventListener('pointerleave', () => this.clearInspection());
@@ -60,8 +60,8 @@ export class DashboardTimeController {
   }
 
   bounds() {
-    const active = this.signals
-      .map((signal) => this.histories.get(signal.id) ?? [])
+    const active = this.plots
+      .map((plot) => this.histories.get(plot.id) ?? [])
       .filter((history) => history.length);
     if (!active.length) return [0, 1];
     const start = Math.min(...active.map((history) => history[0].time));
@@ -96,20 +96,20 @@ export class DashboardTimeController {
   render() {
     this.buildRanges();
     const state = this.renderState();
-    for (const signal of this.signals) this.renderer.renderSignal(signal, state);
+    for (const plot of this.plots) this.renderer.renderPlot(plot, state);
     this.renderer.renderNavigator(state);
     this.returnTail.hidden = this.following;
   }
 
   renderState() {
     return {
-      signals: this.signals,
+      plots: this.plots,
       ranges: this.ranges,
       range: this.selectedViewRange(),
       selectedTier: this.selectedTier,
       selectedRange: this.selectedRange,
       hoverTime: this.hoverTime,
-      hoverSignalId: this.hoverSignalId,
+      hoverPlotId: this.hoverPlotId,
       navigatorHover: this.navigatorHover,
       contextSeconds: this.contextSeconds,
       detailSeconds: this.detailSeconds,
@@ -123,13 +123,13 @@ export class DashboardTimeController {
     return range[0] + fraction * (range[1] - range[0]);
   }
 
-  startInspect(event, signalId) {
+  startInspect(event, plotId) {
     const canvas = event.currentTarget;
     canvas.setPointerCapture(event.pointerId);
     const time = this.eventTime(event, canvas);
     this.chartDrag = {
       pointerId: event.pointerId,
-      signalId,
+      plotId,
       startClientX: event.clientX,
       startTime: time,
       currentTime: time,
@@ -138,11 +138,11 @@ export class DashboardTimeController {
     };
     this.selectedRange = null;
     this.hoverTime = time;
-    this.hoverSignalId = signalId;
+    this.hoverPlotId = plotId;
     this.render();
   }
 
-  moveInspect(event, signalId) {
+  moveInspect(event, plotId) {
     const canvas = event.currentTarget;
     const time = this.eventTime(event, canvas);
     if (this.chartDrag?.pointerId === event.pointerId) {
@@ -154,7 +154,7 @@ export class DashboardTimeController {
       }
     }
     this.hoverTime = time;
-    this.hoverSignalId = signalId;
+    this.hoverPlotId = plotId;
     this.render();
   }
 
@@ -184,7 +184,7 @@ export class DashboardTimeController {
   clearInspection() {
     if (this.chartDrag) return;
     this.hoverTime = null;
-    this.hoverSignalId = null;
+    this.hoverPlotId = null;
     for (const tooltip of this.grid.querySelectorAll('[data-chart-tooltip]')) tooltip.hidden = true;
     this.render();
   }

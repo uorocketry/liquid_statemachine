@@ -15,8 +15,8 @@ from pydantic import BaseModel, Field
 
 from base_station.web.cart_service import CartService, STATE_NAMES
 from base_station.web.daq_config import build_daq_router
-from base_station.web.daq_config.migration import migrate_graph
 from base_station.web.daq_config.repository import DaqConfigRepository
+from base_station.web.daq_config.schema import normalize_graph
 from base_station.web.labjack_service import LabJackService
 from base_station.web.models import DashboardState
 from base_station.web.run_repository import RunRepository
@@ -44,7 +44,7 @@ class StateRequest(BaseModel):
 
 
 def configured_scan_rate() -> int:
-    graph = migrate_graph(daq_config.load())
+    graph = normalize_graph(daq_config.load())
     return int(graph.get("metadata", {}).get("scanRate", 1000))
 
 

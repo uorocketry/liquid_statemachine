@@ -7,7 +7,7 @@
 {% block content %}
 <main class="page dashboard-page">
   <section class="telemetry dashboard-telemetry">
-    <div id="telemetry-signal-grid" class="dashboard-signal-groups"></div>
+    <div id="dashboard-widget-grid" class="dashboard-widget-groups"></div>
     <div id="telemetry-empty" class="telemetry-empty" hidden><a href="/configuration"><span class="ui-icon icon-open-daq" aria-hidden="true"></span><span>DAQ Setup</span></a></div>
     <footer id="telemetry-time-control" class="telemetry-time-control" hidden>
       <div class="telemetry-navigator-wrap">
@@ -15,7 +15,7 @@
         <output id="telemetry-time-tooltip" class="telemetry-time-tooltip" hidden></output>
       </div>
       <div class="telemetry-time-actions">
-        <details class="telemetry-signal-picker"><summary class="icon-button" aria-label="Choose dashboard signals" title="Signals"><span class="ui-icon icon-signals" aria-hidden="true"></span></summary><div id="telemetry-signal-options" class="telemetry-signal-options"></div></details>
+        <details class="dashboard-widget-picker"><summary class="icon-button" aria-label="Choose dashboard widgets" title="Widgets"><span class="ui-icon icon-signals" aria-hidden="true"></span></summary><div id="dashboard-widget-options" class="dashboard-widget-options"></div></details>
         <button id="telemetry-return-tail" class="icon-button telemetry-return-tail" type="button" hidden aria-label="Follow newest samples" title="Follow newest samples"><span class="ui-icon icon-end" aria-hidden="true"></span></button>
       </div>
     </footer>

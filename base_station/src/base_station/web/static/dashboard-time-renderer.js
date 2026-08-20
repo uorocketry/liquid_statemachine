@@ -12,15 +12,15 @@ export class DashboardTimeRenderer {
     Object.assign(this, options);
   }
 
-  renderSignal(signal, state) {
-    const card = this.cardFor(signal.id);
+  renderPlot(plot, state) {
+    const card = this.cardFor(plot.id);
     const canvas = card?.querySelector('[data-signal-chart]');
     if (!canvas) return;
     const tooltip = card.querySelector('[data-chart-tooltip]');
-    if (tooltip && state.hoverSignalId !== signal.id) tooltip.hidden = true;
+    if (tooltip && state.hoverPlotId !== plot.id) tooltip.hidden = true;
 
     const { context, width, height } = prepareCanvas(canvas);
-    const history = this.histories.get(signal.id) ?? [];
+    const history = this.histories.get(plot.id) ?? [];
     const summary = summarizeSamples(history, state.range, Math.max(1, Math.floor(width)));
     const colors = canvasColors();
     context.fillStyle = colors.input;
@@ -29,10 +29,7 @@ export class DashboardTimeRenderer {
     this.drawSelection(context, width, height, state.range, state.selectedRange, colors);
     if (!summary.count) return;
 
-    let { minimum, maximum } = summary;
-    const padding = Math.max((maximum - minimum) * 0.08, Math.abs(maximum) * 1e-6, 1e-9);
-    minimum -= padding;
-    maximum += padding;
+    let { minimum, maximum } = yRange(plot, summary);
 
     const xAt = (time) => (time - state.range[0]) / Math.max(1e-9, state.range[1] - state.range[0]) * width;
     const yAt = (value) => 7 + (maximum - value) / Math.max(1e-12, maximum - minimum) * (height - 14);
@@ -77,7 +74,7 @@ export class DashboardTimeRenderer {
       context.moveTo(x + 0.5, 0);
       context.lineTo(x + 0.5, height);
       context.stroke();
-      if (state.hoverTime !== null && state.hoverSignalId === signal.id) {
+      if (state.hoverTime !== null && state.hoverPlotId === plot.id) {
         this.showChartTooltip(card, history, state.hoverTime, x);
       }
     }
@@ -147,7 +144,7 @@ export class DashboardTimeRenderer {
         context.lineTo(width, y + 0.5);
         context.stroke();
       }
-      this.drawNavigatorSignals(context, range, y, bandHeight, width, colors, state.signals);
+      this.drawNavigatorPlots(context, range, y, bandHeight, width, colors, state.plots);
       this.drawNavigatorSelection(context, range, y, bandHeight, width, colors, state.selectedRange);
       context.fillStyle = index === selectedIndex ? colors.text : colors.muted;
       context.font = `${index === selectedIndex ? '700' : '600'} 8px ui-monospace, monospace`;
@@ -180,17 +177,17 @@ export class DashboardTimeRenderer {
     }
   }
 
-  drawNavigatorSignals(context, range, y, bandHeight, width, colors, signals) {
+  drawNavigatorPlots(context, range, y, bandHeight, width, colors, plots) {
     const plotTop = y + 4;
     const plotHeight = Math.max(4, bandHeight - 8);
-    for (const signal of signals) {
-      const history = this.histories.get(signal.id) ?? [];
+    for (const plot of plots) {
+      const history = this.histories.get(plot.id) ?? [];
       const summary = summarizeSamples(history, range, Math.max(1, Math.floor(width / 2)));
       if (summary.count < 2) continue;
       const { minimum, maximum, buckets } = summary;
       const span = Math.max(1e-12, maximum - minimum);
       context.strokeStyle = colors.navigatorLine;
-      context.globalAlpha = Math.max(0.12, Math.min(0.35, 1 / Math.sqrt(signals.length)));
+      context.globalAlpha = Math.max(0.12, Math.min(0.35, 1 / Math.sqrt(plots.length)));
       context.lineWidth = 1;
       context.beginPath();
       let previousSegment = null;
@@ -221,4 +218,15 @@ export class DashboardTimeRenderer {
     if (Math.abs(seconds - Math.round(seconds)) < 1e-6) return `${Math.round(seconds)} s`;
     return `${seconds.toFixed(seconds < 1 ? 2 : 1)} s`;
   }
+}
+
+function yRange(plot, summary) {
+  if (plot.config?.yScale === 'fixed') {
+    return { minimum: Number(plot.config.yMin), maximum: Number(plot.config.yMax) };
+  }
+  let { minimum, maximum } = summary;
+  const padding = Math.max((maximum - minimum) * 0.08, Math.abs(maximum) * 1e-6, 1e-9);
+  minimum -= padding;
+  maximum += padding;
+  return { minimum, maximum };
 }

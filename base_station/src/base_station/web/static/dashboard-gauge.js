@@ -1,3 +1,5 @@
+import { createWidgetCard } from './dashboard-widget-shell.js';
+
 const DIAL_START_DEG = 135;
 const DIAL_SPAN_DEG = 270;
 const DIAL_RADIUS = 37;
@@ -14,14 +16,15 @@ const DEFAULT_GAUGE = {
   max: 100,
 };
 
-/** Create one self-contained dashboard gauge. */
-export function createGauge(signal) {
-  const gauge = normalizeGauge(signal.config?.gauge);
+/** Create one dashboard Gauge widget. */
+export function createGaugeWidget(node) {
+  const gauge = normalizeGauge(node.config);
+  const { card } = createWidgetCard(node);
   const root = document.createElement('div');
   root.className = 'dashboard-gauge';
   root.dataset.gaugeType = gauge.type;
   root.setAttribute('role', 'meter');
-  root.setAttribute('aria-label', `${signal.config?.label ?? 'Signal'} gauge`);
+  root.setAttribute('aria-label', `${node.config?.label ?? 'Signal'} gauge`);
 
   if (gauge.type.startsWith('dial-')) root.append(createDial(gauge));
   else root.append(createMeter(gauge));
@@ -49,15 +52,17 @@ export function createGauge(signal) {
 
   root.append(readout, range);
   applyGaugeVisibility(root, gauge);
-  updateRangeLabels(root, gauge, signal.config?.precision ?? 1);
-  return root;
+  updateRangeLabels(root, gauge, node.config?.precision ?? 1);
+  card.append(root);
+  return card;
 }
 
-/** Update only the live parts of a gauge; configuration is read from the signal. */
-export function updateGauge(root, signal, reading) {
+/** Update only the live parts of a Gauge widget. */
+export function updateGaugeWidget(card, node, reading) {
+  const root = card?.querySelector('.dashboard-gauge');
   if (!root) return;
-  const gauge = normalizeGauge(signal.config?.gauge);
-  const precision = clampInteger(signal.config?.precision, 0, 6, 1);
+  const gauge = normalizeGauge(node.config);
+  const precision = clampInteger(node.config?.precision, 0, 6, 1);
   const value = Number(reading?.value);
   const finite = Number.isFinite(value);
   const ratio = finite ? valueRatio(value, gauge.min, gauge.max) : 0;

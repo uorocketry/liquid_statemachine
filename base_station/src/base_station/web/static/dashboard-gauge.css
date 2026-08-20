@@ -1,5 +1,5 @@
-.dashboard-signal-card[data-display="gauge"] { min-height: 205px; }
-.dashboard-signal-card[data-display="gauge"] header { min-height: 24px; }
+.dashboard-widget[data-widget-type="gauge"] { min-height: 205px; }
+.dashboard-widget[data-widget-type="gauge"] header { min-height: 24px; }
 
 .dashboard-gauge {
   min-height: 160px;
@@ -77,6 +77,6 @@
 .dashboard-gauge .hidden { display: none; }
 
 @media (min-width: 1450px) {
-  .dashboard-signal-card[data-display="gauge"] { min-height: 220px; }
+  .dashboard-widget[data-widget-type="gauge"] { min-height: 220px; }
   .dashboard-gauge-dial { height: 132px; }
 }

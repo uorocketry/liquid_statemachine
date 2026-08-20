@@ -164,12 +164,15 @@ class FrontendContractTests(TestCase):
         self.assertIn("phaseRad: 0", specs)
         self.assertIn("randomness: 0", specs)
         self.assertIn("SPEC_NODE_CATALOG", catalog)
-        self.assertIn("String(path).split('.')", editing)
+        self.assertNotIn("String(path).split('.')", editing)
         self.assertIn("input.dataset.valueType === 'boolean'", events)
         self.assertNotIn("node.nodeType === 'sine-wave'", catalog)
         self.assertNotIn("node.nodeType === 'sine-wave'", read("static/daq-config/presentation.js"))
         self.assertIn("hasSimulation", app)
         self.assertIn("isPreviewSourceNode", live_preview)
+        self.assertIn("number:", specs)
+        self.assertIn("gauge:", specs)
+        self.assertIn("'time-plot':", specs)
 
     def test_blueprint_nodes_use_flat_engineering_chrome(self) -> None:
         css = read("static/blueprint/blueprint.css")
@@ -240,17 +243,23 @@ class FrontendContractTests(TestCase):
     def test_dashboard_telemetry_is_blueprint_driven(self) -> None:
         dashboard = read("templates/index.html")
         telemetry = read("static/dashboard-telemetry.js")
-        cards = read("static/dashboard-signal-card.js")
+        registry = read("static/dashboard-widget-registry.js")
+        number = read("static/dashboard-number.js")
+        plot = read("static/dashboard-time-plot.js")
         gauge = read("static/dashboard-gauge.js")
+        specs = read("static/daq-config/node-specs.js")
         controller = read("static/dashboard-time-controller.js")
         renderer = read("static/dashboard-time-renderer.js")
         time_utils = read("static/dashboard-time-utils.js")
-        self.assertIn('id="telemetry-signal-grid"', dashboard)
-        self.assertIn('id="telemetry-signal-options"', dashboard)
+        self.assertIn('id="dashboard-widget-grid"', dashboard)
+        self.assertIn('id="dashboard-widget-options"', dashboard)
         self.assertIn('id="telemetry-tier-navigator"', dashboard)
         self.assertIn('id="telemetry-return-tail"', dashboard)
         self.assertIn('src="/static/dashboard-telemetry.js"', dashboard)
-        self.assertIn("node.nodeType === 'dashboard-signal'", telemetry)
+        self.assertIn("DASHBOARD_NODE_TYPES.has(node.nodeType)", telemetry)
+        self.assertIn("number:", registry)
+        self.assertIn("gauge:", registry)
+        self.assertIn("'time-plot':", registry)
         self.assertIn("previewConfiguration(graph)", telemetry)
         self.assertIn("DashboardTimeController", telemetry)
         self.assertIn("class DashboardTimeController", controller)
@@ -258,7 +267,8 @@ class FrontendContractTests(TestCase):
         self.assertIn("this.detailSeconds = 1", controller)
         self.assertIn("this.selectedRange", controller)
         self.assertIn("zoomToSelection", controller)
-        self.assertIn("dataset.signalChart", cards)
+        self.assertIn("dataset.widgetValue", number)
+        self.assertIn("dataset.signalChart", plot)
         self.assertIn("this.hoverTime", controller)
         self.assertIn("this.navigatorDrag", controller)
         self.assertIn("const range = [...(this.ranges[index]", controller)
@@ -277,10 +287,10 @@ class FrontendContractTests(TestCase):
         self.assertIn("seconds >= 3600", time_utils)
         self.assertIn("bucket.segment !== previousSegment", renderer)
         self.assertIn("Drag any band to scrub the current graph view", dashboard)
-        self.assertIn("renderSignal", renderer)
+        self.assertIn("renderPlot", renderer)
         self.assertIn("renderNavigator", renderer)
-        self.assertIn("PLACEHOLDER_LABELS", telemetry)
-        self.assertIn("pickerDetails.hidden = signals.length === 0", telemetry)
+        self.assertNotIn("PLACEHOLDER_LABELS", telemetry)
+        self.assertIn("pickerDetails.hidden = widgets.length === 0", telemetry)
         self.assertNotIn("dashboard-toolbar", dashboard)
         self.assertNotIn('telemetry-live-state', dashboard)
         self.assertNotIn("'Live'", telemetry)
@@ -289,14 +299,34 @@ class FrontendContractTests(TestCase):
         self.assertNotIn('fragments/cart.html', dashboard)
         self.assertNotIn('fragments/labjack.html', dashboard)
         self.assertNotIn('fragments/events.html', dashboard)
-        self.assertIn("display === 'gauge'", cards)
         for gauge_type in (
             "dial-filled", "dial-needle", "meter-horizontal", "meter-vertical", "meter-vertical-inverted",
         ):
-            self.assertIn(gauge_type, gauge if gauge_type.startswith("dial") else read("static/daq-config/node-specs.js"))
-        self.assertIn("usesTimeline(signal)", telemetry)
-        self.assertIn("navigatorWrap.hidden = timelineSignals.length === 0", telemetry)
-        self.assertIn("timeControl.hidden = signals.length === 0", telemetry)
+            self.assertIn(gauge_type, specs)
+        self.assertIn("normalizeGauge(node.config)", gauge)
+        self.assertIn("usesTimeline(widget)", telemetry)
+        self.assertIn("navigatorWrap.hidden = timelinePlots.length === 0", telemetry)
+        self.assertIn("timeControl.hidden = widgets.length === 0", telemetry)
+        self.assertIn("plot.config?.yScale === 'fixed'", renderer)
+        self.assertIn("Number", specs)
+        self.assertIn("Gauge", specs)
+        self.assertIn("Time plot", specs)
+
+    def test_dashboard_has_no_generic_display_node_or_compatibility_layer(self) -> None:
+        paths = [
+            "static/daq-config/node-specs.js",
+            "static/dashboard-telemetry.js",
+            "static/dashboard-widget-registry.js",
+            "daq_config/node_specs.py",
+            "daq_config/node_runtime.py",
+            "daq_config/README.md",
+        ]
+        combined = "\n".join(read(path) for path in paths)
+        self.assertNotIn("dashboard-signal", combined)
+        self.assertNotIn("config.gauge", combined)
+        self.assertNotIn("frequencyHz", combined)
+        self.assertNotIn("phaseDeg", combined)
+        self.assertFalse((WEB / "daq_config" / "migration.py").exists())
 
     def test_primary_pages_do_not_repeat_sidebar_route_titles(self) -> None:
         for template, duplicate in (
