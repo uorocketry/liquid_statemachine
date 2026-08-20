@@ -47,13 +47,11 @@
   align-items: start;
   gap: 1px;
   flex: 1;
-  background: var(--line-soft);
 }
 
 .dashboard-signal-group {
   min-width: 0;
   align-self: stretch;
-  background: var(--surface);
 }
 
 .dashboard-signal-group > h2 {
@@ -70,7 +68,7 @@
   text-transform: uppercase;
 }
 
-.dashboard-group-grid { display: grid; gap: 1px; background: var(--line-soft); }
+.dashboard-group-grid { display: grid; gap: 1px; }
 .dashboard-signal-card { min-width: 0; padding: 8px 9px 9px; background: var(--surface); }
 .dashboard-signal-card header { min-height: 27px; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .dashboard-signal-card header strong { min-width: 0; overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
@@ -119,7 +117,6 @@
   align-items: stretch;
   flex: none;
   padding: 4px 0 6px;
-  border-top: 1px solid var(--line-soft);
   background: var(--color-canvas);
 }
 .telemetry-time-control[hidden] { display: none; }
