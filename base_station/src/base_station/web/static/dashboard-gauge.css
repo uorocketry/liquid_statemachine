@@ -1,0 +1,82 @@
+.dashboard-signal-card[data-display="gauge"] { min-height: 205px; }
+.dashboard-signal-card[data-display="gauge"] header { min-height: 24px; }
+
+.dashboard-gauge {
+  min-height: 160px;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  align-items: center;
+  justify-items: center;
+  gap: 2px;
+  padding: 2px 6px 3px;
+}
+
+.dashboard-gauge-dial { width: min(100%, 220px); height: 118px; overflow: visible; }
+.dashboard-gauge-dial path { fill: none; stroke-linecap: round; }
+.dashboard-gauge-dial-base { stroke: var(--color-border); stroke-width: 8; }
+.dashboard-gauge-dial .dashboard-gauge-limit { stroke-width: 8; }
+.dashboard-gauge-dial .dashboard-gauge-limit.low { stroke: var(--color-warning); }
+.dashboard-gauge-dial .dashboard-gauge-limit.high { stroke: var(--color-danger); }
+.dashboard-gauge-dial-value { stroke: var(--color-text); stroke-width: 3.5; }
+.dashboard-gauge-needle { stroke: var(--color-text); stroke-width: 1.5; stroke-linecap: round; }
+.dashboard-gauge-needle-hub { fill: var(--color-text); }
+
+.dashboard-gauge-meter {
+  width: min(100%, 260px);
+  height: 105px;
+  display: grid;
+  place-items: center;
+}
+.dashboard-gauge-meter[data-orientation^="vertical"] { height: 118px; }
+.dashboard-gauge-meter-track {
+  position: relative;
+  width: 100%;
+  height: 20px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background: var(--color-input);
+}
+.dashboard-gauge-meter[data-orientation^="vertical"] .dashboard-gauge-meter-track {
+  width: 24px;
+  height: 112px;
+}
+.dashboard-gauge-meter-track > span { position: absolute; left: 0; bottom: 0; }
+.dashboard-gauge-meter-value {
+  z-index: 1;
+  height: 100%;
+  background: var(--color-text-muted);
+  opacity: .45;
+}
+.dashboard-gauge-meter[data-orientation^="vertical"] .dashboard-gauge-meter-value { width: 100%; }
+.dashboard-gauge-meter .dashboard-gauge-limit { position: absolute; z-index: 2; height: 100%; opacity: .7; }
+.dashboard-gauge-meter .dashboard-gauge-limit.low { background: var(--color-warning); }
+.dashboard-gauge-meter .dashboard-gauge-limit.high { background: var(--color-danger); }
+.dashboard-gauge-meter[data-orientation^="vertical"] .dashboard-gauge-limit { width: 100%; height: 0; }
+
+.dashboard-gauge-readout {
+  min-height: 24px;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.dashboard-gauge-readout output { color: var(--color-text); font-size: 17px; font-weight: 700; }
+.dashboard-gauge-readout span { color: var(--color-text-muted); font-size: 9px; }
+.dashboard-gauge-range {
+  width: min(100%, 260px);
+  min-height: 14px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  color: var(--color-text-muted);
+  font: 8px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.dashboard-gauge-range > :last-child { text-align: right; }
+.dashboard-gauge-range strong { color: var(--color-danger); font-size: 8px; font-weight: 700; text-transform: uppercase; }
+.dashboard-gauge .hidden { display: none; }
+
+@media (min-width: 1450px) {
+  .dashboard-signal-card[data-display="gauge"] { min-height: 220px; }
+  .dashboard-gauge-dial { height: 132px; }
+}

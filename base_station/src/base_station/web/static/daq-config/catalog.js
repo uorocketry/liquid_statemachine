@@ -1,8 +1,9 @@
 import { availableChannels, differentialNegative, differentialPositiveChannels } from './channels.js';
+import { createSpecNode, SPEC_NODE_CATALOG } from './node-specs.js';
 
 /** @typedef {import('../blueprint/model.js').BlueprintNode} BlueprintNode */
 
-export const NODE_CATALOG = [
+const HARDWARE_NODE_CATALOG = [
   { type: 'labjack-channel', category: 'LabJack', title: 'Channel reference', icon: 'icon-node-channel', description: 'Reference one physical T7 or MUX80 analog channel.' },
   { type: 'labjack-channel-pair', category: 'LabJack', title: 'Channel pair', icon: 'icon-node-pair', description: 'Reference one valid differential T7 or MUX80 channel pair.' },
   { type: 'labjack-ain', category: 'LabJack', title: 'Analog input', icon: 'icon-node-ain', description: 'Read one channel or a differential channel pair.' },
@@ -10,15 +11,9 @@ export const NODE_CATALOG = [
   { type: 'labjack-thermocouple', category: 'LabJack', title: 'Thermocouple', icon: 'icon-node-thermocouple', description: 'Differential thermocouple measurement converted to Kelvin.' },
   { type: 'pressure-calibration', category: 'Sensors', title: 'Pressure calibration', icon: 'icon-node-pressure', description: 'Map voltage or current into calibrated PSI.' },
   { type: 'load-cell', category: 'Sensors', title: 'Load cell', icon: 'icon-node-load', description: 'Convert bridge voltage and excitation into mass or force.' },
-  { type: 'sine-wave', category: 'Simulation', title: 'Sine wave', icon: 'icon-node-sine', description: 'Generate a configurable test signal without DAQ hardware.' },
-  { type: 'constant', category: 'Math', title: 'Constant', icon: 'icon-node-constant', description: 'Named engineering constant such as tank dry mass.' },
-  { type: 'add', category: 'Math', title: 'Add', icon: 'icon-node-add', description: 'Add two engineering signals with matching units.' },
-  { type: 'subtract', category: 'Math', title: 'Subtract', icon: 'icon-node-subtract', description: 'Subtract one engineering signal from another.' },
-  { type: 'gain', category: 'Math', title: 'Gain', icon: 'icon-node-gain', description: 'Scale an engineering signal by a dimensionless gain.' },
-  { type: 'moving-average', category: 'Math', title: 'Moving average', icon: 'icon-node-average', description: 'Smooth a signal over a configurable time window.' },
-  { type: 'rate-of-change', category: 'Math', title: 'Rate of change', icon: 'icon-node-rate', description: 'Time derivative for mass-flow and similar derived signals.' },
-  { type: 'dashboard-signal', category: 'Dashboard', title: 'Dashboard signal', icon: 'icon-node-dashboard', description: 'Publish a value, plot, or both to the operator dashboard.' },
 ];
+
+export const NODE_CATALOG = [...HARDWARE_NODE_CATALOG, ...SPEC_NODE_CATALOG];
 
 /**
  * @param {string} nodeType
@@ -41,6 +36,8 @@ export function createNode(nodeType, point, capabilities, graph) {
     y: Math.round(point.y),
   };
   const measurement = measurementDefaults();
+  const specNode = createSpecNode(nodeType, common);
+  if (specNode) return specNode;
 
   if (nodeType === 'labjack-channel') {
     const source = sourceDefaults(capabilities, graph);
@@ -111,46 +108,7 @@ export function createNode(nodeType, point, capabilities, graph) {
       output('load', 'Load', 'kg'),
     ],
   };
-  if (nodeType === 'sine-wave') return {
-    ...common,
-    config: { amplitude: 1, frequencyHz: 0.25, offset: 0, phaseDeg: 0, unit: 'V' },
-    pins: [output('signal', 'Signal', 'V')],
-  };
-  if (nodeType === 'constant') return {
-    ...common,
-    config: { value: 0, unit: 'kg' },
-    pins: [output('value', 'Value', 'kg')],
-  };
-  if (nodeType === 'add') return {
-    ...common,
-    config: {},
-    pins: [input('a', 'A', 'infer', '*'), input('b', 'B', 'infer', '*'), output('result', 'A + B', 'infer')],
-  };
-  if (nodeType === 'subtract') return {
-    ...common,
-    config: {},
-    pins: [input('a', 'A', 'infer', '*'), input('b', 'B', 'infer', '*'), output('result', 'A − B', 'infer')],
-  };
-  if (nodeType === 'gain') return {
-    ...common,
-    config: { gain: 1 },
-    pins: [input('input', 'Signal', 'infer', '*'), output('result', 'Scaled', 'infer')],
-  };
-  if (nodeType === 'moving-average') return {
-    ...common,
-    config: { windowS: 0.5 },
-    pins: [input('input', 'Signal', 'infer', '*'), output('result', 'Average', 'infer')],
-  };
-  if (nodeType === 'rate-of-change') return {
-    ...common,
-    config: { windowS: 0.5 },
-    pins: [input('input', 'Signal', 'infer', '*'), output('rate', 'Rate', 'infer')],
-  };
-  return {
-    ...common,
-    config: { label: '', group: 'Engine', display: 'both', precision: 1 },
-    pins: [input('value', 'Value', '*', '*')],
-  };
+  throw new Error(`No node factory for DAQ node type: ${nodeType}`);
 }
 
 function sourceDefaults(capabilities, graph) {
@@ -198,9 +156,7 @@ function uniqueNodeId(graph, stem) {
 
 function toneFor(type) {
   if (type.startsWith('labjack-')) return 'source';
-  if (type === 'sine-wave') return 'source';
   if (['pressure-calibration', 'load-cell'].includes(type)) return 'sensor';
-  if (type === 'dashboard-signal') return 'result';
   return 'transform';
 }
 

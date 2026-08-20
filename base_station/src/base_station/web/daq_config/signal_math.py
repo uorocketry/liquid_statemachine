@@ -61,19 +61,30 @@ def sine_wave(
     time_s: ArrayLike,
     *,
     amplitude: float,
-    frequency_hz: float,
+    period_s: float,
     offset: float = 0.0,
-    phase_deg: float = 0.0,
+    phase_rad: float = 0.0,
+    randomness: float = 0.0,
+    rng: np.random.Generator | None = None,
 ) -> FloatArray:
-    parameters = (amplitude, frequency_hz, offset, phase_deg)
+    parameters = (amplitude, period_s, offset, phase_rad, randomness)
     if not all(np.isfinite(float(value)) for value in parameters):
         raise ValueError("Sine-wave parameters must be finite")
-    if frequency_hz < 0:
-        raise ValueError("Sine-wave frequency cannot be negative")
-    phase = np.deg2rad(float(phase_deg))
-    return float(offset) + float(amplitude) * np.sin(
-        2.0 * np.pi * float(frequency_hz) * _array(time_s) + phase
+    if period_s < 0:
+        raise ValueError("Sine-wave period cannot be negative")
+    if not 0 <= randomness <= 1:
+        raise ValueError("Sine-wave randomness must be between 0 and 1")
+    times = _array(time_s)
+    phase = float(phase_rad)
+    angle = np.full_like(times, phase) if period_s == 0 else (
+        2.0 * np.pi * times / float(period_s) + phase
     )
+    result = float(offset) + float(amplitude) * np.sin(angle)
+    if randomness:
+        generator = rng or np.random.default_rng()
+        noise = generator.uniform(-1.0, 1.0, size=result.shape)
+        result = result + abs(float(amplitude)) * float(randomness) * noise
+    return result
 
 
 def moving_average(values: ArrayLike, sample_rate_hz: float, *, window_s: float) -> FloatArray:

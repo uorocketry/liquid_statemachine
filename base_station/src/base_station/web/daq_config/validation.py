@@ -6,6 +6,7 @@ import re
 from math import isfinite
 
 from base_station.web.daq_config.link_validation import validate_link_types
+from base_station.web.daq_config.node_specs import validate_spec_node
 
 AIN_PATTERN = re.compile(r"^AIN(\d{1,3})$")
 MEASUREMENT_TYPES = {"labjack-ain", "labjack-current", "labjack-thermocouple"}
@@ -63,6 +64,9 @@ def validate_graph(graph: object) -> list[dict[str, str]]:
             _validate_channel(node, mux_enabled, issues)
         if node.get("nodeType") in MEASUREMENT_TYPES:
             _validate_measurement(node, node_map, incoming, issues)
+        spec_messages = validate_spec_node(node)
+        if spec_messages is not None:
+            issues.extend(_issue(node["id"], message) for message in spec_messages)
         _validate_transform(node, node_map, incoming, issues)
     return issues
 
@@ -181,34 +185,6 @@ def _validate_transform(
             issues.append(_issue(node["id"], "Load cell zero offset is required"))
         if not _positive_number(excitation):
             issues.append(_issue(node["id"], "Load cell excitation must be positive"))
-    if node.get("nodeType") == "sine-wave":
-        for key, label in (
-            ("amplitude", "Amplitude"),
-            ("frequencyHz", "Frequency"),
-            ("offset", "Offset"),
-            ("phaseDeg", "Phase"),
-        ):
-            if not _finite_number(config.get(key)):
-                issues.append(_issue(node["id"], f"Sine-wave {label.lower()} must be finite"))
-        frequency = config.get("frequencyHz")
-        if _finite_number(frequency) and float(frequency) < 0:
-            issues.append(_issue(node["id"], "Sine-wave frequency cannot be negative"))
-        if not str(config.get("unit", "")).strip():
-            issues.append(_issue(node["id"], "Sine-wave unit is required"))
-    if node.get("nodeType") == "gain" and not _finite_number(config.get("gain")):
-        issues.append(_issue(node["id"], "Gain must be finite"))
-    if node.get("nodeType") == "moving-average" and not _positive_number(config.get("windowS")):
-        issues.append(_issue(node["id"], "Moving-average window must be positive"))
-    if node.get("nodeType") == "dashboard-signal":
-        if not str(config.get("label", "")).strip():
-            issues.append(_issue(node["id"], "Dashboard signal requires a label"))
-        if config.get("group") not in {"Fuel", "LOX", "Engine"}:
-            issues.append(_issue(node["id"], "Dashboard group must be Fuel, LOX, or Engine"))
-        if config.get("display") not in {"number", "plot", "both"}:
-            issues.append(_issue(node["id"], "Dashboard display must be number, plot, or both"))
-        precision = config.get("precision")
-        if not isinstance(precision, int) or not 0 <= precision <= 6:
-            issues.append(_issue(node["id"], "Dashboard decimal places must be 0 through 6"))
 
 
 def _incoming_links(links: list) -> dict[str, dict[str, dict]]:

@@ -46,11 +46,22 @@ class SignalMathTests(TestCase):
         result = signal_math.gain([2.0, -4.0], 0.5)
         np.testing.assert_allclose(result, [1.0, -2.0])
 
-    def test_sine_wave_uses_frequency_phase_offset_and_amplitude(self) -> None:
+    def test_sine_wave_uses_period_phase_offset_and_amplitude(self) -> None:
         result = signal_math.sine_wave(
-            [0.0, 1.0], amplitude=2.0, frequency_hz=0.25, offset=10.0, phase_deg=0.0
+            [0.0, 1.0], amplitude=2.0, period_s=4.0, offset=10.0, phase_rad=0.0
         )
         np.testing.assert_allclose(result, [10.0, 12.0], atol=1e-12)
+
+    def test_sine_wave_randomness_is_bounded_by_amplitude_fraction(self) -> None:
+        result = signal_math.sine_wave(
+            np.zeros(100),
+            amplitude=2.0,
+            period_s=4.0,
+            randomness=0.25,
+            rng=np.random.default_rng(7),
+        )
+        self.assertTrue(np.all(result >= -0.5))
+        self.assertTrue(np.all(result <= 0.5))
 
     def test_moving_average_uses_trailing_time_window(self) -> None:
         result = signal_math.moving_average([1.0, 3.0, 5.0, 7.0], 2.0, window_s=1.0)

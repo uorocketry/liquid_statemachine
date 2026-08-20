@@ -6,9 +6,17 @@ import {
   differentialPositiveChannels,
 } from './channels.js';
 import { NODE_CATALOG } from './catalog.js';
+import {
+  decorateSpecNode,
+  numberControl,
+  selectControl,
+  specOutputUnit,
+} from './node-specs.js';
 
 /** Add view-only inline controls, literals and inferred pin units. */
 export function decorateNode(node, graph, capabilities) {
+  const specNode = decorateSpecNode(node, graph, { incomingUnit });
+  if (specNode) return specNode;
   const next = structuredClone(node);
   next.icon = NODE_CATALOG.find((item) => item.type === node.nodeType)?.icon ?? null;
   const connected = connectedInputs(node, graph);
@@ -36,7 +44,7 @@ export function decorateNode(node, graph, capabilities) {
     next.controls = [range];
   } else if (node.nodeType === 'labjack-current') {
     next.controls = [range];
-    setLiteral(next, connected, 'shunt', numberControl('shuntOhms', config.shuntOhms, 'Ω', { min: 0.001 }));
+    setLiteral(next, connected, 'shunt', numberControl('shuntOhms', 'Shunt', config.shuntOhms, 'Ω', { min: 0.001 }));
   } else if (node.nodeType === 'labjack-thermocouple') {
     next.controls = [
       selectControl('thermocoupleType', 'Type', config.thermocoupleType ?? '', [
@@ -48,48 +56,6 @@ export function decorateNode(node, graph, capabilities) {
     decoratePressure(next, graph, connected);
   } else if (node.nodeType === 'load-cell') {
     decorateLoadCell(next, connected);
-  } else if (node.nodeType === 'sine-wave') {
-    const unit = config.unit ?? 'V';
-    next.badge = `${format(config.frequencyHz ?? 0.25)} Hz`;
-    setPinType(next, 'signal', unit);
-    next.controls = [
-      numberControl('amplitude', config.amplitude ?? 1, unit, { label: 'Amplitude' }),
-      numberControl('frequencyHz', config.frequencyHz ?? 0.25, 'Hz', { min: 0, step: 0.05, label: 'Frequency' }),
-      numberControl('offset', config.offset ?? 0, unit, { label: 'Offset' }),
-      numberControl('phaseDeg', config.phaseDeg ?? 0, '°', { label: 'Phase' }),
-      selectControl('unit', 'Unit', unit, engineeringUnits().map((value) => [value, value])),
-    ];
-  } else if (node.nodeType === 'constant') {
-    next.badge = `${format(config.value)} ${config.unit ?? ''}`.trim();
-    setPinLabel(next, 'value', 'Out');
-    next.controls = [
-      numberControl('value', config.value, config.unit ?? '', { label: 'Value' }),
-      selectControl('unit', 'Unit', config.unit ?? 'kg', engineeringUnits().map((unit) => [unit, unit])),
-    ];
-  } else if (node.nodeType === 'add' || node.nodeType === 'subtract') {
-    decorateInferredMath(next, graph, ['a', 'b'], 'result');
-  } else if (node.nodeType === 'gain') {
-    decorateInferredMath(next, graph, ['input'], 'result');
-    next.controls = [numberControl('gain', config.gain ?? 1, '', { label: 'Gain' })];
-  } else if (node.nodeType === 'moving-average') {
-    decorateInferredMath(next, graph, ['input'], 'result');
-    next.controls = [numberControl('windowS', config.windowS ?? 0.5, 's', { min: 0.001, step: 0.05, label: 'Window' })];
-  } else if (node.nodeType === 'rate-of-change') {
-    const unit = incomingUnit(node, graph, 'input');
-    const outputUnit = concrete(unit) ? `${unit}/s` : 'infer';
-    next.badge = outputUnit;
-    setPinType(next, 'input', unit ?? 'infer');
-    setPinType(next, 'rate', outputUnit);
-    next.controls = [numberControl('windowS', config.windowS ?? 0.5, 's', { min: 0.01, step: 0.05, label: 'Window' })];
-  } else if (node.nodeType === 'dashboard-signal') {
-    const unit = incomingUnit(node, graph, 'value');
-    if (concrete(unit)) setPinType(next, 'value', unit);
-    next.controls = [
-      textControl('label', 'Label', config.label ?? ''),
-      selectControl('group', 'Group', config.group ?? 'Engine', ['Fuel', 'LOX', 'Engine'].map((value) => [value, value])),
-      selectControl('display', 'Display', config.display ?? 'both', [['number', 'Number'], ['plot', 'Plot'], ['both', 'Both']]),
-      numberControl('precision', config.precision ?? 1, '', { min: 0, max: 6, step: 1, label: 'Decimals' }),
-    ];
   }
   return next;
 }
@@ -101,10 +67,10 @@ function decoratePressure(node, graph, connected) {
   setPinType(node, 'input', electricalUnit);
   for (const pin of ['inputMin', 'inputMax']) {
     setPinType(node, pin, electricalUnit);
-    setLiteral(node, connected, pin, numberControl(pin, config[pin], electricalUnit));
+    setLiteral(node, connected, pin, numberControl(pin, pin, config[pin], electricalUnit));
   }
-  setLiteral(node, connected, 'psiMin', numberControl('psiMin', config.psiMin, 'psi'));
-  setLiteral(node, connected, 'psiMax', numberControl('psiMax', config.psiMax, 'psi'));
+  setLiteral(node, connected, 'psiMin', numberControl('psiMin', 'Pressure min', config.psiMin, 'psi'));
+  setLiteral(node, connected, 'psiMax', numberControl('psiMax', 'Pressure max', config.psiMax, 'psi'));
 }
 
 function decorateLoadCell(node, connected) {
@@ -112,18 +78,11 @@ function decorateLoadCell(node, connected) {
   const unit = config.unit ?? 'kg';
   setPinType(node, 'capacity', unit);
   setPinType(node, 'load', unit);
-  setLiteral(node, connected, 'excitation', numberControl('excitationV', config.excitationV, 'V', { min: 0 }));
-  setLiteral(node, connected, 'ratedOutputMvV', numberControl('ratedOutputMvV', config.ratedOutputMvV, 'mV/V', { min: 0 }));
-  setLiteral(node, connected, 'zeroV', numberControl('zeroV', config.zeroV, 'V'));
-  setLiteral(node, connected, 'capacity', numberControl('capacity', config.capacity, unit, { min: 0 }));
+  setLiteral(node, connected, 'excitation', numberControl('excitationV', 'Excitation', config.excitationV, 'V', { min: 0 }));
+  setLiteral(node, connected, 'ratedOutputMvV', numberControl('ratedOutputMvV', 'Rated output', config.ratedOutputMvV, 'mV/V', { min: 0 }));
+  setLiteral(node, connected, 'zeroV', numberControl('zeroV', 'Zero offset', config.zeroV, 'V'));
+  setLiteral(node, connected, 'capacity', numberControl('capacity', 'Capacity', config.capacity, unit, { min: 0 }));
   node.controls = [selectControl('unit', 'Output unit', unit, ['kg', 'N', 'lb'].map((value) => [value, value]))];
-}
-
-function decorateInferredMath(node, graph, inputPins, outputPin) {
-  const unit = inputPins.map((pin) => incomingUnit(node, graph, pin)).find(concrete) ?? 'infer';
-  for (const pin of inputPins) setPinType(node, pin, unit);
-  setPinType(node, outputPin, unit);
-  node.badge = unit;
 }
 
 function rangeControl(config, capabilities) {
@@ -166,19 +125,13 @@ export function resolvedOutputUnit(graph, nodeId, pinId, seen = new Set()) {
   const pin = node?.pins?.find((candidate) => candidate.id === pinId);
   if (!node || !pin) return null;
   if (concrete(pin.type)) return pin.type;
-  if (node.nodeType === 'constant') return node.config?.unit ?? null;
-  if (node.nodeType === 'sine-wave') return node.config?.unit ?? null;
   if (node.nodeType === 'load-cell') return node.config?.unit ?? null;
-  if (node.nodeType === 'add' || node.nodeType === 'subtract') {
-    return incomingResolvedUnit(node, graph, 'a', seen) ?? incomingResolvedUnit(node, graph, 'b', seen);
-  }
-  if (node.nodeType === 'gain' || node.nodeType === 'moving-average') {
-    return incomingResolvedUnit(node, graph, 'input', seen);
-  }
-  if (node.nodeType === 'rate-of-change') {
-    const input = incomingResolvedUnit(node, graph, 'input', seen);
-    return concrete(input) ? `${input}/s` : null;
-  }
+  const specUnit = specOutputUnit(
+    node,
+    pinId,
+    (inputPin) => incomingResolvedUnit(node, graph, inputPin, seen),
+  );
+  if (specUnit !== undefined) return specUnit;
   return null;
 }
 
@@ -187,11 +140,4 @@ function incomingResolvedUnit(node, graph, pinId, seen) {
   return link ? resolvedOutputUnit(graph, link.fromNode, link.fromPin, seen) : null;
 }
 
-function numberControl(key, value, unit = '', options = {}) {
-  return { key, label: options.label ?? key, type: 'number', value, unit, valueType: 'number', step: options.step ?? 'any', min: options.min, max: options.max };
-}
-function textControl(key, label, value) { return { key, label, type: 'text', value }; }
-function selectControl(key, label, value, options, valueType = 'string') { return { key, label, type: 'select', value, options, valueType }; }
-function engineeringUnits() { return ['psi', 'kg', 'kg/s', 'N', 'lb', 'K', 'V', 'A', 'Ω', 'mV/V']; }
 function concrete(unit) { return Boolean(unit && unit !== '*' && unit !== 'infer' && unit !== 'V / A'); }
-function format(value) { return Number.isFinite(Number(value)) ? Number(value).toLocaleString(undefined, { maximumFractionDigits: 5 }) : '—'; }

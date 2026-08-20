@@ -150,8 +150,8 @@ class DaqHardwareTests(TestCase):
             "metadata": {"scanRate": 1000},
             "nodes": [
                 {"id": "sine", "nodeType": "sine-wave", "config": {
-                    "amplitude": 2.0, "frequencyHz": 0.25, "offset": 10.0,
-                    "phaseDeg": 0.0, "unit": "psi",
+                    "amplitude": 2.0, "periodS": 4.0, "offset": 10.0,
+                    "phaseRad": 0.0, "randomness": 0.0, "unit": "psi",
                 }},
                 {"id": "gain", "nodeType": "gain", "config": {"gain": 0.5}},
                 {"id": "bias", "nodeType": "constant", "config": {"value": 1.0, "unit": "psi"}},

@@ -6,15 +6,12 @@ from time import monotonic
 from typing import TYPE_CHECKING
 
 from base_station.web.daq_config.hardware import read_physical_sources
+from base_station.web.daq_config.node_runtime import evaluate_spec_node
+from base_station.web.daq_config.node_specs import SPEC_NODE_TYPES
 from base_station.web.daq_config.signal_math import (
-    add,
-    gain,
     linear_map,
     load_cell,
-    moving_average,
     scalar,
-    sine_wave,
-    subtract,
 )
 
 if TYPE_CHECKING:
@@ -65,17 +62,14 @@ def _evaluate_node(
 ) -> dict | None:
     node_type = node.get("nodeType")
     config = node.get("config", {})
-    if node_type == "sine-wave":
-        value = scalar(sine_wave(
-            timestamp,
-            amplitude=float(config.get("amplitude", 1)),
-            frequency_hz=float(config.get("frequencyHz", 0.25)),
-            offset=float(config.get("offset", 0)),
-            phase_deg=float(config.get("phaseDeg", 0)),
-        ))
-        return {"value": value, "unit": config.get("unit", "V")}
-    if node_type == "constant":
-        return {"value": float(config.get("value", 0)), "unit": config.get("unit", "")}
+    if node_type in SPEC_NODE_TYPES:
+        return evaluate_spec_node(
+            node,
+            incoming,
+            values,
+            timestamp=timestamp,
+            sample_rate_hz=sample_rate_hz,
+        )
     if node_type == "pressure-calibration":
         source = _input_value(incoming, values, "input")
         if source is None:
@@ -117,41 +111,6 @@ def _evaluate_node(
             capacity=capacity,
         ))
         return {"value": output, "unit": config.get("unit", "kg")}
-    if node_type == "subtract":
-        left = _input_value(incoming, values, "a")
-        right = _input_value(incoming, values, "b")
-        if left is None or right is None:
-            return None
-        value = scalar(subtract(left["value"], right["value"]))
-        return {"value": value, "unit": left.get("unit", "")}
-    if node_type == "add":
-        left = _input_value(incoming, values, "a")
-        right = _input_value(incoming, values, "b")
-        if left is None or right is None:
-            return None
-        value = scalar(add(left["value"], right["value"]))
-        return {"value": value, "unit": left.get("unit", "")}
-    if node_type == "gain":
-        source = _input_value(incoming, values, "input")
-        if source is None:
-            return None
-        value = scalar(gain(source["value"], float(config.get("gain", 1))))
-        return {"value": value, "unit": source.get("unit", "")}
-    if node_type == "moving-average":
-        source = _input_value(incoming, values, "input")
-        if source is None:
-            return None
-        value = scalar(moving_average(
-            source["value"], sample_rate_hz, window_s=float(config.get("windowS", 0.5))
-        ))
-        return {"value": value, "unit": source.get("unit", "")}
-    if node_type == "rate-of-change":
-        return None
-    if node_type == "dashboard-signal":
-        source = _input_value(incoming, values, "value")
-        if source is None:
-            return None
-        return source.copy()
     return None
 
 

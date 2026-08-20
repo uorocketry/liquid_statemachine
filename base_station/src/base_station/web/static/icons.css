@@ -49,3 +49,4 @@
 .icon-node-average { --ui-icon: url('/static/icons/sf/slider.horizontal.3.svg'); }
 .icon-node-rate { --ui-icon: url('/static/icons/sf/function.svg'); }
 .icon-node-dashboard { --ui-icon: url('/static/icons/sf/chart.xyaxis.line.svg'); }
+.icon-node-gauge { --ui-icon: url('/static/icons/sf/gauge.with.dots.needle.50percent.svg'); }

@@ -7,6 +7,7 @@ import { DaqLivePreview, highlightPathToSelection } from './live-preview.js';
 import { decorateNode } from './presentation.js';
 import { patchInlineNode } from './node-editing.js';
 import { daqConnectionAllowed } from './connection-policy.js';
+import { isPreviewSourceNode } from './node-specs.js';
 
 const editor = document.querySelector('#daq-blueprint');
 const palette = document.querySelector('#daq-palette');
@@ -210,7 +211,7 @@ async function reload() {
 
 function syncPreviewState() {
   if (!preview) return;
-  const hasSimulation = editor.graph.nodes.some((node) => node.nodeType === 'sine-wave');
+  const hasSimulation = editor.graph.nodes.some(isPreviewSourceNode);
   if (capabilities?.device?.connected || hasSimulation) preview.start();
   else preview.stop();
 }

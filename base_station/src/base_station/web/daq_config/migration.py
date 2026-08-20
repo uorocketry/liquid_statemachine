@@ -5,8 +5,9 @@ from __future__ import annotations
 from copy import deepcopy
 
 from base_station.web.daq_config.acquisition import normalize_acquisition_metadata
+from base_station.web.daq_config.node_specs import canonicalize_spec_node
 
-CURRENT_SCHEMA_VERSION = 5
+CURRENT_SCHEMA_VERSION = 6
 
 
 def migrate_graph(graph: dict) -> dict:
@@ -40,6 +41,8 @@ def _canonicalize_nodes(graph: dict) -> None:
             continue
         node_type = node.get("nodeType")
         config = node.setdefault("config", {})
+        if canonicalize_spec_node(node):
+            continue
         if node_type == "labjack-ain":
             _retarget_input(links, node["id"], "positive", "channel")
             node["pins"] = [
@@ -81,50 +84,6 @@ def _canonicalize_nodes(graph: dict) -> None:
                 _input("capacity", "Capacity", unit, optional=True),
                 _output("load", "Load", unit),
             ]
-        elif node_type == "constant":
-            unit = config.get("unit", "kg")
-            node["pins"] = [_output("value", "Value", unit)]
-        elif node_type == "sine-wave":
-            config.setdefault("amplitude", 1)
-            config.setdefault("frequencyHz", 0.25)
-            config.setdefault("offset", 0)
-            config.setdefault("phaseDeg", 0)
-            unit = config.setdefault("unit", "V")
-            node["pins"] = [_output("signal", "Signal", unit)]
-        elif node_type == "add":
-            node["pins"] = [
-                _input("a", "A", "infer", "*"),
-                _input("b", "B", "infer", "*"),
-                _output("result", "A + B", "infer"),
-            ]
-        elif node_type == "subtract":
-            node["pins"] = [
-                _input("a", "A", "infer", "*"),
-                _input("b", "B", "infer", "*"),
-                _output("result", "A − B", "infer"),
-            ]
-        elif node_type == "gain":
-            config.setdefault("gain", 1)
-            node["pins"] = [
-                _input("input", "Signal", "infer", "*"),
-                _output("result", "Scaled", "infer"),
-            ]
-        elif node_type == "moving-average":
-            config.setdefault("windowS", 0.5)
-            node["pins"] = [
-                _input("input", "Signal", "infer", "*"),
-                _output("result", "Average", "infer"),
-            ]
-        elif node_type == "rate-of-change":
-            window_s = config.get("windowS", 0.5)
-            config.clear()
-            config["windowS"] = window_s
-            node["pins"] = [
-                _input("input", "Signal", "infer", "*"),
-                _output("rate", "Rate", "infer"),
-            ]
-        elif node_type == "dashboard-signal":
-            node["pins"] = [_input("value", "Value", "*", "*")]
 
 
 def _retarget_input(links: list[dict], node_id: str, old_pin: str, new_pin: str) -> None:

@@ -145,6 +145,7 @@ liquid-blueprint-node.connection-muted { opacity: .26; filter: grayscale(.7) sat
   font: 9px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 .blueprint-inline-editor select { width: 116px; }
+.blueprint-inline-editor input[type="checkbox"] { width: 16px; height: 16px; padding: 0; accent-color: var(--color-text); }
 .blueprint-inline-editor input:focus, .blueprint-inline-editor select:focus { border-color: var(--color-focus); outline: 2px solid var(--color-focus); outline-offset: 1px; }
 .blueprint-inline-editor em { color: var(--blueprint-faint); font-size: 8px; font-style: normal; white-space: nowrap; }
 .blueprint-node-preview { margin-top: 3px; overflow: hidden; border-top: 1px solid var(--color-border-soft); background: var(--color-surface-subtle); }

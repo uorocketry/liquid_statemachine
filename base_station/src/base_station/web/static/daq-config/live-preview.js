@@ -1,4 +1,5 @@
 import { previewConfiguration } from './api.js';
+import { isPreviewSourceNode } from './node-specs.js';
 
 /** Low-rate configuration preview driver backed by the real LJM API endpoint. */
 export class DaqLivePreview {
@@ -95,7 +96,7 @@ export function highlightPathToSelection(editor, graph, nodeId) {
     return;
   }
   const sources = graph.nodes.filter((node) => (
-    node.nodeType?.startsWith('labjack-') || node.nodeType === 'sine-wave'
+    node.nodeType?.startsWith('labjack-') || isPreviewSourceNode(node)
   ));
   let best = [];
   for (const source of sources) {

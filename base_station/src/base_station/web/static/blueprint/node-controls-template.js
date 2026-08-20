@@ -23,6 +23,18 @@ export function inlineControlTemplate(control) {
   if (!control || control.connected) return nothing;
   const valueType = control.valueType ?? (control.type === 'number' ? 'number' : 'string');
   const suffix = control.unit ? html`<em>${control.unit}</em>` : nothing;
+  if (control.type === 'toggle') {
+    return html`
+      <span class="blueprint-inline-editor">
+        <input
+          type="checkbox"
+          data-blueprint-config-key=${control.key}
+          data-value-type="boolean"
+          .checked=${Boolean(control.value)}
+        />
+      </span>
+    `;
+  }
   if (control.type === 'select') {
     return html`
       <span class="blueprint-inline-editor">

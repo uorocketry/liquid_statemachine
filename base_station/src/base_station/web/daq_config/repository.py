@@ -16,7 +16,7 @@ EMPTY_GRAPH = {
         "streamResolutionIndex": 0,
         "streamSettlingUs": 0,
         "mux80Enabled": False,
-        "schemaVersion": 5,
+        "schemaVersion": 6,
     },
 }
 

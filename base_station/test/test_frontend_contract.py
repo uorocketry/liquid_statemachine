@@ -122,6 +122,7 @@ class FrontendContractTests(TestCase):
         node = read("static/blueprint/liquid-blueprint-node.js")
         controls = read("static/blueprint/node-controls-template.js")
         presentation = read("static/daq-config/presentation.js")
+        specs = read("static/daq-config/node-specs.js")
         self.assertNotIn("daq-inspector", template)
         self.assertNotIn("renderInspector", app)
         self.assertIn("focusIssue(issue)", app)
@@ -131,8 +132,8 @@ class FrontendContractTests(TestCase):
         self.assertIn("data-blueprint-config-key", controls)
         self.assertIn("setLiteral(next, connected, 'shunt'", presentation)
         self.assertIn("setLiteral(node, connected, 'psiMin'", presentation)
-        self.assertIn("node.nodeType === 'rate-of-change'", presentation)
-        self.assertIn("`${input}/s`", presentation)
+        self.assertIn("'rate-of-change':", specs)
+        self.assertIn("`${unit}/s`", specs)
         self.assertIn("node.nodeType === 'labjack-channel-pair'", presentation)
 
     def test_daq_toolbar_controls_do_not_leak_into_popover_buttons(self) -> None:
@@ -150,17 +151,25 @@ class FrontendContractTests(TestCase):
 
     def test_simulation_and_common_math_nodes_are_available(self) -> None:
         catalog = read("static/daq-config/catalog.js")
-        presentation = read("static/daq-config/presentation.js")
+        specs = read("static/daq-config/node-specs.js")
+        editing = read("static/daq-config/node-editing.js")
+        events = read("static/blueprint/editor-events.js")
         app = read("static/daq-config/app.js")
         live_preview = read("static/daq-config/live-preview.js")
         for node_type in ("sine-wave", "add", "gain", "moving-average"):
-            self.assertIn(f"type: '{node_type}'", catalog)
-        self.assertIn("category: 'Simulation', title: 'Sine wave'", catalog)
-        self.assertIn("node.nodeType === 'sine-wave'", presentation)
-        self.assertIn("node.nodeType === 'gain'", presentation)
-        self.assertIn("node.nodeType === 'moving-average'", presentation)
+            self.assertIn(node_type, specs)
+        self.assertIn("category: 'Simulation'", specs)
+        self.assertIn("title: 'Sine wave'", specs)
+        self.assertIn("periodS: 4", specs)
+        self.assertIn("phaseRad: 0", specs)
+        self.assertIn("randomness: 0", specs)
+        self.assertIn("SPEC_NODE_CATALOG", catalog)
+        self.assertIn("String(path).split('.')", editing)
+        self.assertIn("input.dataset.valueType === 'boolean'", events)
+        self.assertNotIn("node.nodeType === 'sine-wave'", catalog)
+        self.assertNotIn("node.nodeType === 'sine-wave'", read("static/daq-config/presentation.js"))
         self.assertIn("hasSimulation", app)
-        self.assertIn("node.nodeType === 'sine-wave'", live_preview)
+        self.assertIn("isPreviewSourceNode", live_preview)
 
     def test_blueprint_nodes_use_flat_engineering_chrome(self) -> None:
         css = read("static/blueprint/blueprint.css")
@@ -231,6 +240,8 @@ class FrontendContractTests(TestCase):
     def test_dashboard_telemetry_is_blueprint_driven(self) -> None:
         dashboard = read("templates/index.html")
         telemetry = read("static/dashboard-telemetry.js")
+        cards = read("static/dashboard-signal-card.js")
+        gauge = read("static/dashboard-gauge.js")
         controller = read("static/dashboard-time-controller.js")
         renderer = read("static/dashboard-time-renderer.js")
         time_utils = read("static/dashboard-time-utils.js")
@@ -247,7 +258,7 @@ class FrontendContractTests(TestCase):
         self.assertIn("this.detailSeconds = 1", controller)
         self.assertIn("this.selectedRange", controller)
         self.assertIn("zoomToSelection", controller)
-        self.assertIn("data-signal-chart", telemetry)
+        self.assertIn("dataset.signalChart", cards)
         self.assertIn("this.hoverTime", controller)
         self.assertIn("this.navigatorDrag", controller)
         self.assertIn("const range = [...(this.ranges[index]", controller)
@@ -278,6 +289,14 @@ class FrontendContractTests(TestCase):
         self.assertNotIn('fragments/cart.html', dashboard)
         self.assertNotIn('fragments/labjack.html', dashboard)
         self.assertNotIn('fragments/events.html', dashboard)
+        self.assertIn("display === 'gauge'", cards)
+        for gauge_type in (
+            "dial-filled", "dial-needle", "meter-horizontal", "meter-vertical", "meter-vertical-inverted",
+        ):
+            self.assertIn(gauge_type, gauge if gauge_type.startswith("dial") else read("static/daq-config/node-specs.js"))
+        self.assertIn("usesTimeline(signal)", telemetry)
+        self.assertIn("navigatorWrap.hidden = timelineSignals.length === 0", telemetry)
+        self.assertIn("timeControl.hidden = signals.length === 0", telemetry)
 
     def test_primary_pages_do_not_repeat_sidebar_route_titles(self) -> None:
         for template, duplicate in (

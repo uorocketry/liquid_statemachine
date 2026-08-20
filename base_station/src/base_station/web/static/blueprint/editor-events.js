@@ -23,7 +23,7 @@ export const eventMethods = {
     if (!node) return;
     const value = input.dataset.valueType === 'number'
       ? (input.value === '' ? null : Number(input.value))
-      : input.value;
+      : input.dataset.valueType === 'boolean' ? Boolean(input.checked) : input.value;
     const patch = this.inlineEditPolicy(node, input.dataset.blueprintConfigKey, value, this.graph);
     if (patch) this.updateNode(node.id, patch);
     event.stopPropagation();

@@ -95,7 +95,7 @@ class DaqConfigTests(TestCase):
         measurement = next(node for node in migrated["nodes"] if node["id"] == "measurement")
         self.assertEqual(migrated["metadata"]["streamResolutionIndex"], 4)
         self.assertEqual(migrated["metadata"]["streamSettlingUs"], 30)
-        self.assertEqual(migrated["metadata"]["schemaVersion"], 5)
+        self.assertEqual(migrated["metadata"]["schemaVersion"], 6)
         self.assertNotIn("resolutionIndex", measurement["config"])
         self.assertNotIn("settlingUs", measurement["config"])
 
@@ -231,8 +231,8 @@ class DaqConfigTests(TestCase):
         graph = {
             "nodes": [
                 {"id": "sine", "nodeType": "sine-wave", "pins": [], "config": {
-                    "amplitude": 1.0, "frequencyHz": -1.0, "offset": 0.0,
-                    "phaseDeg": 0.0, "unit": "V",
+                    "amplitude": 1.0, "periodS": -1.0, "offset": 0.0,
+                    "phaseRad": 0.0, "randomness": 0.0, "unit": "V",
                 }},
                 {"id": "gain", "nodeType": "gain", "pins": [], "config": {"gain": float("inf")}},
                 {"id": "average", "nodeType": "moving-average", "pins": [], "config": {"windowS": 0}},
@@ -240,7 +240,7 @@ class DaqConfigTests(TestCase):
             "links": [],
         }
         messages = [issue["message"] for issue in validate_graph(graph)]
-        self.assertIn("Sine-wave frequency cannot be negative", messages)
+        self.assertIn("Sine-wave period cannot be negative", messages)
         self.assertIn("Gain must be finite", messages)
         self.assertIn("Moving-average window must be positive", messages)
 
@@ -256,10 +256,57 @@ class DaqConfigTests(TestCase):
         })
         nodes = {node["id"]: node for node in migrated["nodes"]}
         self.assertEqual(nodes["sine"]["config"]["unit"], "V")
+        self.assertEqual(nodes["sine"]["config"]["periodS"], 4)
+        self.assertEqual(nodes["sine"]["config"]["phaseRad"], 0)
+        self.assertEqual(nodes["sine"]["config"]["randomness"], 0)
         self.assertEqual(nodes["sine"]["pins"][0]["id"], "signal")
         self.assertEqual([pin["id"] for pin in nodes["add"]["pins"]], ["a", "b", "result"])
         self.assertEqual(nodes["gain"]["config"]["gain"], 1)
         self.assertEqual(nodes["average"]["config"]["windowS"], 0.5)
+
+    def test_legacy_sine_frequency_and_phase_are_migrated(self) -> None:
+        migrated = migrate_graph({
+            "nodes": [{
+                "id": "sine", "nodeType": "sine-wave",
+                "config": {"frequencyHz": 0.5, "phaseDeg": 90, "unit": "psi"},
+            }],
+            "links": [],
+        })
+        config = migrated["nodes"][0]["config"]
+        self.assertEqual(config["periodS"], 2)
+        self.assertAlmostEqual(config["phaseRad"], 1.5707963267948966)
+        self.assertNotIn("frequencyHz", config)
+        self.assertNotIn("phaseDeg", config)
+
+    def test_dashboard_gauge_settings_are_constrained(self) -> None:
+        graph = {
+            "nodes": [{
+                "id": "gauge", "nodeType": "dashboard-signal", "pins": [],
+                "config": {
+                    "label": "Tank pressure", "group": "Fuel", "display": "gauge", "precision": 1,
+                    "gauge": {
+                        "type": "dial-filled", "showValue": True, "showUnits": True,
+                        "showRange": True, "min": 100, "low": 20, "high": 10, "max": 0,
+                    },
+                },
+            }],
+            "links": [],
+        }
+        messages = [issue["message"] for issue in validate_graph(graph)]
+        self.assertIn("Gauge maximum must be greater than minimum", messages)
+
+    def test_gauge_defaults_are_only_materialized_for_gauge_displays(self) -> None:
+        migrated = migrate_graph({
+            "nodes": [
+                {"id": "plot", "nodeType": "dashboard-signal", "config": {"display": "plot"}},
+                {"id": "gauge", "nodeType": "dashboard-signal", "config": {"display": "gauge"}},
+            ],
+            "links": [],
+        })
+        nodes = {node["id"]: node for node in migrated["nodes"]}
+        self.assertNotIn("gauge", nodes["plot"]["config"])
+        self.assertEqual(nodes["gauge"]["config"]["gauge"]["type"], "dial-filled")
+        self.assertEqual(nodes["gauge"]["config"]["gauge"]["max"], 100)
 
 
 if __name__ == "__main__":

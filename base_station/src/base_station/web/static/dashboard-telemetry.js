@@ -1,4 +1,5 @@
 import { loadConfiguration, previewConfiguration } from './daq-config/api.js';
+import { createSignalCard, updateSignalCard, usesTimeline } from './dashboard-signal-card.js';
 import { DashboardTimeController } from './dashboard-time-controller.js';
 import { compactHistory } from './dashboard-time-utils.js';
 
@@ -13,6 +14,7 @@ const picker = document.querySelector('#telemetry-signal-options');
 const pickerDetails = document.querySelector('.telemetry-signal-picker');
 const empty = document.querySelector('#telemetry-empty');
 const timeControl = document.querySelector('#telemetry-time-control');
+const navigatorWrap = document.querySelector('.telemetry-navigator-wrap');
 const navigator = document.querySelector('#telemetry-tier-navigator');
 const timeTooltip = document.querySelector('#telemetry-time-tooltip');
 const returnTail = document.querySelector('#telemetry-return-tail');
@@ -82,8 +84,10 @@ function onSelectionChange() {
 function renderCards() {
   grid.replaceChildren();
   const visible = signals.filter((signal) => selected.has(signal.id));
-  empty.hidden = visible.length > 0;
-  timeControl.hidden = visible.length === 0;
+  const timelineSignals = visible.filter(usesTimeline);
+  empty.hidden = signals.length > 0;
+  timeControl.hidden = signals.length === 0;
+  navigatorWrap.hidden = timelineSignals.length === 0;
 
   for (const group of GROUPS) {
     const groupSignals = visible.filter((signal) => signal.config?.group === group);
@@ -94,29 +98,11 @@ function renderCards() {
     heading.textContent = group;
     const cards = document.createElement('div');
     cards.className = 'dashboard-group-grid';
-    for (const signal of groupSignals) cards.append(signalCard(signal));
+    for (const signal of groupSignals) cards.append(createSignalCard(signal));
     section.append(heading, cards);
     grid.append(section);
   }
-  timeline.setSignals(visible);
-}
-
-function signalCard(signal) {
-  const article = document.createElement('article');
-  const display = signal.config?.display ?? 'both';
-  article.className = 'dashboard-signal-card';
-  article.dataset.signalId = signal.id;
-  article.dataset.display = display;
-  article.innerHTML = `
-    <header>
-      <strong>${escapeHtml(signal.config.label)}</strong>
-      ${display !== 'plot' ? '<output data-signal-value>—</output>' : ''}
-    </header>
-    ${display !== 'number' ? `<div class="dashboard-chart-shell">
-      <canvas data-signal-chart aria-label="${escapeAttribute(signal.config.label)} history"></canvas>
-      <output class="dashboard-chart-tooltip" data-chart-tooltip hidden></output>
-    </div>` : ''}`;
-  return article;
+  timeline.setSignals(timelineSignals);
 }
 
 async function poll() {
@@ -128,10 +114,16 @@ async function poll() {
     const timestamp = elapsedSeconds();
     for (const signal of signals) {
       const reading = payload.values?.[signal.id];
-      if (reading && Number.isFinite(Number(reading.value))) {
+      if (usesTimeline(signal) && reading && Number.isFinite(Number(reading.value))) {
         appendReading(signal, reading, timestamp);
       }
-      if (selected.has(signal.id)) updateValue(signal, reading);
+      if (selected.has(signal.id)) {
+        updateSignalCard(
+          grid.querySelector(`[data-signal-id="${cssEscape(signal.id)}"]`),
+          signal,
+          reading,
+        );
+      }
     }
     page.dataset.telemetryState = payload.errors?.length ? 'unavailable' : 'ready';
     timeline.ingest(timestamp);
@@ -164,15 +156,16 @@ function appendReading(signal, reading, timestamp) {
   histories.set(signal.id, history);
 }
 
-function updateValue(signal, reading) {
-  const card = grid.querySelector(`[data-signal-id="${cssEscape(signal.id)}"]`);
-  if (!card) return;
-  const output = card.querySelector('[data-signal-value]');
-  if (output) output.textContent = reading ? formatReading(reading, signal.config?.precision) : '—';
-}
-
 function clearCurrentValues() {
-  for (const output of grid.querySelectorAll('[data-signal-value]')) output.textContent = '—';
+  for (const signal of signals) {
+    if (selected.has(signal.id)) {
+      updateSignalCard(
+        grid.querySelector(`[data-signal-id="${cssEscape(signal.id)}"]`),
+        signal,
+        null,
+      );
+    }
+  }
 }
 
 function loadSelection(available) {
@@ -182,11 +175,6 @@ function loadSelection(available) {
     if (Array.isArray(stored)) return new Set(stored.filter((id) => ids.has(id)));
   } catch { /* use all configured operator signals */ }
   return ids;
-}
-
-function formatReading(reading, precision = 1) {
-  const value = Number(reading.value);
-  return Number.isFinite(value) ? `${value.toFixed(Number(precision))}${reading.unit ? ` ${reading.unit}` : ''}` : '—';
 }
 
 function schedule(delay) {
