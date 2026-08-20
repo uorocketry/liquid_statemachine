@@ -135,6 +135,16 @@ class FrontendContractTests(TestCase):
         self.assertIn("`${input}/s`", presentation)
         self.assertIn("node.nodeType === 'labjack-channel-pair'", presentation)
 
+    def test_daq_toolbar_controls_do_not_leak_into_popover_buttons(self) -> None:
+        css = read("static/daq-config/setup.css")
+        self.assertIn(".daq-floating-tools > button,", css)
+        self.assertIn(".daq-floating-tools > .daq-tool-menu > summary", css)
+        self.assertNotIn(".daq-floating-tools button,", css)
+        self.assertNotIn("width: 38px", css)
+        self.assertNotIn("height: 38px", css)
+        self.assertNotIn(".daq-node-popover { width:", css)
+        self.assertNotIn(".daq-issues-popover { width:", css)
+
     def test_simulation_and_common_math_nodes_are_available(self) -> None:
         catalog = read("static/daq-config/catalog.js")
         presentation = read("static/daq-config/presentation.js")

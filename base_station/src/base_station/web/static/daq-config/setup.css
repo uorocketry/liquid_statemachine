@@ -50,45 +50,45 @@
   z-index: 30;
   left: 50%;
   bottom: 18px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px;
+  gap: 2px;
+  padding: 4px;
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: calc(var(--radius-ui) + 2px);
   background: var(--color-surface-raised);
   transform: translateX(-50%);
 }
-.daq-floating-tools button,
-.daq-tool-menu > summary {
-  width: 38px;
-  height: 38px;
-  display: grid;
+.daq-floating-tools > button,
+.daq-floating-tools > .daq-tool-menu > summary {
+  display: inline-grid;
   place-items: center;
-  padding: 0;
+  padding: 8px 12px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-ui);
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
+  line-height: 1;
   list-style: none;
 }
 .daq-tool-menu { position: relative; }
 .daq-tool-menu[hidden] { display: none; }
-.daq-tool-menu > summary::-webkit-details-marker { display: none; }
-.daq-floating-tools button:hover:not(:disabled),
-.daq-tool-menu > summary:hover,
-.daq-tool-menu[open] > summary { background: var(--color-surface-hover); color: var(--color-text); }
+.daq-floating-tools > .daq-tool-menu > summary::-webkit-details-marker { display: none; }
+.daq-floating-tools > button:hover:not(:disabled),
+.daq-floating-tools > .daq-tool-menu > summary:hover,
+.daq-floating-tools > .daq-tool-menu[open] > summary { background: var(--color-surface-hover); color: var(--color-text); }
 #daq-save:not(:disabled) { color: var(--color-text); }
-.daq-floating-tools button:focus-visible,
-.daq-tool-menu > summary:focus-visible {
+.daq-floating-tools > button:focus-visible,
+.daq-floating-tools > .daq-tool-menu > summary:focus-visible {
   outline: 2px solid var(--color-focus);
-  outline-offset: 2px;
+  outline-offset: 1px;
 }
-.daq-floating-tools button:disabled { opacity: .28; cursor: default; }
-.daq-floating-tools .ui-icon { width: 20px; height: 20px; }
-.daq-tool-divider { width: 1px; height: 24px; margin: 0 2px; background: var(--color-border-soft); }
-.daq-save-state { margin: 0 5px 0 3px; font-size: 8px; white-space: nowrap; }
+.daq-floating-tools > button:disabled { opacity: .28; cursor: default; }
+.daq-floating-tools > button .ui-icon,
+.daq-floating-tools > .daq-tool-menu > summary .ui-icon { width: 20px; height: 20px; }
+.daq-tool-divider { align-self: stretch; margin: 6px 3px; border-left: 1px solid var(--color-border-soft); }
+.daq-save-state { align-self: center; margin: 0 6px 0 4px; font-size: 8px; white-space: nowrap; }
 .daq-save-state.saved { color: var(--color-text-subtle); }
 .daq-save-state.dirty { color: var(--color-warning); }
 .daq-save-state.error { max-width: 220px; color: var(--color-danger); overflow: hidden; text-overflow: ellipsis; }
@@ -96,18 +96,20 @@
 .daq-tool-popover {
   position: absolute;
   left: 50%;
-  bottom: calc(100% + 12px);
-  width: min(300px, calc(100vw - 32px));
-  max-height: min(520px, calc(100vh - 110px));
+  bottom: calc(100% + 8px);
+  width: max-content;
+  max-width: min(calc(100vw - 24px), 48ch);
+  max-height: calc(100vh - 96px);
   overflow: auto;
-  padding: 10px;
+  padding: 6px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-ui);
   background: var(--color-surface-raised);
   transform: translateX(-50%);
+  overflow-wrap: anywhere;
 }
-.daq-node-popover { width: min(270px, calc(100vw - 32px)); padding: 8px; }
-.daq-issues-popover { width: min(330px, calc(100vw - 32px)); padding: 0; }
+.daq-acquisition-popover { padding: 8px 10px; }
+.daq-issues-popover { padding: 4px; }
 .daq-tool-badge {
   position: absolute;
   top: 3px;
@@ -128,7 +130,7 @@
 .daq-palette-group + .daq-palette-group { margin-top: 4px; }
 .daq-palette-group h3 { margin: 0 8px 5px; color: var(--color-text-subtle); font-size: 8px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 .daq-palette-item {
-  width: 100%;
+  width: auto;
   min-height: 31px;
   display: grid;
   grid-template-columns: 22px 1fr;
@@ -153,24 +155,23 @@
 #daq-palette.awaiting-placement { background: var(--color-surface-subtle); }
 .daq-issue-summary:empty { display: none; }
 .daq-issue-item {
-  width: 100%;
+  width: auto;
   display: block;
-  padding: 8px 10px;
+  padding: 7px 8px;
   border: 0;
-  border-bottom: 1px solid var(--color-border-soft);
-  border-left: 3px solid var(--color-text-subtle);
-  background: var(--color-surface);
-  color: var(--color-text);
+  border-radius: var(--radius-ui);
+  background: transparent;
+  color: var(--color-text-muted);
   text-align: left;
   cursor: pointer;
 }
-.daq-issue-item:hover { background: var(--color-surface-hover); }
+.daq-issue-item + .daq-issue-item { margin-top: 1px; }
+.daq-issue-item:hover { color: var(--color-text); background: var(--color-surface-hover); }
+.daq-issue-item:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
 .daq-issue-item strong, .daq-issue-item span { display: block; }
 .daq-issue-item strong { margin-bottom: 2px; font-size: 9px; }
 .daq-issue-item span { color: var(--color-text-muted); font-size: 8px; line-height: 1.35; }
-.daq-issue-item.error { border-left-color: var(--color-danger); }
 .daq-issue-item.error strong { color: var(--color-danger); }
-.daq-issue-item.warning { border-left-color: var(--color-warning); }
 .daq-issue-item.warning strong { color: var(--color-warning); }
 
 @media (max-width: 760px) {
