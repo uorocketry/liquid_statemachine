@@ -144,6 +144,9 @@ class FrontendContractTests(TestCase):
         self.assertNotIn("height: 38px", css)
         self.assertNotIn(".daq-node-popover { width:", css)
         self.assertNotIn(".daq-issues-popover { width:", css)
+        self.assertIn(".daq-palette-item {\n  width: 100%;", css)
+        self.assertNotIn(".daq-palette-item small", css)
+        self.assertNotIn("#daq-palette.awaiting-placement", css)
 
     def test_simulation_and_common_math_nodes_are_available(self) -> None:
         catalog = read("static/daq-config/catalog.js")

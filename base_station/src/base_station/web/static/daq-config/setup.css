@@ -127,10 +127,22 @@
 .daq-tool-menu.error .daq-tool-badge { background: var(--color-danger); color: var(--color-on-danger); }
 
 .daq-palette-group { padding: 6px 0; }
-.daq-palette-group + .daq-palette-group { margin-top: 4px; }
 .daq-palette-group h3 { margin: 0 8px 5px; color: var(--color-text-subtle); font-size: 8px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.daq-palette-item,
+.daq-issue-item {
+  border: 0;
+  border-radius: var(--radius-ui);
+  background: transparent;
+  color: var(--color-text-muted);
+  text-align: left;
+  cursor: pointer;
+}
+.daq-palette-item:hover,
+.daq-issue-item:hover { color: var(--color-text); background: var(--color-surface-hover); }
+.daq-palette-item:focus-visible,
+.daq-issue-item:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
 .daq-palette-item {
-  width: auto;
+  width: 100%;
   min-height: 31px;
   display: grid;
   grid-template-columns: 22px 1fr;
@@ -138,36 +150,18 @@
   gap: 8px;
   margin: 1px 0;
   padding: 0 8px;
-  border: 0;
-  border-radius: var(--radius-ui);
-  background: transparent;
-  color: var(--color-text-muted);
   font-size: 10px;
   font-weight: 700;
-  text-align: left;
-  cursor: pointer;
 }
-.daq-palette-item:hover { color: var(--color-text); background: var(--color-surface-hover); }
-.daq-palette-item:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
 .daq-palette-item > span { width: 20px; height: 20px; justify-self: center; color: currentColor; }
-.daq-palette-item strong { display: block; font: inherit; }
-.daq-palette-item small { display: none; }
-#daq-palette.awaiting-placement { background: var(--color-surface-subtle); }
+.daq-palette-item strong { font: inherit; }
 .daq-issue-summary:empty { display: none; }
 .daq-issue-item {
   width: auto;
   display: block;
   padding: 7px 8px;
-  border: 0;
-  border-radius: var(--radius-ui);
-  background: transparent;
-  color: var(--color-text-muted);
-  text-align: left;
-  cursor: pointer;
 }
 .daq-issue-item + .daq-issue-item { margin-top: 1px; }
-.daq-issue-item:hover { color: var(--color-text); background: var(--color-surface-hover); }
-.daq-issue-item:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
 .daq-issue-item strong, .daq-issue-item span { display: block; }
 .daq-issue-item strong { margin-bottom: 2px; font-size: 9px; }
 .daq-issue-item span { color: var(--color-text-muted); font-size: 8px; line-height: 1.35; }
