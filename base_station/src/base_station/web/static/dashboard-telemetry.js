@@ -1,5 +1,6 @@
 import { loadConfiguration, previewConfiguration } from './daq-config/api.js';
 import { DashboardTimeController } from './dashboard-time-controller.js';
+import { compactHistory } from './dashboard-time-utils.js';
 
 const GROUPS = ['Fuel', 'LOX', 'Engine'];
 const POLL_MS = 250;
@@ -120,10 +121,11 @@ async function poll() {
     const payload = await previewConfiguration(graph);
     const timestamp = elapsedSeconds();
     for (const signal of signals) {
-      if (!selected.has(signal.id)) continue;
       const reading = payload.values?.[signal.id];
-      if (reading && Number.isFinite(Number(reading.value))) appendReading(signal, reading, timestamp);
-      updateValue(signal, reading);
+      if (reading && Number.isFinite(Number(reading.value))) {
+        appendReading(signal, reading, timestamp);
+      }
+      if (selected.has(signal.id)) updateValue(signal, reading);
     }
     page.dataset.telemetryState = payload.errors?.length ? 'unavailable' : 'ready';
     timeline.ingest(timestamp);
@@ -145,7 +147,7 @@ function elapsedSeconds() {
 function appendReading(signal, reading, timestamp) {
   const history = histories.get(signal.id) ?? [];
   history.push({ time: timestamp, value: Number(reading.value), unit: reading.unit ?? '' });
-  if (history.length > MAX_HISTORY_POINTS) history.splice(0, history.length - MAX_HISTORY_POINTS);
+  if (history.length > MAX_HISTORY_POINTS) compactHistory(history);
   histories.set(signal.id, history);
 }
 

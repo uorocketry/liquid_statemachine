@@ -12,6 +12,7 @@ export class DashboardTimeController {
     this.hoverTime = null;
     this.hoverSignalId = null;
     this.navigatorHover = null;
+    this.navigatorDrag = null;
     this.selectedRange = null;
     this.ranges = [];
     this.contextSeconds = 60;
@@ -26,7 +27,7 @@ export class DashboardTimeController {
     this.navigator.addEventListener('pointerdown', (event) => this.startNavigate(event));
     this.navigator.addEventListener('pointermove', (event) => this.moveNavigator(event));
     this.navigator.addEventListener('pointerup', (event) => this.stopNavigate(event));
-    this.navigator.addEventListener('pointercancel', (event) => this.stopNavigate(event));
+    this.navigator.addEventListener('pointercancel', (event) => this.cancelNavigate(event));
     this.navigator.addEventListener('pointerleave', () => this.leaveNavigator());
     this.returnTail.addEventListener('click', () => this.followTail());
     window.addEventListener('keydown', (event) => {
@@ -202,51 +203,101 @@ export class DashboardTimeController {
   }
 
   startNavigate(event) {
-    this.pointerId = event.pointerId;
+    const { bounds, bandHeight, index, fraction } = this.navigatorPosition(event);
+    const range = [...(this.ranges[index] ?? this.bounds())];
+    this.navigatorDrag = {
+      pointerId: event.pointerId,
+      index,
+      range,
+      bounds,
+      bandHeight,
+      startClientX: event.clientX,
+      moved: false,
+    };
     this.navigator.setPointerCapture(event.pointerId);
-    this.navigate(event);
+    this.updateNavigatorInspection(index, this.timeAtFraction(range, fraction), fraction, bounds, bandHeight);
   }
 
   moveNavigator(event) {
-    if (this.navigator.hasPointerCapture(event.pointerId)) this.navigate(event);
+    if (this.navigator.hasPointerCapture(event.pointerId)) this.scrubNavigator(event);
     else this.previewNavigator(event);
   }
 
   stopNavigate(event) {
+    const drag = this.navigatorDrag;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const fraction = this.navigatorFraction(event.clientX, drag.bounds);
+    const time = this.timeAtFraction(drag.range, fraction);
     if (this.navigator.hasPointerCapture(event.pointerId)) this.navigator.releasePointerCapture(event.pointerId);
-    this.pointerId = null;
+    this.navigatorDrag = null;
+    if (!drag.moved) {
+      this.selectedTier = TIERS[drag.index];
+      this.onTierChange?.(this.selectedTier);
+      this.center = time;
+      this.following = false;
+      this.selectedRange = null;
+    }
+    const inside = event.clientX >= drag.bounds.left && event.clientX <= drag.bounds.right
+      && event.clientY >= drag.bounds.top && event.clientY <= drag.bounds.bottom;
+    this.navigatorHover = inside ? { index: drag.index, time } : null;
+    this.tooltip.hidden = !inside;
+    this.render();
   }
 
-  leaveNavigator() {
-    if (this.pointerId != null && this.navigator.hasPointerCapture(this.pointerId)) return;
-    this.navigatorHover = null;
-    this.tooltip.hidden = true;
-    this.renderer.renderNavigator(this.renderState());
-  }
-
-  navigate(event) {
-    const { index, fraction } = this.navigatorPosition(event);
-    this.selectedTier = TIERS[index];
-    this.onTierChange?.(this.selectedTier);
-    const range = this.ranges[index] ?? this.bounds();
-    this.center = range[0] + fraction * (range[1] - range[0]);
-    this.following = false;
-    this.selectedRange = null;
+  cancelNavigate(event) {
+    const drag = this.navigatorDrag;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (this.navigator.hasPointerCapture(event.pointerId)) this.navigator.releasePointerCapture(event.pointerId);
+    this.navigatorDrag = null;
     this.navigatorHover = null;
     this.tooltip.hidden = true;
     this.render();
   }
 
+  leaveNavigator() {
+    if (this.navigatorDrag) return;
+    this.navigatorHover = null;
+    this.tooltip.hidden = true;
+    this.renderer.renderNavigator(this.renderState());
+  }
+
+  scrubNavigator(event) {
+    const drag = this.navigatorDrag;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    drag.moved ||= Math.abs(event.clientX - drag.startClientX) >= 4;
+    const fraction = this.navigatorFraction(event.clientX, drag.bounds);
+    const time = this.timeAtFraction(drag.range, fraction);
+    if (drag.moved) {
+      this.center = time;
+      this.following = false;
+      this.selectedRange = null;
+    }
+    this.updateNavigatorInspection(drag.index, time, fraction, drag.bounds, drag.bandHeight, drag.moved);
+  }
+
   previewNavigator(event) {
     const { bounds, bandHeight, index, fraction } = this.navigatorPosition(event);
     const range = this.ranges[index] ?? this.bounds();
-    const time = range[0] + fraction * (range[1] - range[0]);
+    const time = this.timeAtFraction(range, fraction);
+    this.updateNavigatorInspection(index, time, fraction, bounds, bandHeight);
+  }
+
+  updateNavigatorInspection(index, time, fraction, bounds, bandHeight, renderAll = false) {
     this.navigatorHover = { index, time };
     this.tooltip.textContent = formatTime(time);
     this.tooltip.style.left = `${fraction * bounds.width}px`;
     this.tooltip.style.top = `${(index + 0.5) * bandHeight}px`;
     this.tooltip.hidden = false;
-    this.renderer.renderNavigator(this.renderState());
+    if (renderAll) this.render();
+    else this.renderer.renderNavigator(this.renderState());
+  }
+
+  navigatorFraction(clientX, bounds) {
+    return clamp((clientX - bounds.left) / Math.max(1, bounds.width), 0, 1);
+  }
+
+  timeAtFraction(range, fraction) {
+    return range[0] + fraction * (range[1] - range[0]);
   }
 
   followTail() {

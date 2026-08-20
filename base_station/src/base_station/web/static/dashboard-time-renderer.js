@@ -1,11 +1,10 @@
 import {
-  bucketSamples,
   canvasColors,
   closestByTime,
   compactNumber,
   formatTime,
   prepareCanvas,
-  samplesInRange,
+  summarizeSamples,
 } from './dashboard-time-utils.js';
 
 export class DashboardTimeRenderer {
@@ -22,24 +21,22 @@ export class DashboardTimeRenderer {
 
     const { context, width, height } = prepareCanvas(canvas);
     const history = this.histories.get(signal.id) ?? [];
-    const visible = samplesInRange(history, state.range);
+    const summary = summarizeSamples(history, state.range, Math.max(1, Math.floor(width)));
     const colors = canvasColors();
     context.fillStyle = colors.input;
     context.fillRect(0, 0, width, height);
     this.drawGrid(context, width, height, colors.grid);
     this.drawSelection(context, width, height, state.range, state.selectedRange, colors);
-    if (!visible.length) return;
+    if (!summary.count) return;
 
-    const values = visible.map((sample) => sample.value);
-    let minimum = Math.min(...values);
-    let maximum = Math.max(...values);
+    let { minimum, maximum } = summary;
     const padding = Math.max((maximum - minimum) * 0.08, Math.abs(maximum) * 1e-6, 1e-9);
     minimum -= padding;
     maximum += padding;
 
     const xAt = (time) => (time - state.range[0]) / Math.max(1e-9, state.range[1] - state.range[0]) * width;
     const yAt = (value) => 7 + (maximum - value) / Math.max(1e-12, maximum - minimum) * (height - 14);
-    const buckets = bucketSamples(visible, state.range, Math.max(1, Math.floor(width)));
+    const buckets = summary.buckets;
 
     context.strokeStyle = colors.line;
     context.lineWidth = 1;
@@ -69,15 +66,18 @@ export class DashboardTimeRenderer {
     context.textBaseline = 'bottom';
     context.fillText(compactNumber(minimum), 5, height - 4);
 
-    if (state.hoverTime !== null && state.hoverTime >= state.range[0] && state.hoverTime <= state.range[1]) {
-      const x = xAt(state.hoverTime);
+    const inspectionTime = state.navigatorHover?.time ?? state.hoverTime;
+    if (inspectionTime !== null && inspectionTime >= state.range[0] && inspectionTime <= state.range[1]) {
+      const x = xAt(inspectionTime);
       context.strokeStyle = colors.crosshair;
       context.lineWidth = 1;
       context.beginPath();
       context.moveTo(x + 0.5, 0);
       context.lineTo(x + 0.5, height);
       context.stroke();
-      if (state.hoverSignalId === signal.id) this.showChartTooltip(card, visible, state.hoverTime, x);
+      if (state.hoverTime !== null && state.hoverSignalId === signal.id) {
+        this.showChartTooltip(card, history, state.hoverTime, x);
+      }
     }
   }
 
@@ -109,8 +109,8 @@ export class DashboardTimeRenderer {
     context.strokeRect(x + 0.5, 0.5, Math.max(1, w - 1), Math.max(1, height - 1));
   }
 
-  showChartTooltip(card, visible, hoverTime, x) {
-    const sample = closestByTime(visible, hoverTime);
+  showChartTooltip(card, history, hoverTime, x) {
+    const sample = closestByTime(history, hoverTime);
     const tooltip = card.querySelector('[data-chart-tooltip]');
     if (!tooltip || !sample) return;
     tooltip.textContent = `${compactNumber(sample.value)}${sample.unit ? ` ${sample.unit}` : ''} · ${formatTime(sample.time)}`;
@@ -160,15 +160,17 @@ export class DashboardTimeRenderer {
       context.strokeRect(x + 0.5, parentIndex * bandHeight + 0.5, Math.max(1, w - 1), bandHeight - 1);
     }
 
-    if (state.navigatorHover) {
-      const { index, time } = state.navigatorHover;
-      const range = state.ranges[index];
-      const x = (time - range[0]) / Math.max(1e-9, range[1] - range[0]) * width;
-      context.strokeStyle = colors.crosshair;
-      context.beginPath();
-      context.moveTo(x + 0.5, index * bandHeight);
-      context.lineTo(x + 0.5, (index + 1) * bandHeight);
-      context.stroke();
+    const inspectionTime = state.navigatorHover?.time ?? state.hoverTime;
+    if (inspectionTime !== null) {
+      state.ranges.forEach((range, index) => {
+        if (inspectionTime < range[0] || inspectionTime > range[1]) return;
+        const x = (inspectionTime - range[0]) / Math.max(1e-9, range[1] - range[0]) * width;
+        context.strokeStyle = colors.crosshair;
+        context.beginPath();
+        context.moveTo(x + 0.5, index * bandHeight);
+        context.lineTo(x + 0.5, (index + 1) * bandHeight);
+        context.stroke();
+      });
     }
   }
 
@@ -177,13 +179,10 @@ export class DashboardTimeRenderer {
     const plotHeight = Math.max(4, bandHeight - 8);
     for (const signal of signals) {
       const history = this.histories.get(signal.id) ?? [];
-      const visible = samplesInRange(history, range);
-      if (visible.length < 2) continue;
-      const values = visible.map((sample) => sample.value);
-      const minimum = Math.min(...values);
-      const maximum = Math.max(...values);
+      const summary = summarizeSamples(history, range, Math.max(1, Math.floor(width / 2)));
+      if (summary.count < 2) continue;
+      const { minimum, maximum, buckets } = summary;
       const span = Math.max(1e-12, maximum - minimum);
-      const buckets = bucketSamples(visible, range, Math.max(1, Math.floor(width / 2)));
       context.strokeStyle = colors.navigatorLine;
       context.globalAlpha = Math.max(0.12, Math.min(0.35, 1 / Math.sqrt(signals.length)));
       context.lineWidth = 1;

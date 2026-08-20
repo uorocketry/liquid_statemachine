@@ -18,30 +18,70 @@ export function prepareCanvas(canvas) {
   return { context, width, height };
 }
 
-export function bucketSamples(samples, range, bucketCount) {
-  if (samples.length <= bucketCount) {
-    return samples.map((sample) => ({
-      time: sample.time,
-      min: sample.value,
-      max: sample.value,
-      last: sample.value,
-    }));
-  }
+/** Scan one time range without allocating a copy of every visible sample. */
+export function summarizeSamples(samples, range, bucketCount) {
+  if (!samples.length) return emptySummary();
+  const lower = lowerBound(samples, range[0]);
+  const upper = lowerBound(samples, range[1], lower);
+  const end = upper < samples.length && samples[upper].time <= range[1] ? upper + 1 : upper;
+  const count = Math.max(0, end - lower);
+  if (!count) return emptySummary();
+
   const buckets = [];
-  const width = Math.max(1e-9, range[1] - range[0]);
-  for (const sample of samples) {
-    const index = Math.min(bucketCount - 1, Math.floor((sample.time - range[0]) / width * bucketCount));
-    const current = buckets[index];
+  const rangeWidth = Math.max(1e-9, range[1] - range[0]);
+  let minimum = Infinity;
+  let maximum = -Infinity;
+  for (let sampleIndex = lower; sampleIndex < end; sampleIndex += 1) {
+    const sample = samples[sampleIndex];
+    const sampleMin = sample.min ?? sample.value;
+    const sampleMax = sample.max ?? sample.value;
+    minimum = Math.min(minimum, sampleMin);
+    maximum = Math.max(maximum, sampleMax);
+
+    if (count <= bucketCount) {
+      buckets.push({ time: sample.time, min: sampleMin, max: sampleMax, last: sample.value });
+      continue;
+    }
+    const bucketIndex = Math.min(
+      bucketCount - 1,
+      Math.floor((sample.time - range[0]) / rangeWidth * bucketCount),
+    );
+    const current = buckets[bucketIndex];
     if (!current) {
-      buckets[index] = { time: sample.time, min: sample.value, max: sample.value, last: sample.value };
+      buckets[bucketIndex] = { time: sample.time, min: sampleMin, max: sampleMax, last: sample.value };
       continue;
     }
     current.time = sample.time;
-    current.min = Math.min(current.min, sample.value);
-    current.max = Math.max(current.max, sample.value);
+    current.min = Math.min(current.min, sampleMin);
+    current.max = Math.max(current.max, sampleMax);
     current.last = sample.value;
   }
-  return buckets.filter(Boolean);
+  return { count, minimum, maximum, buckets: buckets.filter(Boolean) };
+}
+
+function emptySummary() {
+  return { count: 0, minimum: Infinity, maximum: -Infinity, buckets: [] };
+}
+
+/** Keep a bounded, multi-resolution display history without discarding session start. */
+export function compactHistory(samples, recentCount = 20_000) {
+  if (samples.length <= recentCount + 2) return samples;
+  const split = Math.max(2, samples.length - recentCount);
+  const compacted = [samples[0]];
+  for (let index = 1; index < split; index += 2) {
+    const first = samples[index];
+    const second = samples[Math.min(index + 1, split - 1)];
+    compacted.push({
+      time: second.time,
+      value: second.value,
+      unit: second.unit ?? first.unit ?? '',
+      min: Math.min(first.min ?? first.value, second.min ?? second.value),
+      max: Math.max(first.max ?? first.value, second.max ?? second.value),
+    });
+  }
+  compacted.push(...samples.slice(split));
+  samples.splice(0, samples.length, ...compacted);
+  return samples;
 }
 
 export function closestByTime(samples, time) {
@@ -58,14 +98,6 @@ export function closestByTime(samples, time) {
   return Math.abs(before.time - time) <= Math.abs(after.time - time) ? before : after;
 }
 
-export function samplesInRange(samples, range) {
-  if (!samples.length) return [];
-  const lower = lowerBound(samples, range[0]);
-  const upper = lowerBound(samples, range[1], lower);
-  const end = upper < samples.length && samples[upper].time <= range[1] ? upper + 1 : upper;
-  return samples.slice(lower, end);
-}
-
 function lowerBound(samples, time, start = 0) {
   let low = start;
   let high = samples.length;
@@ -80,6 +112,12 @@ function lowerBound(samples, time, start = 0) {
 export function formatTime(seconds) {
   if (seconds < 10) return `${seconds.toFixed(3)} s`;
   if (seconds < 120) return `${seconds.toFixed(1)} s`;
+  if (seconds >= 3600) {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remainder = (seconds % 60).toFixed(1).padStart(4, '0');
+    return `${hours}:${String(minutes).padStart(2, '0')}:${remainder}`;
+  }
   const minutes = Math.floor(seconds / 60);
   return `${minutes}:${(seconds % 60).toFixed(1).padStart(4, '0')}`;
 }
