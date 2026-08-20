@@ -1,15 +1,24 @@
 import { html, nothing, repeat } from '/static/vendor/lit/lit.js';
 
 /** Render node-level configuration controls. */
-export function controlsTemplate(controls) {
+export function controlsTemplate(controls, namespace = 'node') {
   if (!Array.isArray(controls) || !controls.length) return nothing;
   return html`
     <div class="blueprint-node-controls">
       ${repeat(controls, (control) => control.key, (control) => html`
-        <label class="blueprint-node-control">
-          <span>${control.label ?? control.key}</span>
-          ${inlineControlTemplate(control)}
-        </label>
+        ${control.type === 'boolean'
+          ? html`
+              <div class="blueprint-node-control">
+                <span>${control.label ?? control.key}</span>
+                ${inlineControlTemplate(control, namespace)}
+              </div>
+            `
+          : html`
+              <label class="blueprint-node-control">
+                <span>${control.label ?? control.key}</span>
+                ${inlineControlTemplate(control, namespace)}
+              </label>
+            `}
       `)}
     </div>
   `;
@@ -19,19 +28,27 @@ export function controlsTemplate(controls) {
  * Render a literal-or-link editor. Lit preserves the actual input element while
  * unrelated graph/preview state changes around it.
  */
-export function inlineControlTemplate(control) {
+export function inlineControlTemplate(control, namespace = 'node') {
   if (!control || control.connected) return nothing;
   const valueType = control.valueType ?? (control.type === 'number' ? 'number' : 'string');
   const suffix = control.unit ? html`<em>${control.unit}</em>` : nothing;
-  if (control.type === 'toggle') {
+  if (control.type === 'boolean') {
+    const name = `${namespace}-${control.key}`;
     return html`
-      <span class="blueprint-inline-editor">
-        <input
-          type="checkbox"
-          data-blueprint-config-key=${control.key}
-          data-value-type="boolean"
-          .checked=${Boolean(control.value)}
-        />
+      <span class="blueprint-inline-editor blueprint-boolean-editor" role="radiogroup" aria-label=${control.label ?? control.key}>
+        ${[true, false].map((value) => html`
+          <label>
+            <input
+              type="radio"
+              name=${name}
+              value=${String(value)}
+              data-blueprint-config-key=${control.key}
+              data-value-type="boolean"
+              .checked=${Boolean(control.value) === value}
+            />
+            <span>${value ? 'True' : 'False'}</span>
+          </label>
+        `)}
       </span>
     `;
   }

@@ -2,8 +2,9 @@ import { createWidgetCard } from './dashboard-widget-shell.js';
 
 const DIAL_START_DEG = 135;
 const DIAL_SPAN_DEG = 270;
-const DIAL_RADIUS = 37;
-const DIAL_CENTER = 50;
+const DIAL_RADIUS = 43;
+const DIAL_CENTER_X = 60;
+const DIAL_CENTER_Y = 53;
 
 const DEFAULT_GAUGE = {
   type: 'dial-filled',
@@ -23,11 +24,14 @@ export function createGaugeWidget(node) {
   const root = document.createElement('div');
   root.className = 'dashboard-gauge';
   root.dataset.gaugeType = gauge.type;
+  root.dataset.state = 'normal';
   root.setAttribute('role', 'meter');
   root.setAttribute('aria-label', `${node.config?.label ?? 'Signal'} gauge`);
 
-  if (gauge.type.startsWith('dial-')) root.append(createDial(gauge));
-  else root.append(createMeter(gauge));
+  const visual = document.createElement('div');
+  visual.className = `dashboard-gauge-visual ${gauge.type.startsWith('dial-') ? 'dial' : 'meter'}`;
+  visual.dataset.orientation = gauge.type.replace('meter-', '');
+  visual.append(gauge.type.startsWith('dial-') ? createDial(gauge) : createMeter(gauge));
 
   const readout = document.createElement('div');
   readout.className = 'dashboard-gauge-readout';
@@ -37,6 +41,7 @@ export function createGaugeWidget(node) {
   const units = document.createElement('span');
   units.dataset.gaugeUnits = '';
   readout.append(value, units);
+  visual.append(readout);
 
   const range = document.createElement('div');
   range.className = 'dashboard-gauge-range';
@@ -50,7 +55,7 @@ export function createGaugeWidget(node) {
   maximum.dataset.gaugeMax = '';
   range.append(minimum, state, maximum);
 
-  root.append(readout, range);
+  root.append(visual, range);
   applyGaugeVisibility(root, gauge);
   updateRangeLabels(root, gauge, node.config?.precision ?? 1);
   card.append(root);
@@ -68,19 +73,29 @@ export function updateGaugeWidget(card, node, reading) {
   const ratio = finite ? valueRatio(value, gauge.min, gauge.max) : 0;
   const clamped = Math.max(0, Math.min(1, ratio));
   const outOfRange = finite && (ratio < 0 || ratio > 1);
+  const stateName = gaugeState(value, finite, gauge);
 
   root.setAttribute('aria-valuemin', String(gauge.min));
   root.setAttribute('aria-valuemax', String(gauge.max));
   if (finite) root.setAttribute('aria-valuenow', String(value));
   else root.removeAttribute('aria-valuenow');
   root.dataset.outOfRange = String(outOfRange);
+  root.dataset.state = stateName;
 
   const output = root.querySelector('[data-gauge-value]');
   const units = root.querySelector('[data-gauge-units]');
   const state = root.querySelector('[data-gauge-state]');
   if (output) output.textContent = finite ? value.toFixed(precision) : '—';
   if (units) units.textContent = gauge.showUnits && reading?.unit ? reading.unit : '';
-  if (state) state.hidden = !outOfRange;
+  if (state) {
+    state.textContent = stateLabel(stateName);
+    state.hidden = stateName === 'normal' || stateName === 'unavailable';
+  }
+  if (finite) {
+    root.setAttribute('aria-valuetext', `${value.toFixed(precision)}${reading?.unit ? ` ${reading.unit}` : ''}${stateName === 'normal' ? '' : `, ${stateLabel(stateName)}`}`);
+  } else {
+    root.removeAttribute('aria-valuetext');
+  }
 
   if (gauge.type.startsWith('dial-')) updateDial(root, gauge, clamped);
   else updateMeter(root, gauge, clamped);
@@ -89,29 +104,29 @@ export function updateGaugeWidget(card, node, reading) {
 function createDial(gauge) {
   const svg = svgElement('svg', {
     class: 'dashboard-gauge-dial',
-    viewBox: '0 0 100 88',
+    viewBox: '0 0 120 104',
     'aria-hidden': 'true',
   });
   const base = svgElement('path', { class: 'dashboard-gauge-dial-base', 'data-gauge-base': '' });
-  const low = svgElement('path', { class: 'dashboard-gauge-limit low', 'data-gauge-low': '' });
-  const high = svgElement('path', { class: 'dashboard-gauge-limit high', 'data-gauge-high': '' });
+  const low = svgElement('line', { class: 'dashboard-gauge-limit low', 'data-gauge-low': '' });
+  const high = svgElement('line', { class: 'dashboard-gauge-limit high', 'data-gauge-high': '' });
   const fill = svgElement('path', { class: 'dashboard-gauge-dial-value', 'data-gauge-fill': '' });
   const needle = svgElement('line', {
     class: 'dashboard-gauge-needle',
     'data-gauge-needle': '',
-    x1: String(DIAL_CENTER),
-    y1: String(DIAL_CENTER),
+    x1: String(DIAL_CENTER_X),
+    y1: String(DIAL_CENTER_Y),
   });
   const hub = svgElement('circle', {
     class: 'dashboard-gauge-needle-hub',
-    cx: String(DIAL_CENTER),
-    cy: String(DIAL_CENTER),
+    cx: String(DIAL_CENTER_X),
+    cy: String(DIAL_CENTER_Y),
     r: '2.5',
   });
   base.setAttribute('d', arcPath(0, 1));
-  fill.hidden = gauge.type !== 'dial-filled';
-  needle.hidden = gauge.type !== 'dial-needle';
-  hub.hidden = gauge.type !== 'dial-needle';
+  fill.style.display = gauge.type === 'dial-filled' ? '' : 'none';
+  needle.style.display = gauge.type === 'dial-needle' ? '' : 'none';
+  hub.style.display = gauge.type === 'dial-needle' ? '' : 'none';
   svg.append(base, low, high, fill, needle, hub);
   return svg;
 }
@@ -126,10 +141,10 @@ function createMeter(gauge) {
   fill.className = 'dashboard-gauge-meter-value';
   fill.dataset.gaugeFill = '';
   const low = document.createElement('span');
-  low.className = 'dashboard-gauge-limit low';
+  low.className = 'dashboard-gauge-threshold low';
   low.dataset.gaugeLow = '';
   const high = document.createElement('span');
-  high.className = 'dashboard-gauge-limit high';
+  high.className = 'dashboard-gauge-threshold high';
   high.dataset.gaugeHigh = '';
   track.append(fill, low, high);
   meter.append(track);
@@ -143,11 +158,11 @@ function updateDial(root, gauge, ratio) {
   const needle = root.querySelector('[data-gauge-needle]');
   const lowRatio = limitRatio(gauge.low, gauge.min, gauge.max);
   const highRatio = limitRatio(gauge.high, gauge.min, gauge.max);
-  if (low) low.setAttribute('d', lowRatio === null ? '' : arcPath(0, lowRatio));
-  if (high) high.setAttribute('d', highRatio === null ? '' : arcPath(highRatio, 1));
+  setDialThreshold(low, lowRatio);
+  setDialThreshold(high, highRatio);
   if (fill && gauge.type === 'dial-filled') fill.setAttribute('d', arcPath(0, ratio));
   if (needle && gauge.type === 'dial-needle') {
-    const point = dialPoint(ratio, DIAL_RADIUS - 6);
+    const point = dialPoint(ratio, DIAL_RADIUS - 7);
     needle.setAttribute('x2', point.x.toFixed(2));
     needle.setAttribute('y2', point.y.toFixed(2));
   }
@@ -159,28 +174,25 @@ function updateMeter(root, gauge, ratio) {
   const low = root.querySelector('[data-gauge-low]');
   const high = root.querySelector('[data-gauge-high]');
   if (!track || !fill || !low || !high) return;
-  const lowRatio = limitRatio(gauge.low, gauge.min, gauge.max) ?? 0;
-  const highRatio = limitRatio(gauge.high, gauge.min, gauge.max) ?? 1;
+  const lowRatio = limitRatio(gauge.low, gauge.min, gauge.max);
+  const highRatio = limitRatio(gauge.high, gauge.min, gauge.max);
   const orientation = track.parentElement?.dataset.orientation ?? 'horizontal';
 
   for (const element of [fill, low, high]) element.removeAttribute('style');
+  low.hidden = lowRatio === null;
+  high.hidden = highRatio === null;
   if (orientation === 'horizontal') {
     fill.style.width = percent(ratio);
-    low.style.width = percent(lowRatio);
-    high.style.left = percent(highRatio);
-    high.style.width = percent(1 - highRatio);
+    if (lowRatio !== null) low.style.left = percent(lowRatio);
+    if (highRatio !== null) high.style.left = percent(highRatio);
     return;
   }
   const inverted = orientation === 'vertical-inverted';
   fill.style.height = percent(ratio);
   fill.style.top = inverted ? '0' : 'auto';
   fill.style.bottom = inverted ? 'auto' : '0';
-  low.style.height = percent(lowRatio);
-  low.style.top = inverted ? '0' : 'auto';
-  low.style.bottom = inverted ? 'auto' : '0';
-  high.style.height = percent(1 - highRatio);
-  high.style.top = inverted ? 'auto' : '0';
-  high.style.bottom = inverted ? '0' : 'auto';
+  if (lowRatio !== null) low.style.top = inverted ? percent(lowRatio) : percent(1 - lowRatio);
+  if (highRatio !== null) high.style.top = inverted ? percent(highRatio) : percent(1 - highRatio);
 }
 
 function applyGaugeVisibility(root, gauge) {
@@ -224,9 +236,47 @@ function dialPoint(ratio, radius) {
   const degrees = DIAL_START_DEG + ratio * DIAL_SPAN_DEG;
   const radians = degrees * Math.PI / 180;
   return {
-    x: DIAL_CENTER + radius * Math.cos(radians),
-    y: DIAL_CENTER + radius * Math.sin(radians),
+    x: DIAL_CENTER_X + radius * Math.cos(radians),
+    y: DIAL_CENTER_Y + radius * Math.sin(radians),
   };
+}
+
+function setDialThreshold(element, ratio) {
+  if (!element) return;
+  if (ratio === null) {
+    element.style.display = 'none';
+    return;
+  }
+  element.style.display = '';
+  const inner = dialPoint(ratio, DIAL_RADIUS - 5);
+  const outer = dialPoint(ratio, DIAL_RADIUS + 5);
+  element.setAttribute('x1', inner.x.toFixed(2));
+  element.setAttribute('y1', inner.y.toFixed(2));
+  element.setAttribute('x2', outer.x.toFixed(2));
+  element.setAttribute('y2', outer.y.toFixed(2));
+}
+
+function gaugeState(value, finite, gauge) {
+  if (!finite) return 'unavailable';
+  if (value < Number(gauge.min) || value > Number(gauge.max)) return 'out';
+  const low = optionalNumber(gauge.low);
+  const high = optionalNumber(gauge.high);
+  if (low !== null && value < low) return 'low';
+  if (high !== null && value > high) return 'high';
+  return 'normal';
+}
+
+function stateLabel(state) {
+  if (state === 'low') return 'Low';
+  if (state === 'high') return 'High';
+  if (state === 'out') return 'Out of range';
+  return '';
+}
+
+function optionalNumber(value) {
+  if (value === null || value === '' || value === undefined) return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function svgElement(tag, attributes) {

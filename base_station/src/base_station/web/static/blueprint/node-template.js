@@ -16,7 +16,7 @@ export function renderNodeTemplate({ node, connectionState, preview }) {
     </div>
     ${node.description ? html`<div class="blueprint-node-description">${node.description}</div>` : nothing}
     ${previewTemplate(preview)}
-    ${controlsTemplate(node.controls)}
+    ${controlsTemplate(node.controls, node.id)}
     ${pinsTemplate(node, connectionState)}
     ${diagnosticsTemplate(node.diagnostics)}
   `;
@@ -61,7 +61,7 @@ function pinRowTemplate(node, pin, state) {
       ${pin.direction === 'input' ? pinButton(pin, key, state) : nothing}
       <span class="blueprint-pin-label-main">${pin.label}</span>
       <span class="blueprint-pin-side">
-        ${pin.direction === 'input' ? inlineControlTemplate(pin.literal) : nothing}
+        ${pin.direction === 'input' ? inlineControlTemplate(pin.literal, `${node.id}-${pin.id}`) : nothing}
         ${pinTypeTemplate(pin)}
       </span>
       ${pin.direction === 'output' ? pinButton(pin, key, state) : nothing}

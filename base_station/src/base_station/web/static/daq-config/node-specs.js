@@ -99,7 +99,7 @@ const SPECS = {
     controls: (config) => [
       ...dashboardIdentityControls(config),
       numberControl('precision', 'Decimals', config.precision, '', { min: 0, max: 6, step: 1 }),
-      toggleControl('showUnits', 'Show units', config.showUnits),
+      booleanControl('showUnits', 'Show units', config.showUnits),
     ],
     decorate: decorateDashboardInput,
     validate: (config) => [
@@ -209,8 +209,8 @@ export function selectControl(key, label, value, options, valueType = 'string') 
   return { key, label, type: 'select', value, options, valueType };
 }
 
-export function toggleControl(key, label, value) {
-  return { key, label, type: 'toggle', value: Boolean(value), valueType: 'boolean' };
+export function booleanControl(key, label, value) {
+  return { key, label, type: 'boolean', value: Boolean(value), valueType: 'boolean' };
 }
 
 function inferredMathSpec(title, icon, description, outputLabel) {
@@ -247,9 +247,9 @@ function gaugeControls(config) {
     ...dashboardIdentityControls(config),
     numberControl('precision', 'Decimals', config.precision, '', { min: 0, max: 6, step: 1 }),
     selectControl('type', 'Gauge type', config.type, GAUGE_TYPES),
-    toggleControl('showValue', 'Show value', config.showValue),
-    toggleControl('showUnits', 'Show units', config.showUnits),
-    toggleControl('showRange', 'Show range', config.showRange),
+    booleanControl('showValue', 'Show value', config.showValue),
+    booleanControl('showUnits', 'Show units', config.showUnits),
+    booleanControl('showRange', 'Show range', config.showRange),
     numberControl('min', 'Minimum', config.min),
     numberControl('low', 'Low limit', config.low),
     numberControl('high', 'High limit', config.high),

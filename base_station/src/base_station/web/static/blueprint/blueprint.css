@@ -145,8 +145,12 @@ liquid-blueprint-node.connection-muted { opacity: .26; filter: grayscale(.7) sat
   font: 9px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 .blueprint-inline-editor select { width: 116px; }
-.blueprint-inline-editor input[type="checkbox"] { width: 16px; height: 16px; padding: 0; accent-color: var(--color-text); }
+.blueprint-boolean-editor { gap: 10px; }
+.blueprint-boolean-editor label { display: inline-flex; align-items: center; gap: 4px; color: var(--blueprint-muted); font-size: 8px; cursor: pointer; }
+.blueprint-boolean-editor input[type="radio"] { width: 13px; height: 13px; padding: 0; border: 0; accent-color: var(--color-text); }
+.blueprint-boolean-editor input[type="radio"]:checked + span { color: var(--color-text); }
 .blueprint-inline-editor input:focus, .blueprint-inline-editor select:focus { border-color: var(--color-focus); outline: 2px solid var(--color-focus); outline-offset: 1px; }
+.blueprint-boolean-editor input[type="radio"]:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .blueprint-inline-editor em { color: var(--blueprint-faint); font-size: 8px; font-style: normal; white-space: nowrap; }
 .blueprint-node-preview { margin-top: 3px; overflow: hidden; border-top: 1px solid var(--color-border-soft); background: var(--color-surface-subtle); }
 .blueprint-node-preview-heading { min-height: 25px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 3px 6px; color: var(--color-text-muted); font-size: 8px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
