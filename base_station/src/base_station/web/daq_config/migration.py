@@ -84,11 +84,36 @@ def _canonicalize_nodes(graph: dict) -> None:
         elif node_type == "constant":
             unit = config.get("unit", "kg")
             node["pins"] = [_output("value", "Value", unit)]
+        elif node_type == "sine-wave":
+            config.setdefault("amplitude", 1)
+            config.setdefault("frequencyHz", 0.25)
+            config.setdefault("offset", 0)
+            config.setdefault("phaseDeg", 0)
+            unit = config.setdefault("unit", "V")
+            node["pins"] = [_output("signal", "Signal", unit)]
+        elif node_type == "add":
+            node["pins"] = [
+                _input("a", "A", "infer", "*"),
+                _input("b", "B", "infer", "*"),
+                _output("result", "A + B", "infer"),
+            ]
         elif node_type == "subtract":
             node["pins"] = [
                 _input("a", "A", "infer", "*"),
                 _input("b", "B", "infer", "*"),
                 _output("result", "A − B", "infer"),
+            ]
+        elif node_type == "gain":
+            config.setdefault("gain", 1)
+            node["pins"] = [
+                _input("input", "Signal", "infer", "*"),
+                _output("result", "Scaled", "infer"),
+            ]
+        elif node_type == "moving-average":
+            config.setdefault("windowS", 0.5)
+            node["pins"] = [
+                _input("input", "Signal", "infer", "*"),
+                _output("result", "Average", "infer"),
             ]
         elif node_type == "rate-of-change":
             window_s = config.get("windowS", 0.5)

@@ -60,7 +60,7 @@ async function bootstrap() {
   preview = new DaqLivePreview(editor);
   bindEvents();
   refreshUi();
-  if (capabilities?.device?.connected) preview.start();
+  syncPreviewState();
 }
 
 function bindEvents() {
@@ -75,6 +75,7 @@ function bindEvents() {
   editor.addEventListener('blueprint-change', () => {
     dirty = true;
     refreshUi();
+    syncPreviewState();
     preview?.refreshSoon();
   });
   saveButton.addEventListener('click', save);
@@ -203,7 +204,15 @@ async function reload() {
   syncAcquisitionControls();
   dirty = false;
   refreshUi();
+  syncPreviewState();
   preview?.refreshSoon();
+}
+
+function syncPreviewState() {
+  if (!preview) return;
+  const hasSimulation = editor.graph.nodes.some((node) => node.nodeType === 'sine-wave');
+  if (capabilities?.device?.connected || hasSimulation) preview.start();
+  else preview.stop();
 }
 
 function syncAcquisitionControls() {

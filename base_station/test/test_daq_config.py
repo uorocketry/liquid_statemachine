@@ -227,6 +227,40 @@ class DaqConfigTests(TestCase):
         self.assertIn("Dashboard group must be Fuel, LOX, or Engine", messages)
         self.assertIn("Dashboard decimal places must be 0 through 6", messages)
 
+    def test_simulation_and_smoothing_parameters_are_constrained(self) -> None:
+        graph = {
+            "nodes": [
+                {"id": "sine", "nodeType": "sine-wave", "pins": [], "config": {
+                    "amplitude": 1.0, "frequencyHz": -1.0, "offset": 0.0,
+                    "phaseDeg": 0.0, "unit": "V",
+                }},
+                {"id": "gain", "nodeType": "gain", "pins": [], "config": {"gain": float("inf")}},
+                {"id": "average", "nodeType": "moving-average", "pins": [], "config": {"windowS": 0}},
+            ],
+            "links": [],
+        }
+        messages = [issue["message"] for issue in validate_graph(graph)]
+        self.assertIn("Sine-wave frequency cannot be negative", messages)
+        self.assertIn("Gain must be finite", messages)
+        self.assertIn("Moving-average window must be positive", messages)
+
+    def test_new_math_nodes_are_canonicalized(self) -> None:
+        migrated = migrate_graph({
+            "nodes": [
+                {"id": "sine", "nodeType": "sine-wave", "config": {}},
+                {"id": "add", "nodeType": "add", "config": {}},
+                {"id": "gain", "nodeType": "gain", "config": {}},
+                {"id": "average", "nodeType": "moving-average", "config": {}},
+            ],
+            "links": [],
+        })
+        nodes = {node["id"]: node for node in migrated["nodes"]}
+        self.assertEqual(nodes["sine"]["config"]["unit"], "V")
+        self.assertEqual(nodes["sine"]["pins"][0]["id"], "signal")
+        self.assertEqual([pin["id"] for pin in nodes["add"]["pins"]], ["a", "b", "result"])
+        self.assertEqual(nodes["gain"]["config"]["gain"], 1)
+        self.assertEqual(nodes["average"]["config"]["windowS"], 0.5)
+
 
 if __name__ == "__main__":
     import unittest

@@ -32,7 +32,7 @@ class FrontendContractTests(TestCase):
         self.assertIn("undoButton.addEventListener('click', () => editor.undo())", app)
         self.assertIn("redoButton.addEventListener('click', () => editor.redo())", app)
         self.assertIn("frameButton.addEventListener('click', () => editor.fitGraph())", app)
-        self.assertIn("if (capabilities?.device?.connected) preview.start()", app)
+        self.assertIn("if (capabilities?.device?.connected || hasSimulation) preview.start()", app)
         for removed in (
             "daq-live-toggle", "daq-preview-state", "daq-device-state",
             "daq-mux80", "daq-acquisition-menu", 'graph-title="Liquid DAQ"',
@@ -134,6 +134,20 @@ class FrontendContractTests(TestCase):
         self.assertIn("node.nodeType === 'rate-of-change'", presentation)
         self.assertIn("`${input}/s`", presentation)
         self.assertIn("node.nodeType === 'labjack-channel-pair'", presentation)
+
+    def test_simulation_and_common_math_nodes_are_available(self) -> None:
+        catalog = read("static/daq-config/catalog.js")
+        presentation = read("static/daq-config/presentation.js")
+        app = read("static/daq-config/app.js")
+        live_preview = read("static/daq-config/live-preview.js")
+        for node_type in ("sine-wave", "add", "gain", "moving-average"):
+            self.assertIn(f"type: '{node_type}'", catalog)
+        self.assertIn("category: 'Simulation', title: 'Sine wave'", catalog)
+        self.assertIn("node.nodeType === 'sine-wave'", presentation)
+        self.assertIn("node.nodeType === 'gain'", presentation)
+        self.assertIn("node.nodeType === 'moving-average'", presentation)
+        self.assertIn("hasSimulation", app)
+        self.assertIn("node.nodeType === 'sine-wave'", live_preview)
 
     def test_blueprint_nodes_use_flat_engineering_chrome(self) -> None:
         css = read("static/blueprint/blueprint.css")

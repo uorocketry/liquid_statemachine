@@ -2,18 +2,30 @@
 
 from __future__ import annotations
 
+from time import monotonic
 from typing import TYPE_CHECKING
 
 from base_station.web.daq_config.hardware import read_physical_sources
-from base_station.web.daq_config.signal_math import linear_map, load_cell, scalar, subtract
+from base_station.web.daq_config.signal_math import (
+    add,
+    gain,
+    linear_map,
+    load_cell,
+    moving_average,
+    scalar,
+    sine_wave,
+    subtract,
+)
 
 if TYPE_CHECKING:
     from base_station.web.labjack_service import LabJackService
 
 
-def preview_graph(service: LabJackService, graph: dict) -> dict:
+def preview_graph(service: LabJackService, graph: dict, *, now_s: float | None = None) -> dict:
     values, errors = read_physical_sources(service, graph)
     incoming = _incoming_links(graph)
+    timestamp = monotonic() if now_s is None else float(now_s)
+    sample_rate_hz = float(graph.get("metadata", {}).get("scanRate", 1000))
     pending = {
         node["id"]: node
         for node in graph.get("nodes", [])
@@ -22,7 +34,10 @@ def preview_graph(service: LabJackService, graph: dict) -> dict:
     for _ in range(len(pending) + 1):
         progressed = False
         for node_id, node in list(pending.items()):
-            result = _evaluate_node(node, incoming.get(node_id, {}), values)
+            result = _evaluate_node(
+                node, incoming.get(node_id, {}), values,
+                timestamp=timestamp, sample_rate_hz=sample_rate_hz,
+            )
             if result is None:
                 continue
             values[node_id] = result
@@ -40,9 +55,25 @@ def _incoming_links(graph: dict) -> dict[str, dict[str, str]]:
     return incoming
 
 
-def _evaluate_node(node: dict, incoming: dict[str, str], values: dict) -> dict | None:
+def _evaluate_node(
+    node: dict,
+    incoming: dict[str, str],
+    values: dict,
+    *,
+    timestamp: float,
+    sample_rate_hz: float,
+) -> dict | None:
     node_type = node.get("nodeType")
     config = node.get("config", {})
+    if node_type == "sine-wave":
+        value = scalar(sine_wave(
+            timestamp,
+            amplitude=float(config.get("amplitude", 1)),
+            frequency_hz=float(config.get("frequencyHz", 0.25)),
+            offset=float(config.get("offset", 0)),
+            phase_deg=float(config.get("phaseDeg", 0)),
+        ))
+        return {"value": value, "unit": config.get("unit", "V")}
     if node_type == "constant":
         return {"value": float(config.get("value", 0)), "unit": config.get("unit", "")}
     if node_type == "pressure-calibration":
@@ -93,6 +124,27 @@ def _evaluate_node(node: dict, incoming: dict[str, str], values: dict) -> dict |
             return None
         value = scalar(subtract(left["value"], right["value"]))
         return {"value": value, "unit": left.get("unit", "")}
+    if node_type == "add":
+        left = _input_value(incoming, values, "a")
+        right = _input_value(incoming, values, "b")
+        if left is None or right is None:
+            return None
+        value = scalar(add(left["value"], right["value"]))
+        return {"value": value, "unit": left.get("unit", "")}
+    if node_type == "gain":
+        source = _input_value(incoming, values, "input")
+        if source is None:
+            return None
+        value = scalar(gain(source["value"], float(config.get("gain", 1))))
+        return {"value": value, "unit": source.get("unit", "")}
+    if node_type == "moving-average":
+        source = _input_value(incoming, values, "input")
+        if source is None:
+            return None
+        value = scalar(moving_average(
+            source["value"], sample_rate_hz, window_s=float(config.get("windowS", 0.5))
+        ))
+        return {"value": value, "unit": source.get("unit", "")}
     if node_type == "rate-of-change":
         return None
     if node_type == "dashboard-signal":

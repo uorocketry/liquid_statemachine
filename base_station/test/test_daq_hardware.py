@@ -145,6 +145,40 @@ class DaqHardwareTests(TestCase):
         self.assertAlmostEqual(result["values"]["load"]["value"], 100.0)
         self.assertEqual(result["values"]["load"]["unit"], "kg")
 
+    def test_preview_evaluates_simulation_math_without_hardware_values(self) -> None:
+        graph = {
+            "metadata": {"scanRate": 1000},
+            "nodes": [
+                {"id": "sine", "nodeType": "sine-wave", "config": {
+                    "amplitude": 2.0, "frequencyHz": 0.25, "offset": 10.0,
+                    "phaseDeg": 0.0, "unit": "psi",
+                }},
+                {"id": "gain", "nodeType": "gain", "config": {"gain": 0.5}},
+                {"id": "bias", "nodeType": "constant", "config": {"value": 1.0, "unit": "psi"}},
+                {"id": "sum", "nodeType": "add", "config": {}},
+                {"id": "smooth", "nodeType": "moving-average", "config": {"windowS": 0.5}},
+                {"id": "display", "nodeType": "dashboard-signal", "config": {}},
+            ],
+            "links": [
+                {"fromNode": "sine", "toNode": "gain", "toPin": "input"},
+                {"fromNode": "gain", "toNode": "sum", "toPin": "a"},
+                {"fromNode": "bias", "toNode": "sum", "toPin": "b"},
+                {"fromNode": "sum", "toNode": "smooth", "toPin": "input"},
+                {"fromNode": "smooth", "toNode": "display", "toPin": "value"},
+            ],
+        }
+        with patch.object(
+            preview, "read_physical_sources",
+            return_value=({}, ["LabJack T7 is not connected"]),
+        ):
+            result = preview.preview_graph(self.service, graph, now_s=1.0)
+        self.assertAlmostEqual(result["values"]["sine"]["value"], 12.0)
+        self.assertAlmostEqual(result["values"]["gain"]["value"], 6.0)
+        self.assertAlmostEqual(result["values"]["sum"]["value"], 7.0)
+        self.assertAlmostEqual(result["values"]["smooth"]["value"], 7.0)
+        self.assertAlmostEqual(result["values"]["display"]["value"], 7.0)
+        self.assertEqual(result["values"]["display"]["unit"], "psi")
+
 
 if __name__ == "__main__":
     import unittest

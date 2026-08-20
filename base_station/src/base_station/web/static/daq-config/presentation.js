@@ -48,6 +48,17 @@ export function decorateNode(node, graph, capabilities) {
     decoratePressure(next, graph, connected);
   } else if (node.nodeType === 'load-cell') {
     decorateLoadCell(next, connected);
+  } else if (node.nodeType === 'sine-wave') {
+    const unit = config.unit ?? 'V';
+    next.badge = `${format(config.frequencyHz ?? 0.25)} Hz`;
+    setPinType(next, 'signal', unit);
+    next.controls = [
+      numberControl('amplitude', config.amplitude ?? 1, unit, { label: 'Amplitude' }),
+      numberControl('frequencyHz', config.frequencyHz ?? 0.25, 'Hz', { min: 0, step: 0.05, label: 'Frequency' }),
+      numberControl('offset', config.offset ?? 0, unit, { label: 'Offset' }),
+      numberControl('phaseDeg', config.phaseDeg ?? 0, '°', { label: 'Phase' }),
+      selectControl('unit', 'Unit', unit, engineeringUnits().map((value) => [value, value])),
+    ];
   } else if (node.nodeType === 'constant') {
     next.badge = `${format(config.value)} ${config.unit ?? ''}`.trim();
     setPinLabel(next, 'value', 'Out');
@@ -55,8 +66,14 @@ export function decorateNode(node, graph, capabilities) {
       numberControl('value', config.value, config.unit ?? '', { label: 'Value' }),
       selectControl('unit', 'Unit', config.unit ?? 'kg', engineeringUnits().map((unit) => [unit, unit])),
     ];
-  } else if (node.nodeType === 'subtract') {
+  } else if (node.nodeType === 'add' || node.nodeType === 'subtract') {
     decorateInferredMath(next, graph, ['a', 'b'], 'result');
+  } else if (node.nodeType === 'gain') {
+    decorateInferredMath(next, graph, ['input'], 'result');
+    next.controls = [numberControl('gain', config.gain ?? 1, '', { label: 'Gain' })];
+  } else if (node.nodeType === 'moving-average') {
+    decorateInferredMath(next, graph, ['input'], 'result');
+    next.controls = [numberControl('windowS', config.windowS ?? 0.5, 's', { min: 0.001, step: 0.05, label: 'Window' })];
   } else if (node.nodeType === 'rate-of-change') {
     const unit = incomingUnit(node, graph, 'input');
     const outputUnit = concrete(unit) ? `${unit}/s` : 'infer';
@@ -150,9 +167,13 @@ export function resolvedOutputUnit(graph, nodeId, pinId, seen = new Set()) {
   if (!node || !pin) return null;
   if (concrete(pin.type)) return pin.type;
   if (node.nodeType === 'constant') return node.config?.unit ?? null;
+  if (node.nodeType === 'sine-wave') return node.config?.unit ?? null;
   if (node.nodeType === 'load-cell') return node.config?.unit ?? null;
-  if (node.nodeType === 'subtract') {
+  if (node.nodeType === 'add' || node.nodeType === 'subtract') {
     return incomingResolvedUnit(node, graph, 'a', seen) ?? incomingResolvedUnit(node, graph, 'b', seen);
+  }
+  if (node.nodeType === 'gain' || node.nodeType === 'moving-average') {
+    return incomingResolvedUnit(node, graph, 'input', seen);
   }
   if (node.nodeType === 'rate-of-change') {
     const input = incomingResolvedUnit(node, graph, 'input', seen);

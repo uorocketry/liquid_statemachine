@@ -38,6 +38,24 @@ class SignalMathTests(TestCase):
         result = signal_math.subtract([10.0, 11.0], 3.0)
         np.testing.assert_allclose(result, [7.0, 8.0])
 
+    def test_add_broadcasts_numpy_values(self) -> None:
+        result = signal_math.add([10.0, 11.0], 3.0)
+        np.testing.assert_allclose(result, [13.0, 14.0])
+
+    def test_gain_scales_numpy_values(self) -> None:
+        result = signal_math.gain([2.0, -4.0], 0.5)
+        np.testing.assert_allclose(result, [1.0, -2.0])
+
+    def test_sine_wave_uses_frequency_phase_offset_and_amplitude(self) -> None:
+        result = signal_math.sine_wave(
+            [0.0, 1.0], amplitude=2.0, frequency_hz=0.25, offset=10.0, phase_deg=0.0
+        )
+        np.testing.assert_allclose(result, [10.0, 12.0], atol=1e-12)
+
+    def test_moving_average_uses_trailing_time_window(self) -> None:
+        result = signal_math.moving_average([1.0, 3.0, 5.0, 7.0], 2.0, window_s=1.0)
+        np.testing.assert_allclose(result, [1.0, 2.0, 4.0, 6.0])
+
 
 if __name__ == "__main__":
     import unittest

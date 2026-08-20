@@ -181,6 +181,24 @@ def _validate_transform(
             issues.append(_issue(node["id"], "Load cell zero offset is required"))
         if not _positive_number(excitation):
             issues.append(_issue(node["id"], "Load cell excitation must be positive"))
+    if node.get("nodeType") == "sine-wave":
+        for key, label in (
+            ("amplitude", "Amplitude"),
+            ("frequencyHz", "Frequency"),
+            ("offset", "Offset"),
+            ("phaseDeg", "Phase"),
+        ):
+            if not _finite_number(config.get(key)):
+                issues.append(_issue(node["id"], f"Sine-wave {label.lower()} must be finite"))
+        frequency = config.get("frequencyHz")
+        if _finite_number(frequency) and float(frequency) < 0:
+            issues.append(_issue(node["id"], "Sine-wave frequency cannot be negative"))
+        if not str(config.get("unit", "")).strip():
+            issues.append(_issue(node["id"], "Sine-wave unit is required"))
+    if node.get("nodeType") == "gain" and not _finite_number(config.get("gain")):
+        issues.append(_issue(node["id"], "Gain must be finite"))
+    if node.get("nodeType") == "moving-average" and not _positive_number(config.get("windowS")):
+        issues.append(_issue(node["id"], "Moving-average window must be positive"))
     if node.get("nodeType") == "dashboard-signal":
         if not str(config.get("label", "")).strip():
             issues.append(_issue(node["id"], "Dashboard signal requires a label"))

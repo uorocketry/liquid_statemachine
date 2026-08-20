@@ -5,7 +5,7 @@ export function patchInlineNode(node, key, value) {
   const patch = { config };
   if (key !== 'unit') return patch;
 
-  if (node.nodeType === 'constant') {
+  if (node.nodeType === 'constant' || node.nodeType === 'sine-wave') {
     patch.pins = node.pins.map((pin) => pin.direction === 'output' ? { ...pin, type: String(value) } : pin);
   } else if (node.nodeType === 'load-cell') {
     patch.pins = node.pins.map((pin) => {

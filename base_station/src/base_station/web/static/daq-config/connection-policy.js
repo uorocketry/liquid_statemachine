@@ -28,7 +28,7 @@ export function daqConnectionAllowed(source, target, sourceNode, targetNode, gra
     }
   }
 
-  if (targetNode.nodeType === 'subtract' && (target.id === 'a' || target.id === 'b')) {
+  if (['add', 'subtract'].includes(targetNode.nodeType) && (target.id === 'a' || target.id === 'b')) {
     const other = incomingUnit(targetNode, graph, target.id === 'a' ? 'b' : 'a');
     if (concrete(other) && concrete(sourceUnit) && other !== sourceUnit) return false;
   }

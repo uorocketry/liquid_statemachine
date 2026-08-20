@@ -60,6 +60,25 @@ export function validateGraph(graph) {
       }
       if (!(Number(excitation) > 0)) issues.push(issue('error', node.id, 'Load cell excitation must be positive'));
     }
+    if (node.nodeType === 'sine-wave') {
+      for (const [key, label] of [
+        ['amplitude', 'Amplitude'], ['frequencyHz', 'Frequency'], ['offset', 'Offset'], ['phaseDeg', 'Phase'],
+      ]) {
+        if (!requiredNumber(node.config?.[key])) {
+          issues.push(issue('error', node.id, `Sine-wave ${label.toLowerCase()} must be finite`));
+        }
+      }
+      if (requiredNumber(node.config?.frequencyHz) && Number(node.config.frequencyHz) < 0) {
+        issues.push(issue('error', node.id, 'Sine-wave frequency cannot be negative'));
+      }
+      if (!String(node.config?.unit ?? '').trim()) issues.push(issue('error', node.id, 'Sine-wave unit is required'));
+    }
+    if (node.nodeType === 'gain' && !requiredNumber(node.config?.gain)) {
+      issues.push(issue('error', node.id, 'Gain must be finite'));
+    }
+    if (node.nodeType === 'moving-average' && !(Number(node.config?.windowS) > 0)) {
+      issues.push(issue('error', node.id, 'Moving-average window must be positive'));
+    }
     if (node.nodeType === 'dashboard-signal') {
       if (!['Fuel', 'LOX', 'Engine'].includes(node.config?.group)) {
         issues.push(issue('error', node.id, 'Dashboard group must be Fuel, LOX, or Engine'));

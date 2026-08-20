@@ -94,7 +94,9 @@ export function highlightPathToSelection(editor, graph, nodeId) {
     editor.clearPreviewPath();
     return;
   }
-  const sources = graph.nodes.filter((node) => node.nodeType?.startsWith('labjack-'));
+  const sources = graph.nodes.filter((node) => (
+    node.nodeType?.startsWith('labjack-') || node.nodeType === 'sine-wave'
+  ));
   let best = [];
   for (const source of sources) {
     const path = editor.previewPathBetween(source.id, nodeId);

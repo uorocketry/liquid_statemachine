@@ -41,7 +41,11 @@
 .icon-node-thermocouple { --ui-icon: url('/static/icons/sf/thermometer.svg'); }
 .icon-node-pressure { --ui-icon: url('/static/icons/sf/gauge.with.dots.needle.50percent.svg'); }
 .icon-node-load { --ui-icon: url('/static/icons/sf/scalemass.svg'); }
+.icon-node-sine { --ui-icon: url('/static/icons/sf/waveform.svg'); }
 .icon-node-constant { --ui-icon: url('/static/icons/sf/number.svg'); }
+.icon-node-add { --ui-icon: url('/static/icons/sf/plus.svg'); }
 .icon-node-subtract { --ui-icon: url('/static/icons/sf/minus.svg'); }
+.icon-node-gain { --ui-icon: url('/static/icons/sf/function.svg'); }
+.icon-node-average { --ui-icon: url('/static/icons/sf/slider.horizontal.3.svg'); }
 .icon-node-rate { --ui-icon: url('/static/icons/sf/function.svg'); }
 .icon-node-dashboard { --ui-icon: url('/static/icons/sf/chart.xyaxis.line.svg'); }

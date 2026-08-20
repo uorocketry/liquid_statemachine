@@ -14,7 +14,8 @@ in the graph's bottom toolbar/popovers.
 - thermocouple;
 - pressure calibration;
 - load cell;
-- constant, subtract, rate-of-change;
+- simulation sine wave;
+- constant, add, subtract, gain, moving average, rate-of-change;
 - dashboard signal.
 
 Linkable settings use literal-or-link inputs: type a value on the node or wire a
@@ -35,8 +36,10 @@ The reusable DOM/editor code lives in `static/blueprint/`.
 ## Preview
 
 When the LabJack is connected and idle, preview reads configured inputs through
-the existing LJM handle. It does not write power-up defaults. Thermocouples use
-raw AIN voltage plus device cold-junction temperature and host LJM conversion.
+the existing LJM handle. A graph containing a simulation sine-wave source can
+also preview while the LabJack is disconnected. Preview does not write power-up
+defaults. Thermocouples use raw AIN voltage plus device cold-junction
+temperature and host LJM conversion.
 
 MUX80 channel rules remain supported in the model but are not exposed in the
 normal UI until that optional hardware is needed.

@@ -47,6 +47,50 @@ def subtract(left: ArrayLike, right: ArrayLike) -> FloatArray:
     return _array(left) - _array(right)
 
 
+def add(left: ArrayLike, right: ArrayLike) -> FloatArray:
+    return _array(left) + _array(right)
+
+
+def gain(values: ArrayLike, factor: float) -> FloatArray:
+    if not np.isfinite(float(factor)):
+        raise ValueError("Gain must be finite")
+    return _array(values) * float(factor)
+
+
+def sine_wave(
+    time_s: ArrayLike,
+    *,
+    amplitude: float,
+    frequency_hz: float,
+    offset: float = 0.0,
+    phase_deg: float = 0.0,
+) -> FloatArray:
+    parameters = (amplitude, frequency_hz, offset, phase_deg)
+    if not all(np.isfinite(float(value)) for value in parameters):
+        raise ValueError("Sine-wave parameters must be finite")
+    if frequency_hz < 0:
+        raise ValueError("Sine-wave frequency cannot be negative")
+    phase = np.deg2rad(float(phase_deg))
+    return float(offset) + float(amplitude) * np.sin(
+        2.0 * np.pi * float(frequency_hz) * _array(time_s) + phase
+    )
+
+
+def moving_average(values: ArrayLike, sample_rate_hz: float, *, window_s: float) -> FloatArray:
+    if sample_rate_hz <= 0:
+        raise ValueError("Sample rate must be positive")
+    if window_s <= 0:
+        raise ValueError("Moving-average window must be positive")
+    samples = _array(values).reshape(-1)
+    if not samples.size:
+        return samples
+    window = max(1, int(round(float(window_s) * float(sample_rate_hz))))
+    cumulative = np.concatenate(([0.0], np.cumsum(samples, dtype=np.float64)))
+    ends = np.arange(1, samples.size + 1)
+    starts = np.maximum(ends - window, 0)
+    return (cumulative[ends] - cumulative[starts]) / (ends - starts)
+
+
 def rate_of_change(
     values: ArrayLike,
     sample_rate_hz: float,
