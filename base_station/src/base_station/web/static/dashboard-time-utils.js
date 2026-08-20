@@ -31,32 +31,48 @@ export function summarizeSamples(samples, range, bucketCount) {
   const rangeWidth = Math.max(1e-9, range[1] - range[0]);
   let minimum = Infinity;
   let maximum = -Infinity;
+  let currentBucket = null;
+  let currentBucketIndex = -1;
   for (let sampleIndex = lower; sampleIndex < end; sampleIndex += 1) {
     const sample = samples[sampleIndex];
     const sampleMin = sample.min ?? sample.value;
     const sampleMax = sample.max ?? sample.value;
+    const segment = sample.segment ?? 0;
     minimum = Math.min(minimum, sampleMin);
     maximum = Math.max(maximum, sampleMax);
 
     if (count <= bucketCount) {
-      buckets.push({ time: sample.time, min: sampleMin, max: sampleMax, last: sample.value });
+      buckets.push({
+        time: sample.time,
+        min: sampleMin,
+        max: sampleMax,
+        last: sample.value,
+        segment,
+      });
       continue;
     }
     const bucketIndex = Math.min(
       bucketCount - 1,
       Math.floor((sample.time - range[0]) / rangeWidth * bucketCount),
     );
-    const current = buckets[bucketIndex];
-    if (!current) {
-      buckets[bucketIndex] = { time: sample.time, min: sampleMin, max: sampleMax, last: sample.value };
+    if (!currentBucket || currentBucketIndex !== bucketIndex || currentBucket.segment !== segment) {
+      currentBucket = {
+        time: sample.time,
+        min: sampleMin,
+        max: sampleMax,
+        last: sample.value,
+        segment,
+      };
+      currentBucketIndex = bucketIndex;
+      buckets.push(currentBucket);
       continue;
     }
-    current.time = sample.time;
-    current.min = Math.min(current.min, sampleMin);
-    current.max = Math.max(current.max, sampleMax);
-    current.last = sample.value;
+    currentBucket.time = sample.time;
+    currentBucket.min = Math.min(currentBucket.min, sampleMin);
+    currentBucket.max = Math.max(currentBucket.max, sampleMax);
+    currentBucket.last = sample.value;
   }
-  return { count, minimum, maximum, buckets: buckets.filter(Boolean) };
+  return { count, minimum, maximum, buckets };
 }
 
 function emptySummary() {
@@ -68,16 +84,23 @@ export function compactHistory(samples, recentCount = 20_000) {
   if (samples.length <= recentCount + 2) return samples;
   const split = Math.max(2, samples.length - recentCount);
   const compacted = [samples[0]];
-  for (let index = 1; index < split; index += 2) {
+  for (let index = 1; index < split;) {
     const first = samples[index];
-    const second = samples[Math.min(index + 1, split - 1)];
+    const second = samples[index + 1];
+    if (!second || (first.segment ?? 0) !== (second.segment ?? 0)) {
+      compacted.push(first);
+      index += 1;
+      continue;
+    }
     compacted.push({
       time: second.time,
       value: second.value,
       unit: second.unit ?? first.unit ?? '',
       min: Math.min(first.min ?? first.value, second.min ?? second.value),
       max: Math.max(first.max ?? first.value, second.max ?? second.value),
+      segment: second.segment ?? first.segment ?? 0,
     });
+    index += 2;
   }
   compacted.push(...samples.slice(split));
   samples.splice(0, samples.length, ...compacted);
@@ -95,6 +118,12 @@ export function closestByTime(samples, time) {
   }
   const before = samples[Math.max(0, low - 1)];
   const after = samples[low];
+  if (
+    before !== after
+    && before.time < time
+    && time < after.time
+    && (before.segment ?? 0) !== (after.segment ?? 0)
+  ) return null;
   return Math.abs(before.time - time) <= Math.abs(after.time - time) ? before : after;
 }
 

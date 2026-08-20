@@ -25,6 +25,7 @@ let timer = null;
 let inFlight = false;
 let sessionStart = null;
 let timeline = null;
+let sampleSegment = 0;
 
 async function start() {
   graph = (await loadConfiguration()).graph;
@@ -37,8 +38,12 @@ async function start() {
   renderCards();
   picker.addEventListener('change', onSelectionChange);
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) stopPolling();
-    else schedule(0);
+    if (document.hidden) {
+      stopPolling();
+    } else {
+      sampleSegment += 1;
+      schedule(0);
+    }
   });
   window.addEventListener('resize', () => timeline.render());
   schedule(0);
@@ -115,7 +120,8 @@ function signalCard(signal) {
 }
 
 async function poll() {
-  if (inFlight || document.hidden || !signals.length) return schedule(POLL_MS);
+  if (document.hidden) return stopPolling();
+  if (inFlight || !signals.length) return schedule(POLL_MS);
   inFlight = true;
   try {
     const payload = await previewConfiguration(graph);
@@ -130,11 +136,13 @@ async function poll() {
     page.dataset.telemetryState = payload.errors?.length ? 'unavailable' : 'ready';
     timeline.ingest(timestamp);
   } catch (error) {
+    sampleSegment += 1;
     page.dataset.telemetryState = error.status === 422 ? 'configuration' : 'error';
     clearCurrentValues();
   } finally {
     inFlight = false;
-    schedule(POLL_MS);
+    if (document.hidden) stopPolling();
+    else schedule(POLL_MS);
   }
 }
 
@@ -146,7 +154,12 @@ function elapsedSeconds() {
 
 function appendReading(signal, reading, timestamp) {
   const history = histories.get(signal.id) ?? [];
-  history.push({ time: timestamp, value: Number(reading.value), unit: reading.unit ?? '' });
+  history.push({
+    time: timestamp,
+    value: Number(reading.value),
+    unit: reading.unit ?? '',
+    segment: sampleSegment,
+  });
   if (history.length > MAX_HISTORY_POINTS) compactHistory(history);
   histories.set(signal.id, history);
 }

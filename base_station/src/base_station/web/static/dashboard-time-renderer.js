@@ -51,11 +51,13 @@ export class DashboardTimeRenderer {
     context.globalAlpha = 1;
     context.lineWidth = 1.35;
     context.beginPath();
-    buckets.forEach((bucket, index) => {
+    let previousSegment = null;
+    buckets.forEach((bucket) => {
       const x = xAt(bucket.time);
       const y = yAt(bucket.last);
-      if (!index) context.moveTo(x, y);
+      if (previousSegment === null || bucket.segment !== previousSegment) context.moveTo(x, y);
       else context.lineTo(x, y);
+      previousSegment = bucket.segment;
     });
     context.stroke();
 
@@ -112,7 +114,11 @@ export class DashboardTimeRenderer {
   showChartTooltip(card, history, hoverTime, x) {
     const sample = closestByTime(history, hoverTime);
     const tooltip = card.querySelector('[data-chart-tooltip]');
-    if (!tooltip || !sample) return;
+    if (!tooltip) return;
+    if (!sample) {
+      tooltip.hidden = true;
+      return;
+    }
     tooltip.textContent = `${compactNumber(sample.value)}${sample.unit ? ` ${sample.unit}` : ''} · ${formatTime(sample.time)}`;
     tooltip.style.left = `${x}px`;
     tooltip.hidden = false;
@@ -187,11 +193,13 @@ export class DashboardTimeRenderer {
       context.globalAlpha = Math.max(0.12, Math.min(0.35, 1 / Math.sqrt(signals.length)));
       context.lineWidth = 1;
       context.beginPath();
-      buckets.forEach((bucket, index) => {
+      let previousSegment = null;
+      buckets.forEach((bucket) => {
         const x = (bucket.time - range[0]) / Math.max(1e-9, range[1] - range[0]) * width;
         const yy = plotTop + (maximum - bucket.last) / span * plotHeight;
-        if (!index) context.moveTo(x, yy);
+        if (previousSegment === null || bucket.segment !== previousSegment) context.moveTo(x, yy);
         else context.lineTo(x, yy);
+        previousSegment = bucket.segment;
       });
       context.stroke();
       context.globalAlpha = 1;
