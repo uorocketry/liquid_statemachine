@@ -76,6 +76,10 @@
   cursor: crosshair;
   touch-action: none;
 }
+.dashboard-widget canvas:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
 .dashboard-chart-tooltip {
   position: absolute;
   z-index: 4;
@@ -87,6 +91,17 @@
   pointer-events: none;
   transform: translateX(-50%);
   white-space: nowrap;
+}
+.dashboard-chart-accessible {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .dashboard-layout-editing.dashboard-widget-groups {

@@ -117,7 +117,13 @@ class DaqConfigTests(TestCase):
         self.assertEqual(nodes["gauge"]["config"]["max"], 100)
         self.assertNotIn("gauge", nodes["gauge"]["config"])
         self.assertNotIn("group", nodes["gauge"]["config"])
-        self.assertEqual(nodes["plot"]["config"]["yScale"], "auto")
+        self.assertEqual(nodes["plot"]["config"]["xRangeMode"], "shared")
+        self.assertEqual(nodes["plot"]["config"]["xLabel"], "Elapsed time")
+        self.assertEqual(nodes["plot"]["config"]["yAxisScale"], "linear")
+        self.assertNotIn("yScale", nodes["plot"]["config"])
+        self.assertEqual(nodes["plot"]["config"]["yRangeMode"], "auto")
+        self.assertEqual(nodes["plot"]["config"]["showGrid"], True)
+        self.assertEqual(nodes["plot"]["config"]["showMinorGrid"], False)
         self.assertNotIn("group", nodes["plot"]["config"])
         self.assertEqual(nodes["ain"]["config"], {"rangeV": 1})
         self.assertEqual(set(normalized["metadata"]["dashboardLayout"]["items"]), {"number", "gauge", "plot"})
@@ -303,14 +309,47 @@ class DaqConfigTests(TestCase):
                 "id": "plot",
                 "nodeType": "time-plot",
                 "pins": [],
-                "config": {"label": "Pressure", "yScale": "fixed", "yMin": 10, "yMax": 5},
+                "config": {
+                    "label": "Pressure",
+                    "xRangeMode": "fixed",
+                    "xMinS": 20,
+                    "xMaxS": 10,
+                    "xTickMode": "manual",
+                    "xMajorStepS": 0,
+                    "yAxisScale": "log10",
+                    "yRangeMode": "fixed",
+                    "yMin": 0,
+                    "yMax": 5,
+                    "yTickMode": "manual",
+                    "yMajorStep": 0,
+                },
             }],
             "links": [],
         }
-        self.assertIn(
-            "Time-plot Y maximum must be greater than Y minimum",
-            [issue["message"] for issue in validate_graph(graph)],
-        )
+        messages = [issue["message"] for issue in validate_graph(graph)]
+        self.assertIn("Time-plot X maximum must be greater than X minimum", messages)
+        self.assertIn("Time-plot X major step must be positive", messages)
+        self.assertIn("Time-plot logarithmic Y minimum must be greater than zero", messages)
+
+    def test_time_plot_soft_log_bounds_are_constrained(self) -> None:
+        graph = {
+            "nodes": [{
+                "id": "plot",
+                "nodeType": "time-plot",
+                "pins": [],
+                "config": {
+                    "label": "Pressure",
+                    "yAxisScale": "log10",
+                    "yRangeMode": "soft",
+                    "ySoftMin": -1,
+                    "ySoftMax": 0,
+                },
+            }],
+            "links": [],
+        }
+        messages = [issue["message"] for issue in validate_graph(graph)]
+        self.assertIn("Time-plot logarithmic Y soft minimum must be greater than zero", messages)
+        self.assertIn("Time-plot logarithmic Y soft maximum must be greater than zero", messages)
 
     def test_simulation_and_smoothing_parameters_are_constrained(self) -> None:
         graph = {

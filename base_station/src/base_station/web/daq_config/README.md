@@ -38,8 +38,12 @@ Dashboard presentation is modeled with first-class sink nodes:
 
 - `number` owns numeric formatting and unit visibility.
 - `gauge` owns gauge geometry, range limits, and gauge visibility settings.
-- `time-plot` owns plot-specific Y-axis settings and participates in the
-  shared time conductor.
+- `time-plot` owns its plot axes and participates in the shared time
+  conductor. X can follow the Dashboard view, show the full data extent, use a
+  trailing window, or use fixed elapsed-time bounds. Y can use auto, soft, or
+  fixed bounds with a linear or base-10 logarithmic scale. Major tick spacing
+  can be automatic or explicit on linear axes; optional minor ticks/grid are
+  derived by the renderer. Axis labels and grid visibility are node config.
 
 All three receive an engineering value through their `value` input. Fan-out in
 the graph is how one source is shown in more than one way; there is no combined
@@ -59,3 +63,17 @@ sanitizes that metadata and prevents overlapping visible frames.
 while `dashboard-layout-editor.js` owns drag/resize/edit-session behavior.
 Layout saves use the dedicated `/api/daq/dashboard-layout` endpoint so a stale
 Dashboard tab never writes an old copy of the node graph back to disk.
+
+Plot configuration describes **axis intent**, not raw canvas geometry.
+`dashboard-axis-ticks.js` chooses bounded "nice" ticks,
+`dashboard-plot-axis.js` resolves ranges/transforms/margins, and
+`dashboard-axis-renderer.js` draws axes while suppressing overlapping labels.
+`dashboard-time-renderer.js` only draws telemetry into that resolved plot
+frame. This separation is intentional: malformed or extremely dense manual
+tick requests must never create unbounded drawing work or unreadable labels.
+Logarithmic plots skip non-positive samples rather than connecting across an
+invalid domain. Time remains linear elapsed time even when Y is logarithmic.
+
+Canvas plots expose a DOM description through `aria-describedby` and support
+keyboard sample inspection with Left/Right/Home/End. Keep that accessible
+fallback synchronized whenever axis semantics or inspection behavior changes.

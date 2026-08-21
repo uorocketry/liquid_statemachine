@@ -31,21 +31,31 @@ export function summarizeSamples(samples, range, bucketCount) {
   const rangeWidth = Math.max(1e-9, range[1] - range[0]);
   let minimum = Infinity;
   let maximum = -Infinity;
+  let positiveMinimum = Infinity;
+  let positiveMaximum = -Infinity;
   let currentBucket = null;
   let currentBucketIndex = -1;
   for (let sampleIndex = lower; sampleIndex < end; sampleIndex += 1) {
     const sample = samples[sampleIndex];
     const sampleMin = sample.min ?? sample.value;
     const sampleMax = sample.max ?? sample.value;
+    const samplePositiveMin = sample.positiveMin
+      ?? (sampleMin > 0 ? sampleMin : (sample.value > 0 ? sample.value : Infinity));
+    const samplePositiveMax = sample.positiveMax
+      ?? (sampleMax > 0 ? sampleMax : (sample.value > 0 ? sample.value : -Infinity));
     const segment = sample.segment ?? 0;
     minimum = Math.min(minimum, sampleMin);
     maximum = Math.max(maximum, sampleMax);
+    positiveMinimum = Math.min(positiveMinimum, samplePositiveMin);
+    positiveMaximum = Math.max(positiveMaximum, samplePositiveMax);
 
     if (count <= bucketCount) {
       buckets.push({
         time: sample.time,
         min: sampleMin,
         max: sampleMax,
+        positiveMin: samplePositiveMin,
+        positiveMax: samplePositiveMax,
         last: sample.value,
         segment,
       });
@@ -60,6 +70,8 @@ export function summarizeSamples(samples, range, bucketCount) {
         time: sample.time,
         min: sampleMin,
         max: sampleMax,
+        positiveMin: samplePositiveMin,
+        positiveMax: samplePositiveMax,
         last: sample.value,
         segment,
       };
@@ -70,13 +82,22 @@ export function summarizeSamples(samples, range, bucketCount) {
     currentBucket.time = sample.time;
     currentBucket.min = Math.min(currentBucket.min, sampleMin);
     currentBucket.max = Math.max(currentBucket.max, sampleMax);
+    currentBucket.positiveMin = Math.min(currentBucket.positiveMin, samplePositiveMin);
+    currentBucket.positiveMax = Math.max(currentBucket.positiveMax, samplePositiveMax);
     currentBucket.last = sample.value;
   }
-  return { count, minimum, maximum, buckets };
+  return { count, minimum, maximum, positiveMinimum, positiveMaximum, buckets };
 }
 
 function emptySummary() {
-  return { count: 0, minimum: Infinity, maximum: -Infinity, buckets: [] };
+  return {
+    count: 0,
+    minimum: Infinity,
+    maximum: -Infinity,
+    positiveMinimum: Infinity,
+    positiveMaximum: -Infinity,
+    buckets: [],
+  };
 }
 
 /** Keep a bounded, multi-resolution display history without discarding session start. */
@@ -98,6 +119,14 @@ export function compactHistory(samples, recentCount = 20_000) {
       unit: second.unit ?? first.unit ?? '',
       min: Math.min(first.min ?? first.value, second.min ?? second.value),
       max: Math.max(first.max ?? first.value, second.max ?? second.value),
+      positiveMin: Math.min(
+        first.positiveMin ?? (first.value > 0 ? first.value : Infinity),
+        second.positiveMin ?? (second.value > 0 ? second.value : Infinity),
+      ),
+      positiveMax: Math.max(
+        first.positiveMax ?? (first.value > 0 ? first.value : -Infinity),
+        second.positiveMax ?? (second.value > 0 ? second.value : -Infinity),
+      ),
       segment: second.segment ?? first.segment ?? 0,
     });
     index += 2;
@@ -171,6 +200,7 @@ export function canvasColors() {
     navigatorLine: style.getPropertyValue('--color-text-muted').trim(),
     borderSoft: style.getPropertyValue('--color-border-soft').trim(),
     grid: style.getPropertyValue('--color-grid-major').trim(),
+    gridMinor: style.getPropertyValue('--color-grid-minor').trim(),
     crosshair: style.getPropertyValue('--color-text-muted').trim(),
     selectionFill: colorWithAlpha(style.getPropertyValue('--color-text-muted').trim(), 0.09),
     selectionStroke: colorWithAlpha(style.getPropertyValue('--color-text-muted').trim(), 0.55),

@@ -1,4 +1,5 @@
 import { DashboardTimeRenderer } from './dashboard-time-renderer.js';
+import { plotTimeRange } from './dashboard-plot-axis.js';
 import { clamp, formatTime } from './dashboard-time-utils.js';
 
 const TIERS = ['full', 'context', 'detail'];
@@ -51,6 +52,8 @@ export class DashboardTimeController {
       canvas.addEventListener('pointerup', (event) => this.finishInspect(event));
       canvas.addEventListener('pointercancel', (event) => this.finishInspect(event));
       canvas.addEventListener('pointerleave', () => this.clearInspection());
+      canvas.addEventListener('keydown', (event) => this.inspectByKeyboard(event, plot.id));
+      canvas.addEventListener('blur', () => this.endKeyboardInspection(plot.id));
     }
   }
 
@@ -78,6 +81,7 @@ export class DashboardTimeController {
 
   buildRanges() {
     const [start, end] = this.bounds();
+    this.sessionBounds = [start, end];
     if (this.following) this.center = end;
     this.center = clamp(this.center || end, start, end);
     this.ranges = [
@@ -113,20 +117,30 @@ export class DashboardTimeController {
       navigatorHover: this.navigatorHover,
       contextSeconds: this.contextSeconds,
       detailSeconds: this.detailSeconds,
+      bounds: this.sessionBounds ?? this.bounds(),
+      viewTime: this.center,
+      following: this.following,
     };
   }
 
-  eventTime(event, canvas) {
+  eventTime(event, canvas, plotId) {
     const bounds = canvas.getBoundingClientRect();
-    const fraction = clamp((event.clientX - bounds.left) / Math.max(1, bounds.width), 0, 1);
-    const range = this.selectedViewRange();
+    const axis = this.renderer.axisFor(plotId);
+    const plot = this.plots.find((candidate) => candidate.id === plotId);
+    const history = this.histories.get(plotId) ?? [];
+    const range = axis?.xRange ?? plotTimeRange(plot, this.renderState(), history);
+    const plotLeft = axis?.frame?.left ?? 0;
+    const plotWidth = axis?.frame?.width ?? bounds.width;
+    const localX = event.clientX - bounds.left;
+    const fraction = clamp((localX - plotLeft) / Math.max(1, plotWidth), 0, 1);
     return range[0] + fraction * (range[1] - range[0]);
   }
 
   startInspect(event, plotId) {
     const canvas = event.currentTarget;
+    this.setTooltipAnnouncement(plotId, false);
     canvas.setPointerCapture(event.pointerId);
-    const time = this.eventTime(event, canvas);
+    const time = this.eventTime(event, canvas, plotId);
     this.chartDrag = {
       pointerId: event.pointerId,
       plotId,
@@ -144,7 +158,7 @@ export class DashboardTimeController {
 
   moveInspect(event, plotId) {
     const canvas = event.currentTarget;
-    const time = this.eventTime(event, canvas);
+    const time = this.eventTime(event, canvas, plotId);
     if (this.chartDrag?.pointerId === event.pointerId) {
       this.chartDrag.currentTime = time;
       this.chartDrag.moved ||= Math.abs(event.clientX - this.chartDrag.startClientX) >= 4;
@@ -164,8 +178,55 @@ export class DashboardTimeController {
     const canvas = event.currentTarget;
     if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
     this.chartDrag = null;
-    if (drag.moved && drag.zoom && this.selectedRange) this.zoomToSelection();
+    const plot = this.plots.find((candidate) => candidate.id === drag.plotId);
+    if (drag.moved && drag.zoom && this.selectedRange && plot?.config?.xRangeMode === 'shared') this.zoomToSelection();
     else this.render();
+  }
+
+  inspectByKeyboard(event, plotId) {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    const plot = this.plots.find((candidate) => candidate.id === plotId);
+    const history = this.histories.get(plotId) ?? [];
+    if (!plot || !history.length) return;
+    const range = plotTimeRange(plot, this.renderState(), history);
+    const first = firstIndexAtOrAfter(history, range[0]);
+    const last = lastIndexAtOrBefore(history, range[1]);
+    if (first < 0 || last < first) return;
+
+    let index;
+    if (event.key === 'Home') index = first;
+    else if (event.key === 'End') index = last;
+    else {
+      const reference = this.hoverPlotId === plotId && this.hoverTime !== null ? this.hoverTime : range[1];
+      index = closestIndex(history, reference, first, last);
+      index = clamp(index + (event.key === 'ArrowLeft' ? -1 : 1), first, last);
+    }
+    this.hoverTime = history[index].time;
+    this.hoverPlotId = plotId;
+    this.selectedRange = null;
+    this.setTooltipAnnouncement(plotId, true);
+    this.render();
+    event.preventDefault();
+  }
+
+  endKeyboardInspection(plotId) {
+    this.setTooltipAnnouncement(plotId, false);
+    if (this.hoverPlotId !== plotId || this.chartDrag) return;
+    this.hoverTime = null;
+    this.hoverPlotId = null;
+    this.render();
+  }
+
+  setTooltipAnnouncement(plotId, enabled) {
+    const tooltip = this.cardFor(plotId)?.querySelector('[data-chart-tooltip]');
+    if (!tooltip) return;
+    if (enabled) {
+      tooltip.setAttribute('role', 'status');
+      tooltip.setAttribute('aria-live', 'polite');
+    } else {
+      tooltip.removeAttribute('role');
+      tooltip.removeAttribute('aria-live');
+    }
   }
 
   zoomToSelection() {
@@ -310,4 +371,39 @@ export class DashboardTimeController {
 
 function orderedRange(first, second) {
   return first <= second ? [first, second] : [second, first];
+}
+
+function firstIndexAtOrAfter(samples, time) {
+  let low = 0;
+  let high = samples.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (samples[middle].time < time) low = middle + 1;
+    else high = middle;
+  }
+  return low < samples.length ? low : -1;
+}
+
+function lastIndexAtOrBefore(samples, time) {
+  let low = 0;
+  let high = samples.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (samples[middle].time <= time) low = middle + 1;
+    else high = middle;
+  }
+  return low - 1;
+}
+
+function closestIndex(samples, time, first, last) {
+  let low = first;
+  let high = last;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (samples[middle].time < time) low = middle + 1;
+    else high = middle;
+  }
+  const after = clamp(low, first, last);
+  const before = clamp(after - 1, first, last);
+  return Math.abs(samples[before].time - time) <= Math.abs(samples[after].time - time) ? before : after;
 }

@@ -6,10 +6,21 @@ import {
   prepareCanvas,
   summarizeSamples,
 } from './dashboard-time-utils.js';
+import {
+  buildPlotAxis,
+  plotAccessibilityText,
+  plotTimeRange,
+} from './dashboard-plot-axis.js';
+import { drawPlotAxes, drawPlotGrid } from './dashboard-axis-renderer.js';
 
 export class DashboardTimeRenderer {
   constructor(options) {
     Object.assign(this, options);
+    this.plotAxes = new Map();
+  }
+
+  axisFor(plotId) {
+    return this.plotAxes.get(plotId) ?? null;
   }
 
   renderPlot(plot, state) {
@@ -21,94 +32,107 @@ export class DashboardTimeRenderer {
 
     const { context, width, height } = prepareCanvas(canvas);
     const history = this.histories.get(plot.id) ?? [];
-    const summary = summarizeSamples(history, state.range, Math.max(1, Math.floor(width)));
+    const xRange = plotTimeRange(plot, state, history);
+    const summary = summarizeSamples(history, xRange, Math.max(1, Math.floor(width)));
     const colors = canvasColors();
     context.fillStyle = colors.input;
     context.fillRect(0, 0, width, height);
-    this.drawGrid(context, width, height, colors.grid);
-    this.drawSelection(context, width, height, state.range, state.selectedRange, colors);
-    if (!summary.count) return;
+    const axis = buildPlotAxis(context, plot, state, summary, history, width, height);
+    this.plotAxes.set(plot.id, axis);
+    drawPlotGrid(context, axis, colors);
+    this.drawSelection(context, axis, state.selectedRange, colors);
+    if (summary.count && axis.validData) this.drawSeries(context, axis, summary, colors);
+    drawPlotAxes(context, axis, colors);
+    if (axis.invalidReason) this.drawPlotMessage(context, axis, axis.invalidReason, colors);
 
-    let { minimum, maximum } = yRange(plot, summary);
+    const inspectionTime = state.navigatorHover?.time ?? state.hoverTime;
+    if (inspectionTime !== null && inspectionTime >= axis.xRange[0] && inspectionTime <= axis.xRange[1]) {
+      const x = axis.xAt(inspectionTime);
+      context.strokeStyle = colors.crosshair;
+      context.lineWidth = 1;
+      context.beginPath();
+      context.moveTo(x + 0.5, axis.frame.top);
+      context.lineTo(x + 0.5, axis.frame.bottom);
+      context.stroke();
+      if (state.hoverTime !== null && state.hoverPlotId === plot.id) {
+        this.showChartTooltip(card, history, state.hoverTime, x, axis);
+      }
+    }
+    this.updateAccessibility(card, canvas, plot, axis, summary, history);
+  }
 
-    const xAt = (time) => (time - state.range[0]) / Math.max(1e-9, state.range[1] - state.range[0]) * width;
-    const yAt = (value) => 7 + (maximum - value) / Math.max(1e-12, maximum - minimum) * (height - 14);
-    const buckets = summary.buckets;
-
+  drawSeries(context, axis, summary, colors) {
+    const { frame } = axis;
+    context.save();
+    context.beginPath();
+    context.rect(frame.left, frame.top, frame.width, frame.height);
+    context.clip();
     context.strokeStyle = colors.line;
     context.lineWidth = 1;
     context.globalAlpha = 0.18;
     context.beginPath();
-    for (const bucket of buckets) {
-      const x = xAt(bucket.time);
-      context.moveTo(x, yAt(bucket.min));
-      context.lineTo(x, yAt(bucket.max));
+    for (const bucket of summary.buckets) {
+      const minimum = axis.yScale === 'log10' ? bucket.positiveMin : bucket.min;
+      const maximum = axis.yScale === 'log10' ? bucket.positiveMax : bucket.max;
+      const top = axis.yAt(maximum);
+      const bottom = axis.yAt(minimum);
+      if (!Number.isFinite(top) || !Number.isFinite(bottom)) continue;
+      const x = axis.xAt(bucket.time);
+      context.moveTo(x, top);
+      context.lineTo(x, bottom);
     }
     context.stroke();
     context.globalAlpha = 1;
     context.lineWidth = 1.35;
     context.beginPath();
     let previousSegment = null;
-    buckets.forEach((bucket) => {
-      const x = xAt(bucket.time);
-      const y = yAt(bucket.last);
-      if (previousSegment === null || bucket.segment !== previousSegment) context.moveTo(x, y);
+    let previousValid = false;
+    for (const bucket of summary.buckets) {
+      const x = axis.xAt(bucket.time);
+      const y = axis.yAt(bucket.last);
+      const valid = Number.isFinite(y);
+      if (!valid) {
+        previousValid = false;
+        previousSegment = bucket.segment;
+        continue;
+      }
+      if (!previousValid || previousSegment === null || bucket.segment !== previousSegment) context.moveTo(x, y);
       else context.lineTo(x, y);
+      previousValid = true;
       previousSegment = bucket.segment;
-    });
+    }
     context.stroke();
+    context.restore();
+  }
 
+  drawSelection(context, axis, selectedRange, colors) {
+    if (!selectedRange) return;
+    const start = Math.max(axis.xRange[0], selectedRange[0]);
+    const end = Math.min(axis.xRange[1], selectedRange[1]);
+    if (end <= start) return;
+    const x = axis.xAt(start);
+    const w = axis.xAt(end) - x;
+    context.save();
+    context.beginPath();
+    context.rect(axis.frame.left, axis.frame.top, axis.frame.width, axis.frame.height);
+    context.clip();
+    context.fillStyle = colors.selectionFill;
+    context.fillRect(x, axis.frame.top, Math.max(1, w), axis.frame.height);
+    context.strokeStyle = colors.selectionStroke;
+    context.strokeRect(x + 0.5, axis.frame.top + 0.5, Math.max(1, w - 1), Math.max(1, axis.frame.height - 1));
+    context.restore();
+  }
+
+  drawPlotMessage(context, axis, message, colors) {
     context.fillStyle = colors.muted;
     context.font = '8px ui-monospace, monospace';
-    context.textBaseline = 'top';
-    context.fillText(compactNumber(maximum), 5, 4);
-    context.textBaseline = 'bottom';
-    context.fillText(compactNumber(minimum), 5, height - 4);
-
-    const inspectionTime = state.navigatorHover?.time ?? state.hoverTime;
-    if (inspectionTime !== null && inspectionTime >= state.range[0] && inspectionTime <= state.range[1]) {
-      const x = xAt(inspectionTime);
-      context.strokeStyle = colors.crosshair;
-      context.lineWidth = 1;
-      context.beginPath();
-      context.moveTo(x + 0.5, 0);
-      context.lineTo(x + 0.5, height);
-      context.stroke();
-      if (state.hoverTime !== null && state.hoverPlotId === plot.id) {
-        this.showChartTooltip(card, history, state.hoverTime, x);
-      }
-    }
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    const clipped = message.length > 44 ? `${message.slice(0, 41)}…` : message;
+    context.fillText(clipped, axis.frame.left + axis.frame.width / 2, axis.frame.top + axis.frame.height / 2);
   }
 
-  drawGrid(context, width, height, color) {
-    context.strokeStyle = color;
-    context.lineWidth = 1;
-    for (let index = 1; index < 4; index += 1) {
-      const x = Math.round(width * index / 4) + 0.5;
-      const y = Math.round(height * index / 4) + 0.5;
-      context.beginPath();
-      context.moveTo(x, 0);
-      context.lineTo(x, height);
-      context.moveTo(0, y);
-      context.lineTo(width, y);
-      context.stroke();
-    }
-  }
-
-  drawSelection(context, width, height, range, selectedRange, colors) {
-    if (!selectedRange) return;
-    const start = Math.max(range[0], selectedRange[0]);
-    const end = Math.min(range[1], selectedRange[1]);
-    if (end <= start) return;
-    const x = (start - range[0]) / Math.max(1e-9, range[1] - range[0]) * width;
-    const w = (end - start) / Math.max(1e-9, range[1] - range[0]) * width;
-    context.fillStyle = colors.selectionFill;
-    context.fillRect(x, 0, Math.max(1, w), height);
-    context.strokeStyle = colors.selectionStroke;
-    context.strokeRect(x + 0.5, 0.5, Math.max(1, w - 1), Math.max(1, height - 1));
-  }
-
-  showChartTooltip(card, history, hoverTime, x) {
+  showChartTooltip(card, history, hoverTime, x, axis) {
     const sample = closestByTime(history, hoverTime);
     const tooltip = card.querySelector('[data-chart-tooltip]');
     if (!tooltip) return;
@@ -116,9 +140,17 @@ export class DashboardTimeRenderer {
       tooltip.hidden = true;
       return;
     }
-    tooltip.textContent = `${compactNumber(sample.value)}${sample.unit ? ` ${sample.unit}` : ''} · ${formatTime(sample.time)}`;
+    const outsideScale = axis?.yScale === 'log10' && Number(sample.value) <= 0 ? ' · outside log scale' : '';
+    tooltip.textContent = `${compactNumber(sample.value)}${sample.unit ? ` ${sample.unit}` : ''} · ${formatTime(sample.time)}${outsideScale}`;
     tooltip.style.left = `${x}px`;
     tooltip.hidden = false;
+  }
+
+  updateAccessibility(card, canvas, plot, axis, summary, history) {
+    const text = plotAccessibilityText(plot, axis, summary, history);
+    const description = card.querySelector('[data-chart-accessible]');
+    if (description) description.textContent = text;
+    canvas.textContent = text;
   }
 
   renderNavigator(state) {
@@ -184,18 +216,32 @@ export class DashboardTimeRenderer {
       const history = this.histories.get(plot.id) ?? [];
       const summary = summarizeSamples(history, range, Math.max(1, Math.floor(width / 2)));
       if (summary.count < 2) continue;
-      const { minimum, maximum, buckets } = summary;
-      const span = Math.max(1e-12, maximum - minimum);
+      const log = plot.config?.yAxisScale === 'log10';
+      const minimum = log ? summary.positiveMinimum : summary.minimum;
+      const maximum = log ? summary.positiveMaximum : summary.maximum;
+      if (!Number.isFinite(minimum) || !Number.isFinite(maximum) || maximum <= minimum) continue;
+      const transform = log ? (value) => value > 0 ? Math.log10(value) : null : (value) => value;
+      const transformedMin = transform(minimum);
+      const transformedMax = transform(maximum);
+      const span = Math.max(1e-12, transformedMax - transformedMin);
       context.strokeStyle = colors.navigatorLine;
       context.globalAlpha = Math.max(0.12, Math.min(0.35, 1 / Math.sqrt(plots.length)));
       context.lineWidth = 1;
       context.beginPath();
       let previousSegment = null;
-      buckets.forEach((bucket) => {
+      let previousValid = false;
+      summary.buckets.forEach((bucket) => {
         const x = (bucket.time - range[0]) / Math.max(1e-9, range[1] - range[0]) * width;
-        const yy = plotTop + (maximum - bucket.last) / span * plotHeight;
-        if (previousSegment === null || bucket.segment !== previousSegment) context.moveTo(x, yy);
+        const transformed = transform(bucket.last);
+        if (!Number.isFinite(transformed)) {
+          previousValid = false;
+          previousSegment = bucket.segment;
+          return;
+        }
+        const yy = plotTop + (transformedMax - transformed) / span * plotHeight;
+        if (!previousValid || previousSegment === null || bucket.segment !== previousSegment) context.moveTo(x, yy);
         else context.lineTo(x, yy);
+        previousValid = true;
         previousSegment = bucket.segment;
       });
       context.stroke();
@@ -218,15 +264,4 @@ export class DashboardTimeRenderer {
     if (Math.abs(seconds - Math.round(seconds)) < 1e-6) return `${Math.round(seconds)} s`;
     return `${seconds.toFixed(seconds < 1 ? 2 : 1)} s`;
   }
-}
-
-function yRange(plot, summary) {
-  if (plot.config?.yScale === 'fixed') {
-    return { minimum: Number(plot.config.yMin), maximum: Number(plot.config.yMax) };
-  }
-  let { minimum, maximum } = summary;
-  const padding = Math.max((maximum - minimum) * 0.08, Math.abs(maximum) * 1e-6, 1e-9);
-  minimum -= padding;
-  maximum += padding;
-  return { minimum, maximum };
 }

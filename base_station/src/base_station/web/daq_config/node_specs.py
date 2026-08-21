@@ -49,9 +49,24 @@ DEFAULT_CONFIGS = {
     },
     "time-plot": {
         "label": "",
-        "yScale": "auto",
+        "xRangeMode": "shared",
+        "xWindowS": 10,
+        "xMinS": 0,
+        "xMaxS": 100,
+        "xTickMode": "auto",
+        "xMajorStepS": 10,
+        "xLabel": "Elapsed time",
+        "yAxisScale": "linear",
+        "yRangeMode": "auto",
         "yMin": 0,
         "yMax": 100,
+        "ySoftMin": None,
+        "ySoftMax": None,
+        "yTickMode": "auto",
+        "yMajorStep": 10,
+        "yLabel": "",
+        "showGrid": True,
+        "showMinorGrid": False,
     },
 }
 
@@ -189,13 +204,49 @@ def _validate_gauge(config: dict) -> list[str]:
 
 def _validate_time_plot(config: dict) -> list[str]:
     issues = _validate_dashboard_identity(config)
-    if config.get("yScale") not in {"auto", "fixed"}:
-        issues.append("Time-plot Y range must be Auto or Fixed")
-    if config.get("yScale") == "fixed":
+    if config.get("xRangeMode") not in {"shared", "auto", "window", "fixed"}:
+        issues.append("Time-plot X range must use Dashboard view, Auto data extent, Trailing window, or Fixed bounds")
+    if config.get("xRangeMode") == "window" and not _positive(config.get("xWindowS")):
+        issues.append("Time-plot X window must be positive")
+    if config.get("xRangeMode") == "fixed":
+        minimum = config.get("xMinS")
+        maximum = config.get("xMaxS")
+        if not _finite(minimum) or not _finite(maximum) or float(maximum) <= float(minimum):
+            issues.append("Time-plot X maximum must be greater than X minimum")
+    if config.get("xTickMode") not in {"auto", "manual"}:
+        issues.append("Time-plot X ticks must be Auto or Manual")
+    if config.get("xTickMode") == "manual" and not _positive(config.get("xMajorStepS")):
+        issues.append("Time-plot X major step must be positive")
+
+    if config.get("yAxisScale") not in {"linear", "log10"}:
+        issues.append("Time-plot Y scale must be Linear or Log 10")
+    if config.get("yRangeMode") not in {"auto", "soft", "fixed"}:
+        issues.append("Time-plot Y range must be Auto, Soft bounds, or Fixed bounds")
+    if config.get("yRangeMode") == "fixed":
         minimum = config.get("yMin")
         maximum = config.get("yMax")
         if not _finite(minimum) or not _finite(maximum) or float(maximum) <= float(minimum):
             issues.append("Time-plot Y maximum must be greater than Y minimum")
+        elif config.get("yAxisScale") == "log10" and float(minimum) <= 0:
+            issues.append("Time-plot logarithmic Y minimum must be greater than zero")
+    if config.get("yRangeMode") == "soft":
+        soft_min = config.get("ySoftMin")
+        soft_max = config.get("ySoftMax")
+        for value, label in ((soft_min, "soft minimum"), (soft_max, "soft maximum")):
+            if value not in (None, "") and not _finite(value):
+                issues.append(f"Time-plot Y {label} must be finite")
+            elif config.get("yAxisScale") == "log10" and _finite(value) and float(value) <= 0:
+                issues.append(f"Time-plot logarithmic Y {label} must be greater than zero")
+        if _finite(soft_min) and _finite(soft_max) and float(soft_max) <= float(soft_min):
+            issues.append("Time-plot Y soft maximum must be greater than soft minimum")
+    if config.get("yTickMode") not in {"auto", "manual"}:
+        issues.append("Time-plot Y ticks must be Auto or Manual")
+    if config.get("yAxisScale") == "linear" and config.get("yTickMode") == "manual" and not _positive(config.get("yMajorStep")):
+        issues.append("Time-plot Y major step must be positive")
+    if not isinstance(config.get("showGrid"), bool):
+        issues.append("Time-plot major grid must be on or off")
+    if not isinstance(config.get("showMinorGrid"), bool):
+        issues.append("Time-plot minor grid must be on or off")
     return issues
 
 

@@ -128,8 +128,28 @@ const SPECS = {
     title: 'Time plot',
     icon: 'icon-node-time-plot',
     tone: 'result',
-    description: 'Plot one engineering value against the shared dashboard time axis.',
-    defaults: { label: '', yScale: 'auto', yMin: 0, yMax: 100 },
+    description: 'Plot one engineering value with configurable time and value axes.',
+    defaults: {
+      label: '',
+      xRangeMode: 'shared',
+      xWindowS: 10,
+      xMinS: 0,
+      xMaxS: 100,
+      xTickMode: 'auto',
+      xMajorStepS: 10,
+      xLabel: 'Elapsed time',
+      yAxisScale: 'linear',
+      yRangeMode: 'auto',
+      yMin: 0,
+      yMax: 100,
+      ySoftMin: null,
+      ySoftMax: null,
+      yTickMode: 'auto',
+      yMajorStep: 10,
+      yLabel: '',
+      showGrid: true,
+      showMinorGrid: false,
+    },
     pins: dashboardPins,
     controls: timePlotControls,
     decorate: decorateDashboardInput,
@@ -256,14 +276,58 @@ function gaugeControls(config) {
 function timePlotControls(config) {
   const controls = [
     ...dashboardIdentityControls(config),
-    selectControl('yScale', 'Y range', config.yScale, [['auto', 'Auto'], ['fixed', 'Fixed']]),
+    selectControl('xRangeMode', 'X range', config.xRangeMode, [
+      ['shared', 'Dashboard view'],
+      ['auto', 'Auto data extent'],
+      ['window', 'Trailing window'],
+      ['fixed', 'Fixed bounds'],
+    ]),
   ];
-  if (config.yScale === 'fixed') {
+  if (config.xRangeMode === 'window') {
+    controls.push(numberControl('xWindowS', 'X window', config.xWindowS, 's', { min: 0.001, step: 0.1 }));
+  } else if (config.xRangeMode === 'fixed') {
+    controls.push(
+      numberControl('xMinS', 'X minimum', config.xMinS, 's'),
+      numberControl('xMaxS', 'X maximum', config.xMaxS, 's'),
+    );
+  }
+  controls.push(
+    selectControl('xTickMode', 'X ticks', config.xTickMode, [['auto', 'Auto'], ['manual', 'Manual']]),
+  );
+  if (config.xTickMode === 'manual') {
+    controls.push(numberControl('xMajorStepS', 'X major step', config.xMajorStepS, 's', { min: 0.000001 }));
+  }
+  controls.push(
+    textControl('xLabel', 'X label', config.xLabel),
+    selectControl('yAxisScale', 'Y scale', config.yAxisScale, [['linear', 'Linear'], ['log10', 'Log 10']]),
+    selectControl('yRangeMode', 'Y range', config.yRangeMode, [
+      ['auto', 'Auto'],
+      ['soft', 'Soft bounds'],
+      ['fixed', 'Fixed bounds'],
+    ]),
+  );
+  if (config.yRangeMode === 'soft') {
+    controls.push(
+      numberControl('ySoftMin', 'Y soft minimum', config.ySoftMin),
+      numberControl('ySoftMax', 'Y soft maximum', config.ySoftMax),
+    );
+  } else if (config.yRangeMode === 'fixed') {
     controls.push(
       numberControl('yMin', 'Y minimum', config.yMin),
       numberControl('yMax', 'Y maximum', config.yMax),
     );
   }
+  if (config.yAxisScale === 'linear') {
+    controls.push(selectControl('yTickMode', 'Y ticks', config.yTickMode, [['auto', 'Auto'], ['manual', 'Manual']]));
+    if (config.yTickMode === 'manual') {
+      controls.push(numberControl('yMajorStep', 'Y major step', config.yMajorStep, '', { min: 0.000001 }));
+    }
+  }
+  controls.push(
+    textControl('yLabel', 'Y label', config.yLabel),
+    booleanControl('showGrid', 'Major grid', config.showGrid),
+    booleanControl('showMinorGrid', 'Minor ticks / grid', config.showMinorGrid),
+  );
   return controls;
 }
 
@@ -337,10 +401,44 @@ function validateGauge(config) {
 
 function validateTimePlot(config) {
   const issues = [...validateDashboardIdentity(config)];
-  if (!['auto', 'fixed'].includes(config.yScale)) issues.push('Time-plot Y range must be Auto or Fixed');
-  if (config.yScale === 'fixed' && (!finite(config.yMin) || !finite(config.yMax) || Number(config.yMax) <= Number(config.yMin))) {
+  if (!['shared', 'auto', 'window', 'fixed'].includes(config.xRangeMode)) {
+    issues.push('Time-plot X range must use Dashboard view, Auto data extent, Trailing window, or Fixed bounds');
+  }
+  if (config.xRangeMode === 'window' && !positive(config.xWindowS)) {
+    issues.push('Time-plot X window must be positive');
+  }
+  if (config.xRangeMode === 'fixed' && (!finite(config.xMinS) || !finite(config.xMaxS) || Number(config.xMaxS) <= Number(config.xMinS))) {
+    issues.push('Time-plot X maximum must be greater than X minimum');
+  }
+  if (!['auto', 'manual'].includes(config.xTickMode)) issues.push('Time-plot X ticks must be Auto or Manual');
+  if (config.xTickMode === 'manual' && !positive(config.xMajorStepS)) issues.push('Time-plot X major step must be positive');
+  if (!['linear', 'log10'].includes(config.yAxisScale)) issues.push('Time-plot Y scale must be Linear or Log 10');
+  if (!['auto', 'soft', 'fixed'].includes(config.yRangeMode)) {
+    issues.push('Time-plot Y range must be Auto, Soft bounds, or Fixed bounds');
+  }
+  if (config.yRangeMode === 'fixed' && (!finite(config.yMin) || !finite(config.yMax) || Number(config.yMax) <= Number(config.yMin))) {
     issues.push('Time-plot Y maximum must be greater than Y minimum');
   }
+  if (config.yAxisScale === 'log10' && config.yRangeMode === 'fixed' && finite(config.yMin) && Number(config.yMin) <= 0) {
+    issues.push('Time-plot logarithmic Y minimum must be greater than zero');
+  }
+  if (config.yRangeMode === 'soft') {
+    for (const [key, label] of [['ySoftMin', 'soft minimum'], ['ySoftMax', 'soft maximum']]) {
+      if (config[key] !== null && config[key] !== '' && !finite(config[key])) issues.push(`Time-plot Y ${label} must be finite`);
+      if (config.yAxisScale === 'log10' && finite(config[key]) && Number(config[key]) <= 0) {
+        issues.push(`Time-plot logarithmic Y ${label} must be greater than zero`);
+      }
+    }
+    if (finite(config.ySoftMin) && finite(config.ySoftMax) && Number(config.ySoftMax) <= Number(config.ySoftMin)) {
+      issues.push('Time-plot Y soft maximum must be greater than soft minimum');
+    }
+  }
+  if (!['auto', 'manual'].includes(config.yTickMode)) issues.push('Time-plot Y ticks must be Auto or Manual');
+  if (config.yAxisScale === 'linear' && config.yTickMode === 'manual' && !positive(config.yMajorStep)) {
+    issues.push('Time-plot Y major step must be positive');
+  }
+  if (typeof config.showGrid !== 'boolean') issues.push('Time-plot major grid must be on or off');
+  if (typeof config.showMinorGrid !== 'boolean') issues.push('Time-plot minor grid must be on or off');
   return issues;
 }
 

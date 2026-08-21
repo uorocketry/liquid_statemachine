@@ -3,7 +3,7 @@ export const DASHBOARD_COLUMNS = 12;
 const MIN_SIZES = {
   number: [2, 1],
   gauge: [3, 4],
-  'time-plot': [4, 3],
+  'time-plot': [5, 4],
 };
 
 export function cloneLayout(layout) {
