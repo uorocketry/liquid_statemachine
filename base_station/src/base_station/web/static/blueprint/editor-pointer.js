@@ -1,5 +1,6 @@
 import { cloneGraph } from './model.js';
 import { additiveSelection, nextLinkId } from './graph.js';
+import { panCamera } from '../viewport-camera.js';
 
 export const pointerMethods = {
   _onPointerDown(event) {
@@ -92,7 +93,11 @@ export const pointerMethods = {
       const dy = event.clientY - this._pan.y;
       if (Math.hypot(dx, dy) > 3) this._pan.moved = true;
       if (this._pan.moved) {
-        this._camera = { ...this._camera, x: this._pan.originX + dx, y: this._pan.originY + dy };
+        this._camera = panCamera(
+          { ...this._camera, x: this._pan.originX, y: this._pan.originY },
+          dx,
+          dy,
+        );
         this._applyCamera();
       }
     }

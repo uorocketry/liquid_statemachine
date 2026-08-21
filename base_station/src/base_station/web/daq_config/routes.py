@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import json
-from time import sleep
 
 from fastapi import APIRouter, Body, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 
+from base_station.web.dashboard_telemetry import DashboardTelemetryService
 from base_station.web.daq_config.capabilities import labjack_capabilities
 from base_station.web.daq_config.dashboard_layout import copy_layout, normalize_dashboard_layout
 from base_station.web.daq_config.labjack_settings import (
@@ -34,6 +34,7 @@ def build_daq_router(
     dashboard: DashboardState,
     labjack: LabJackService,
     repository: DaqConfigRepository,
+    telemetry: DashboardTelemetryService,
 ) -> APIRouter:
     """Expose independent graph, source-settings, and dashboard-layout transactions."""
     router = APIRouter(prefix="/api", tags=["daq-config"])
@@ -106,35 +107,32 @@ def build_daq_router(
                 task.cancel()
 
     @router.get("/dashboard/telemetry/events", include_in_schema=False)
-    def dashboard_telemetry_events() -> StreamingResponse:
-        """Stream saved-graph Dashboard telemetry over one long-lived request."""
-        document = repository.load()
-        graph = document["graph"]
-        settings = document["sources"]["labjack"]
-        issues = validate_graph(graph, settings)
+    async def dashboard_telemetry_events() -> StreamingResponse:
+        """Fan out the process-owned live Dashboard session and retained history."""
 
-        def stream():
-            previous = None
+        async def stream():
+            snapshot = telemetry.snapshot()
+            previous_revision = snapshot["revision"]
+            previous_session = snapshot["session"]["id"]
             heartbeat_ticks = 0
             yield "retry: 2000\n\n"
-            if blocking_issues(issues):
-                payload = {"values": {}, "errors": [], "issues": issues}
-                yield f"event: telemetry\ndata: {json.dumps(payload, separators=(',', ':'))}\n\n"
-                return
+            yield f"event: history\ndata: {json.dumps(snapshot, separators=(',', ':'))}\n\n"
             while True:
-                try:
-                    payload = preview_graph(labjack, graph, settings)
-                except (RuntimeError, ValueError, OSError) as error:
-                    payload = {"values": {}, "errors": [str(error)], "unresolved": []}
-                encoded = json.dumps(payload, separators=(",", ":"))
-                if encoded != previous:
-                    yield f"event: telemetry\ndata: {encoded}\n\n"
-                    previous = encoded
+                await asyncio.sleep(0.25)
+                revision, session_id, payload = telemetry.latest()
+                if session_id != previous_session:
+                    snapshot = telemetry.snapshot()
+                    previous_revision = snapshot["revision"]
+                    previous_session = snapshot["session"]["id"]
+                    yield f"event: history\ndata: {json.dumps(snapshot, separators=(',', ':'))}\n\n"
+                    heartbeat_ticks = 0
+                elif revision != previous_revision:
+                    yield f"event: telemetry\ndata: {json.dumps(payload, separators=(',', ':'))}\n\n"
+                    previous_revision = revision
                     heartbeat_ticks = 0
                 elif heartbeat_ticks >= 60:
                     yield ": keep-alive\n\n"
                     heartbeat_ticks = 0
-                sleep(0.25)
                 heartbeat_ticks += 1
 
         return StreamingResponse(
@@ -142,6 +140,10 @@ def build_daq_router(
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
+
+    @router.post("/dashboard/history/reset")
+    def reset_dashboard_history() -> dict:
+        return {"reset": True, "session": telemetry.reset()}
 
     @router.get("/sources/labjack/settings")
     def load_labjack_settings() -> dict:

@@ -100,42 +100,6 @@ function emptySummary() {
   };
 }
 
-/** Keep a bounded, multi-resolution display history without discarding session start. */
-export function compactHistory(samples, recentCount = 20_000) {
-  if (samples.length <= recentCount + 2) return samples;
-  const split = Math.max(2, samples.length - recentCount);
-  const compacted = [samples[0]];
-  for (let index = 1; index < split;) {
-    const first = samples[index];
-    const second = samples[index + 1];
-    if (!second || (first.segment ?? 0) !== (second.segment ?? 0)) {
-      compacted.push(first);
-      index += 1;
-      continue;
-    }
-    compacted.push({
-      time: second.time,
-      value: second.value,
-      unit: second.unit ?? first.unit ?? '',
-      min: Math.min(first.min ?? first.value, second.min ?? second.value),
-      max: Math.max(first.max ?? first.value, second.max ?? second.value),
-      positiveMin: Math.min(
-        first.positiveMin ?? (first.value > 0 ? first.value : Infinity),
-        second.positiveMin ?? (second.value > 0 ? second.value : Infinity),
-      ),
-      positiveMax: Math.max(
-        first.positiveMax ?? (first.value > 0 ? first.value : -Infinity),
-        second.positiveMax ?? (second.value > 0 ? second.value : -Infinity),
-      ),
-      segment: second.segment ?? first.segment ?? 0,
-    });
-    index += 2;
-  }
-  compacted.push(...samples.slice(split));
-  samples.splice(0, samples.length, ...compacted);
-  return samples;
-}
-
 export function closestByTime(samples, time) {
   if (!samples.length) return null;
   let low = 0;

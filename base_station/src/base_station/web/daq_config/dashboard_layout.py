@@ -7,8 +7,13 @@ from copy import deepcopy
 from base_station.web.daq_config.node_specs import DASHBOARD_NODE_TYPES
 
 
-DASHBOARD_COLUMNS = 12
+DASHBOARD_PACK_COLUMNS = 12
+DASHBOARD_MAX_ITEM_WIDTH = 24
 DASHBOARD_MAX_ROWS_PER_ITEM = 12
+DASHBOARD_WORLD_LIMIT = 10_000
+CAMERA_MIN_SCALE = 0.5
+CAMERA_MAX_SCALE = 1.5
+CAMERA_SLOTS = ("1", "2", "3")
 
 DEFAULT_SIZES = {
     "number": (3, 1),
@@ -53,7 +58,10 @@ def normalize_dashboard_layout(graph: dict, layout: object) -> dict:
 
     _place_missing_items(items, missing)
     _normalize_z(items, order)
-    return {"items": items}
+    return {
+        "items": items,
+        "cameraPresets": _normalize_camera_presets(source_layout.get("cameraPresets")),
+    }
 
 
 def _normalize_item(
@@ -68,10 +76,10 @@ def _normalize_item(
     min_w, min_h = MIN_SIZES[node_type]
     raw = source if isinstance(source, dict) else {}
 
-    width = _bounded_int(raw.get("w"), default_w, min_w, DASHBOARD_COLUMNS)
+    width = _bounded_int(raw.get("w"), default_w, min_w, DASHBOARD_MAX_ITEM_WIDTH)
     height = _bounded_int(raw.get("h"), default_h, min_h, DASHBOARD_MAX_ROWS_PER_ITEM)
-    x = _bounded_int(raw.get("x"), fallback_xy[0], 0, max(0, DASHBOARD_COLUMNS - width))
-    y = _bounded_int(raw.get("y"), fallback_xy[1], 0, 10_000)
+    x = _bounded_int(raw.get("x"), fallback_xy[0], -DASHBOARD_WORLD_LIMIT, DASHBOARD_WORLD_LIMIT)
+    y = _bounded_int(raw.get("y"), fallback_xy[1], -DASHBOARD_WORLD_LIMIT, DASHBOARD_WORLD_LIMIT)
     z = _bounded_int(raw.get("z"), fallback_z, 0, 10_000)
     visible = raw.get("visible") if isinstance(raw.get("visible"), bool) else True
     return {"x": x, "y": y, "w": width, "h": height, "z": z, "visible": visible}
@@ -86,7 +94,7 @@ def _place_missing_items(items: dict[str, dict], missing: list[tuple[int, dict]]
     for index, node in missing:
         node_type = str(node.get("nodeType", ""))
         width, height = DEFAULT_SIZES[node_type]
-        if x and x + width > DASHBOARD_COLUMNS:
+        if x and x + width > DASHBOARD_PACK_COLUMNS:
             x = 0
             y += row_height
             row_height = 0
@@ -115,7 +123,29 @@ def _bounded_int(value: object, fallback: int, minimum: int, maximum: int) -> in
     return max(minimum, min(maximum, number))
 
 
+def _normalize_camera_presets(source: object) -> dict[str, dict]:
+    raw = source if isinstance(source, dict) else {}
+    presets: dict[str, dict] = {}
+    for slot in CAMERA_SLOTS:
+        candidate = raw.get(slot)
+        if not isinstance(candidate, dict):
+            continue
+        x = _bounded_float(candidate.get("x"), -DASHBOARD_WORLD_LIMIT, DASHBOARD_WORLD_LIMIT)
+        y = _bounded_float(candidate.get("y"), -DASHBOARD_WORLD_LIMIT, DASHBOARD_WORLD_LIMIT)
+        scale = _bounded_float(candidate.get("scale"), CAMERA_MIN_SCALE, CAMERA_MAX_SCALE)
+        if x is None or y is None or scale is None:
+            continue
+        presets[slot] = {"x": x, "y": y, "scale": scale}
+    return presets
+
+
+def _bounded_float(value: object, minimum: float, maximum: float) -> float | None:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return None
+    return max(minimum, min(maximum, float(value)))
+
+
 def copy_layout(layout: object) -> dict:
     """Return a detached layout payload for API responses."""
-    source = layout if isinstance(layout, dict) else {"items": {}}
+    source = layout if isinstance(layout, dict) else {"items": {}, "cameraPresets": {}}
     return deepcopy(source)

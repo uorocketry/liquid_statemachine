@@ -1,8 +1,14 @@
 import { intersects, rectFromPoints, wirePath } from './graph.js';
 import { MAX_SCALE, MIN_SCALE } from './editor-constants.js';
-import { clamp, cssEscape } from './editor-utils.js';
+import { cssEscape } from './editor-utils.js';
 import { html, render, repeat } from '/static/vendor/lit/lit.js';
 import { renderWireLayer } from './wire-template.js';
+import {
+  cameraTransform,
+  clampScale,
+  worldPoint,
+  zoomCameraAt,
+} from '../viewport-camera.js';
 
 export const renderMethods = {
   _renderShell() {
@@ -124,7 +130,7 @@ export const renderMethods = {
 
   _applyCamera() {
     if (!this._world) return;
-    this._world.style.transform = `translate(${this._camera.x}px, ${this._camera.y}px) scale(${this._camera.scale})`;
+    this._world.style.transform = cameraTransform(this._camera);
     this._viewport.style.setProperty('--blueprint-major-grid', `${64 * this._camera.scale}px`);
     this._viewport.style.setProperty('--blueprint-minor-grid', `${16 * this._camera.scale}px`);
     this._viewport.style.setProperty('--blueprint-grid-x', `${this._camera.x}px`);
@@ -157,23 +163,15 @@ export const renderMethods = {
 
   _worldPoint(clientX, clientY) {
     const rect = this._viewport.getBoundingClientRect();
-    return {
-      x: (clientX - rect.left - this._camera.x) / this._camera.scale,
-      y: (clientY - rect.top - this._camera.y) / this._camera.scale,
-    };
+    return worldPoint(this._camera, rect, clientX, clientY);
   },
 
   _zoomAroundCenter(delta) {
     const rect = this._viewport.getBoundingClientRect();
     const clientX = rect.left + rect.width / 2;
     const clientY = rect.top + rect.height / 2;
-    const before = this._worldPoint(clientX, clientY);
-    const scale = clamp(this._camera.scale + delta, MIN_SCALE, MAX_SCALE);
-    this._camera = {
-      scale,
-      x: clientX - rect.left - before.x * scale,
-      y: clientY - rect.top - before.y * scale,
-    };
+    const scale = clampScale(this._camera.scale + delta, MIN_SCALE, MAX_SCALE);
+    this._camera = zoomCameraAt(this._camera, rect, clientX, clientY, scale);
     this._applyCamera();
   },
 };

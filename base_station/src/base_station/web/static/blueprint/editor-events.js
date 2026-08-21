@@ -1,5 +1,5 @@
 import { MAX_SCALE, MIN_SCALE } from './editor-constants.js';
-import { clamp } from './editor-utils.js';
+import { clampScale, zoomCameraAt } from '../viewport-camera.js';
 
 export const eventMethods = {
   _bindEvents() {
@@ -153,14 +153,13 @@ export const eventMethods = {
   _onWheel(event) {
     event.preventDefault();
     this._closeMenus();
-    const before = this._worldPoint(event.clientX, event.clientY);
     const rect = this._viewport.getBoundingClientRect();
-    const scale = clamp(this._camera.scale * Math.exp(-event.deltaY * 0.0012), MIN_SCALE, MAX_SCALE);
-    this._camera = {
-      scale,
-      x: event.clientX - rect.left - before.x * scale,
-      y: event.clientY - rect.top - before.y * scale,
-    };
+    const scale = clampScale(
+      this._camera.scale * Math.exp(-event.deltaY * 0.0012),
+      MIN_SCALE,
+      MAX_SCALE,
+    );
+    this._camera = zoomCameraAt(this._camera, rect, event.clientX, event.clientY, scale);
     this._applyCamera();
   },
 

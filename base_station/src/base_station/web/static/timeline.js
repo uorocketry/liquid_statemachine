@@ -95,10 +95,12 @@ class TimelineView {
   async refresh() {
     const sequence = ++this.requestSequence; const settings = window.graphSettings.read();
     try {
-      const metadata = await this.source.metadata(this.following);
+      let metadata = await this.source.metadata(this.following);
       this.metadata = metadata; this.ranges = this.buildRanges(settings, metadata);
       const sourceRows = await this.source.samples(this.ranges);
       if (sequence !== this.requestSequence) return;
+      metadata = await this.source.metadata(this.following);
+      this.metadata = metadata;
       const rows = sourceRows.map((tierRows) => this.filterRows(tierRows, settings, metadata.rate));
       const durationName = (range, requested) => {
         const actual = (range[1] - range[0]) / metadata.rate;
@@ -112,6 +114,7 @@ class TimelineView {
       this.inspector.update(rows[selectedIndex], this.ranges[selectedIndex], metadata);
       this.renderer.drawNavigator(tiers); this.source.updateMetadata?.(metadata);
       if (this.label) this.label.textContent = `${(this.ranges[selectedIndex][0] / metadata.rate).toFixed(3)}–${(this.ranges[selectedIndex][1] / metadata.rate).toFixed(3)} s`;
+      this.updateButtons();
     } catch (error) { if (this.label) this.label.textContent = error.message; }
   }
 
@@ -176,32 +179,7 @@ class TimelineView {
     this.tailButton.textContent = this.following ? "Following live" : (this.metadata?.status === "recording" ? "Return to live" : "Go to end");
   }
 
-  async pollPausedMetadata() {
-    try {
-      this.metadata = await this.source.metadata(false);
-      this.source.updateMetadata?.(this.metadata); this.updateButtons();
-    } catch (_) { /* The next regular refresh reports connection errors. */ }
-  }
-
   start() {
     this.refresh(); this.updateButtons();
-    this.poller = setInterval(() => {
-      if (this.playing) return;
-      if (this.following) this.refresh();
-      else if (this.source.pollWhenPaused) this.pollPausedMetadata();
-    }, this.pollInterval || 750);
   }
-}
-
-async function loadRunTimelineSamples(runId, ranges) {
-  return Promise.all(ranges.map(async ([start, end], index) => {
-    const query = new URLSearchParams();
-    query.set("start", start); query.set("end", end); query.set("points", index === 2 ? 900 : 500);
-    const response = await fetch(`/api/runs/${runId}/samples?${query}`);
-    if (!response.ok) throw new Error("Unable to load recorded samples");
-    return (await response.json()).samples.map((row) => ({
-      x: row.sample_index, sampleEnd: row.sample_end, count: row.sample_count,
-      values: row.values,
-    }));
-  }));
 }

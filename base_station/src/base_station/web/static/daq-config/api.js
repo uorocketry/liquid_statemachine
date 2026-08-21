@@ -31,6 +31,10 @@ export async function saveDashboardLayout(layout) {
   return request('/api/dashboard/layout', { method: 'PUT', body: JSON.stringify(layout) });
 }
 
+export async function resetDashboardHistory() {
+  return request('/api/dashboard/history/reset', { method: 'POST' });
+}
+
 async function request(url, options = {}) {
   const response = await fetch(url, {
     headers: { 'Content-Type': 'application/json', ...(options.headers ?? {}) },

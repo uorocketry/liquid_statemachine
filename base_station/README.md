@@ -101,12 +101,34 @@ commands. Browser status/state updates use SSE rather than periodic fragment
 polling. Dashboard telemetry and Logs are SSE streams; unsaved DAQ Graph preview
 uses WebSocket because graph revisions also travel from browser to server.
 
+Live Dashboard sampling is process-owned rather than browser-owned. The server
+keeps a bounded 10-minute recent-history window for Time Plot outputs, so
+switching tabs or reloading restores recent context instead of starting at zero.
+Both the server and browser prune outside that window, so a Dashboard left open
+for hours has constant memory/data bounds. **New live session** clears only this
+ephemeral Dashboard history; it does not delete saved recordings. Saving a
+changed DAQ graph/source configuration also starts a new live session so
+differently configured signals are never mixed in one history.
+
+Dashboard panels live on a large world-space snap grid inside a clipped
+viewport rather than extending the page. Empty-space drag pans, the wheel
+zooms, and Frame returns to the authored panels. Camera slots 1–3 can be
+recalled with the number keys; Shift+1/2/3 stores the current view in the
+Dashboard layout draft so Save/Cancel remains the only persistence transaction.
+The Dashboard and DAQ Graph share the same camera transform math.
+
 The LabJack source settings own acquisition scan rate, resolution, settling,
 and MUX80 configuration. Runs displays and uses that saved source rate.
 Start/Stop is guarded by an explicit starting/running/stopping/idle lifecycle.
 
-Runs are stored in `data/acquisition.sqlite3`. CSV is generated on demand; no
-CSV files are written into the repository. Record/Stop lives on `/runs`.
+Runs are durable high-rate recordings stored in `data/acquisition.sqlite3`.
+CSV is generated on demand; no CSV files are written into the repository.
+Record/Stop lives on `/runs` and is only shown when the LabJack is available;
+the archive remains useful while hardware is offline. A live Dashboard session
+is intentionally not a substitute for a durable recording. Runs are acquisition
+artifacts rather than experiment metadata; if experiment tracking is added, an
+Experiment should reference one or more run IDs instead of overloading the run
+storage model with notes/procedures/state-machine context.
 
 Run-history filtering is display-only. Stored samples and CSV exports remain raw.
 

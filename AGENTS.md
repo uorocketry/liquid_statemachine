@@ -62,8 +62,13 @@ These notes capture the current project state and UI decisions that should be pr
 ## Runs and devices
 
 - Recording controls live inside `/runs`, not in the global sidebar.
+- Runs are durable acquisition artifacts, not the generic experiment model. If experiment tracking is added, keep it as a separate domain that references run IDs.
 - The LabJack source settings own scan rate; Runs displays/uses the saved source rate.
 - P1AM and LabJack have separate device pages.
 - Logs have a dedicated `/logs` page; do not recreate a combined Diagnostics page.
 - Global/device health uses one SSE status connection and patches stable DOM. The State Machine page also consumes the P1AM detail payload from that stream; do not reintroduce periodic browser polling for cart state.
 - Saved Dashboard telemetry and the Logs page use SSE. Operator commands and persistence remain normal request/response transactions.
+- Dashboard live history is process-owned and bounded to 10 minutes; reload/tab changes restore that recent window. Starting a new live session clears only ephemeral Dashboard history, never durable Runs.
+- Dashboard `+` manages visibility/layout only for existing Number/Gauge/Time Plot outputs from the DAQ Graph. Do not let Dashboard mutate graph topology.
+- Dashboard layout uses world-space snap-grid coordinates inside a clipped viewport; panel coordinates must never grow the document or create page scrolling. Empty-space drag pans and wheel zooms the view. View slots `1`/`2`/`3` recall saved cameras; `Shift+1`/`Shift+2`/`Shift+3` save them through the normal Dashboard Save/Cancel transaction.
+- DAQ Graph and Dashboard share pure camera/world-coordinate math from `static/viewport-camera.js`; do not duplicate pan/zoom/frame transform formulas in route-specific modules.

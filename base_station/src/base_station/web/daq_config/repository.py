@@ -18,6 +18,13 @@ class DaqConfigRepository:
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = RLock()
+        self._revision = 0
+
+    @property
+    def revision(self) -> int:
+        """Monotonic in-process revision for cheap configuration observers."""
+        with self._lock:
+            return self._revision
 
     def load(self) -> dict:
         with self._lock:
@@ -28,6 +35,7 @@ class DaqConfigRepository:
         with self._lock:
             canonical = normalize_config(document)
             self._write(canonical)
+            self._revision += 1
             return canonical
 
     def save_graph(self, graph: dict) -> dict:
@@ -51,6 +59,7 @@ class DaqConfigRepository:
             mutate(document)
             canonical = normalize_config(document)
             self._write(canonical)
+            self._revision += 1
             return canonical
 
     def _read(self) -> object:

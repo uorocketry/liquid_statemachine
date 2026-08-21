@@ -1,6 +1,12 @@
-import { loadDashboardLayout, loadGraph, saveDashboardLayout } from './daq-config/api.js';
+import {
+  loadDashboardLayout,
+  loadGraph,
+  resetDashboardHistory,
+  saveDashboardLayout,
+} from './daq-config/api.js';
 import { DashboardLayoutEditor } from './dashboard-layout-editor.js';
 import { visibleWidgets } from './dashboard-layout-model.js';
+import { DashboardWorkspace } from './dashboard-workspace.js';
 import {
   DASHBOARD_NODE_TYPES,
   createDashboardWidget,
@@ -8,11 +14,9 @@ import {
   usesTimeline,
 } from './dashboard-widget-registry.js';
 import { DashboardTimeController } from './dashboard-time-controller.js';
-import { compactHistory } from './dashboard-time-utils.js';
-
-const MAX_HISTORY_POINTS = 100_000;
 
 const page = document.querySelector('.dashboard-page');
+const viewport = document.querySelector('#dashboard-viewport');
 const grid = document.querySelector('#dashboard-widget-grid');
 const picker = document.querySelector('#dashboard-widget-options');
 const pickerDetails = document.querySelector('.dashboard-widget-picker');
@@ -25,13 +29,16 @@ const returnTail = document.querySelector('#telemetry-return-tail');
 const editButton = document.querySelector('#dashboard-layout-edit');
 const cancelButton = document.querySelector('#dashboard-layout-cancel');
 const saveButton = document.querySelector('#dashboard-layout-save');
+const resetHistoryButton = document.querySelector('#dashboard-history-reset');
+const frameButton = document.querySelector('#dashboard-frame-workspace');
+const presetButtons = [...document.querySelectorAll('[data-dashboard-camera-slot]')];
 
 const histories = new Map();
 let graph = { nodes: [], links: [] };
 let widgets = [];
 let telemetryStream = null;
-let sessionStart = null;
-let sampleSegment = 0;
+let sessionId = null;
+let historyRetentionSeconds = 600;
 
 const timeline = new DashboardTimeController({
   histories,
@@ -44,8 +51,20 @@ const timeline = new DashboardTimeController({
   onTierChange: () => localStorage.setItem('liquid-dashboard-tier', timeline.selectedTier),
 });
 
-const layoutEditor = new DashboardLayoutEditor({
+let layoutEditor;
+const workspace = new DashboardWorkspace({
+  viewport,
+  world: grid,
+  frameButton,
+  presetButtons,
+  onCameraChange: () => timeline.render(),
+  onMetricsChange: () => layoutEditor?.syncFrameStack(),
+  onSavePreset: (slot, preset) => layoutEditor?.saveCameraPreset(slot, preset),
+});
+
+layoutEditor = new DashboardLayoutEditor({
   grid,
+  workspace,
   picker,
   pickerDetails,
   timeControl,
@@ -72,15 +91,15 @@ async function start() {
     .filter(hasOperatorLabel);
   layoutEditor.configure(widgets, layoutPayload.layout ?? { items: {} });
   renderCards(layoutEditor.currentLayout());
+  workspace.configure(widgets, layoutEditor.currentLayout());
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       stopTelemetryStream();
     } else {
-      sampleSegment += 1;
       startTelemetryStream();
     }
   });
-  window.addEventListener('resize', () => timeline.render());
+  resetHistoryButton.addEventListener('click', resetLiveSession);
   startTelemetryStream();
 }
 
@@ -89,6 +108,7 @@ function hasOperatorLabel(widget) {
 }
 
 function renderCards(layout) {
+  workspace.syncLayout(layout);
   grid.replaceChildren();
   const visible = visibleWidgets(widgets, layout);
   const timelinePlots = visible.filter(usesTimeline);
@@ -108,11 +128,11 @@ function renderCards(layout) {
 function startTelemetryStream() {
   if (telemetryStream || document.hidden || !widgets.length || !('EventSource' in window)) return;
   const stream = new EventSource('/api/dashboard/telemetry/events');
-  let opened = false;
   telemetryStream = stream;
-  stream.addEventListener('open', () => {
-    if (opened) sampleSegment += 1;
-    opened = true;
+  stream.addEventListener('history', (event) => {
+    let payload;
+    try { payload = JSON.parse(event.data); } catch { return; }
+    restoreHistory(payload);
   });
   stream.addEventListener('telemetry', (event) => {
     let payload;
@@ -135,11 +155,13 @@ function stopTelemetryStream() {
 }
 
 function ingestTelemetry(payload) {
-  const timestamp = elapsedSeconds();
+  if (sessionId !== null && payload.sessionId !== sessionId) return;
+  const timestamp = Number(payload.timestamp);
+  if (!Number.isFinite(timestamp)) return;
   for (const widget of widgets) {
     const reading = payload.values?.[widget.id];
     if (usesTimeline(widget) && reading && Number.isFinite(Number(reading.value))) {
-      appendReading(widget, reading, timestamp);
+      appendReading(widget, reading, timestamp, payload.segments?.[widget.id] ?? 0);
     }
     const card = grid.querySelector(`[data-widget-id="${cssEscape(widget.id)}"]`);
     if (card) updateDashboardWidget(card, widget, reading);
@@ -148,22 +170,55 @@ function ingestTelemetry(payload) {
   timeline.ingest(timestamp);
 }
 
-function elapsedSeconds() {
-  const now = performance.now() / 1000;
-  if (sessionStart === null) sessionStart = now;
-  return now - sessionStart;
-}
-
-function appendReading(widget, reading, timestamp) {
+function appendReading(widget, reading, timestamp, segment) {
   const history = histories.get(widget.id) ?? [];
   history.push({
     time: timestamp,
     value: Number(reading.value),
     unit: reading.unit ?? '',
-    segment: sampleSegment,
+    segment: Number(segment) || 0,
   });
-  if (history.length > MAX_HISTORY_POINTS) compactHistory(history);
+  const cutoff = timestamp - historyRetentionSeconds;
+  while (history.length && history[0].time < cutoff) history.shift();
   histories.set(widget.id, history);
+}
+
+function restoreHistory(payload) {
+  sessionId = payload.session?.id ?? null;
+  historyRetentionSeconds = Number(payload.session?.retentionSeconds) || 600;
+  histories.clear();
+  for (const widget of widgets.filter(usesTimeline)) {
+    const samples = Array.isArray(payload.histories?.[widget.id]) ? payload.histories[widget.id] : [];
+    histories.set(widget.id, samples.filter((sample) => (
+      Number.isFinite(Number(sample?.time)) && Number.isFinite(Number(sample?.value))
+    )));
+  }
+  renderLatest(payload.latest);
+}
+
+function renderLatest(payload) {
+  if (!payload) {
+    timeline.render();
+    return;
+  }
+  for (const widget of widgets) {
+    const card = grid.querySelector(`[data-widget-id="${cssEscape(widget.id)}"]`);
+    if (card) updateDashboardWidget(card, widget, payload.values?.[widget.id]);
+  }
+  page.dataset.telemetryState = payload.errors?.length ? 'unavailable' : 'ready';
+  const timestamp = Number(payload.timestamp);
+  if (Number.isFinite(timestamp)) timeline.ingest(timestamp);
+  else timeline.render();
+}
+
+async function resetLiveSession() {
+  if (!confirm('Start a new live Dashboard session? Recent live history will be cleared. Saved recordings are not deleted.')) return;
+  resetHistoryButton.disabled = true;
+  try {
+    await resetDashboardHistory();
+  } finally {
+    resetHistoryButton.disabled = false;
+  }
 }
 
 function clearCurrentValues() {

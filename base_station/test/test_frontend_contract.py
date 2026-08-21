@@ -80,15 +80,20 @@ class FrontendContractTests(TestCase):
     def test_dashboard_exposes_layout_and_time_navigation_controls(self) -> None:
         dashboard = read("templates/index.html")
         for element_id in (
+            "dashboard-viewport",
             "dashboard-widget-grid",
             "dashboard-widget-options",
             "dashboard-layout-edit",
             "dashboard-layout-save",
             "dashboard-layout-cancel",
+            "dashboard-history-reset",
+            "dashboard-frame-workspace",
+            "dashboard-widget-options",
             "telemetry-tier-navigator",
             "telemetry-return-tail",
         ):
             self.assertIn(f'id="{element_id}"', dashboard)
+        self.assertIn('data-dashboard-camera-slot="{{ slot }}"', dashboard)
         self.assertIn('src="/static/dashboard-telemetry.js"', dashboard)
 
     def test_dashboard_widget_registry_has_explicit_widget_types(self) -> None:

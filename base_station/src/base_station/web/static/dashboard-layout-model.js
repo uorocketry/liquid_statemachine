@@ -1,4 +1,9 @@
-export const DASHBOARD_COLUMNS = 12;
+export const DASHBOARD_REFERENCE_COLUMNS = 12;
+export const DASHBOARD_MAX_ITEM_WIDTH = 24;
+export const DASHBOARD_MAX_ITEM_HEIGHT = 12;
+export const DASHBOARD_WORLD_LIMIT = 10_000;
+export const DASHBOARD_MIN_SCALE = 0.5;
+export const DASHBOARD_MAX_SCALE = 1.5;
 
 const MIN_SIZES = {
   number: [2, 1],
@@ -7,7 +12,7 @@ const MIN_SIZES = {
 };
 
 export function cloneLayout(layout) {
-  return structuredClone(layout ?? { items: {} });
+  return structuredClone(layout ?? { items: {}, cameraPresets: {} });
 }
 
 export function visibleWidgets(widgets, layout) {
@@ -18,11 +23,39 @@ export function itemFor(layout, widgetId) {
   return layout?.items?.[widgetId] ?? null;
 }
 
-export function applyWidgetGeometry(card, item) {
-  if (!card || !item) return;
-  card.style.gridColumn = `${item.x + 1} / span ${item.w}`;
-  card.style.gridRow = `${item.y + 1} / span ${item.h}`;
+export function applyWidgetGeometry(card, item, metrics) {
+  if (!card || !item || !metrics) return;
+  const width = item.w * metrics.columnWidth + Math.max(0, item.w - 1) * metrics.gap;
+  const height = item.h * metrics.rowHeight + Math.max(0, item.h - 1) * metrics.gap;
+  card.style.left = `${item.x * metrics.columnStep}px`;
+  card.style.top = `${item.y * metrics.rowStep}px`;
+  card.style.width = `${width}px`;
+  card.style.height = `${height}px`;
   card.style.zIndex = String(item.z ?? 0);
+}
+
+export function itemWorldBounds(item, metrics) {
+  const width = item.w * metrics.columnWidth + Math.max(0, item.w - 1) * metrics.gap;
+  const height = item.h * metrics.rowHeight + Math.max(0, item.h - 1) * metrics.gap;
+  return {
+    x: item.x * metrics.columnStep,
+    y: item.y * metrics.rowStep,
+    width,
+    height,
+  };
+}
+
+export function layoutWorldBounds(widgets, layout, metrics) {
+  const bounds = widgets
+    .map((widget) => itemFor(layout, widget.id))
+    .filter((item) => item?.visible !== false)
+    .map((item) => itemWorldBounds(item, metrics));
+  if (!bounds.length) return null;
+  const minX = Math.min(...bounds.map((box) => box.x));
+  const minY = Math.min(...bounds.map((box) => box.y));
+  const maxX = Math.max(...bounds.map((box) => box.x + box.width));
+  const maxY = Math.max(...bounds.map((box) => box.y + box.height));
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
 export function minSize(nodeType) {
@@ -53,8 +86,8 @@ export function bringToFront(layout, widgetId) {
 export function clampMove(item, dx, dy) {
   return {
     ...item,
-    x: clamp(item.x + dx, 0, DASHBOARD_COLUMNS - item.w),
-    y: Math.max(0, item.y + dy),
+    x: clamp(item.x + dx, -DASHBOARD_WORLD_LIMIT, DASHBOARD_WORLD_LIMIT),
+    y: clamp(item.y + dy, -DASHBOARD_WORLD_LIMIT, DASHBOARD_WORLD_LIMIT),
   };
 }
 
@@ -62,9 +95,20 @@ export function clampResize(item, nodeType, dw, dh) {
   const minimum = minSize(nodeType);
   return {
     ...item,
-    w: clamp(item.w + dw, minimum.w, DASHBOARD_COLUMNS - item.x),
-    h: clamp(item.h + dh, minimum.h, 12),
+    w: clamp(item.w + dw, minimum.w, DASHBOARD_MAX_ITEM_WIDTH),
+    h: clamp(item.h + dh, minimum.h, DASHBOARD_MAX_ITEM_HEIGHT),
   };
+}
+
+export function setCameraPreset(layout, slot, preset) {
+  if (!['1', '2', '3'].includes(String(slot))) return false;
+  layout.cameraPresets ??= {};
+  layout.cameraPresets[String(slot)] = {
+    x: Number(preset.x),
+    y: Number(preset.y),
+    scale: Number(preset.scale),
+  };
+  return true;
 }
 
 function numericZ(item) {

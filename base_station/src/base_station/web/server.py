@@ -10,12 +10,13 @@ from pathlib import Path
 from threading import Timer
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Body, FastAPI, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
+from base_station.web.dashboard_telemetry import DashboardTelemetryService
 from base_station.web.daq_config import build_daq_router
 from base_station.web.daq_config.repository import DaqConfigRepository
 from base_station.web.devices import DEVICE_BY_ID
@@ -36,6 +37,7 @@ cart = P1amService(dashboard)
 runs = RunRepository(DATA_DIR / "acquisition.sqlite3")
 labjack = LabJackService(dashboard, runs)
 daq_config = DaqConfigRepository(DAQ_CONFIG_PATH)
+dashboard_telemetry = DashboardTelemetryService(dashboard, labjack, daq_config)
 
 
 class ConnectionRequest(BaseModel):
@@ -61,7 +63,9 @@ async def lifespan(_: FastAPI):
         labjack.connect(dashboard.labjack.ip)
     except RuntimeError as error:
         dashboard.log(f"LabJack auto-connect failed: {error}", "warning", "labjack")
+    dashboard_telemetry.start()
     yield
+    dashboard_telemetry.stop()
     cart.stop()
     labjack.disconnect()
 
@@ -69,7 +73,18 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="Liquid State Machine", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.include_router(build_ui_router(templates, dashboard, cart, labjack, runs, daq_config))
-app.include_router(build_daq_router(dashboard, labjack, daq_config))
+app.include_router(build_daq_router(dashboard, labjack, daq_config, dashboard_telemetry))
+
+
+@app.middleware("http")
+async def revalidate_local_assets(request, call_next):
+    """Prevent mixed generations of local assets after a GUI restart."""
+    response = await call_next(request)
+    if request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = (
+            "no-store" if request.url.path.endswith(".js") else "no-cache"
+        )
+    return response
 
 
 @app.get("/api/status")
@@ -171,6 +186,39 @@ def run_samples(
         "end": resolved_end,
         "samples": runs.sample_window(run_id, start, resolved_end, points),
     }
+
+
+@app.post("/api/runs/{run_id}/view")
+def run_view(run_id: int, request: dict = Body(...)) -> dict:
+    """Return all three timeline tiers in one request for an interactive run view."""
+    run_record = runs.get_run(run_id)
+    if not run_record:
+        raise HTTPException(status_code=404, detail="Run not found")
+    ranges = request.get("ranges")
+    if not isinstance(ranges, list) or not 1 <= len(ranges) <= 3:
+        raise HTTPException(status_code=422, detail="Timeline ranges are required")
+    tiers = []
+    for index, item in enumerate(ranges):
+        if not isinstance(item, list) or len(item) != 2:
+            raise HTTPException(status_code=422, detail="Invalid timeline range")
+        try:
+            start = _timeline_bound(item[0])
+            end = _timeline_bound(item[1])
+        except (TypeError, ValueError) as error:
+            raise HTTPException(status_code=422, detail="Invalid timeline range") from error
+        start = min(max(0, start), run_record["sample_count"])
+        end = min(max(start, end), run_record["sample_count"])
+        points = 900 if index == len(ranges) - 1 else 500
+        tiers.append(runs.sample_window(run_id, start, end, points))
+    return {"run": run_record, "tiers": tiers}
+
+
+def _timeline_bound(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise TypeError("Timeline bounds must be numbers")
+    if value != value or value in {float("inf"), float("-inf")}:
+        raise ValueError("Timeline bounds must be finite")
+    return int(value)
 
 
 @app.post("/api/cart/state")

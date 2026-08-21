@@ -56,9 +56,6 @@ def build_ui_router(
             "log_components": LOG_COMPONENTS,
         }
 
-    def configured_graph() -> dict:
-        return daq_config.load()["graph"]
-
     def configured_labjack_settings() -> dict:
         return daq_config.load()["sources"]["labjack"]
 
@@ -76,9 +73,6 @@ def build_ui_router(
 
     def p1am_health_fragment(request: Request):
         return templates.TemplateResponse(request, "fragments/p1am_health.html", context(request))
-
-    def labjack_fragment(request: Request):
-        return templates.TemplateResponse(request, "fragments/labjack.html", labjack_context(request))
 
     def labjack_connection_fragment(request: Request):
         return templates.TemplateResponse(request, "fragments/labjack_connection.html", context(request))
@@ -123,6 +117,7 @@ def build_ui_router(
     def run_list(request: Request):
         values = labjack_context(request)
         values["runs"] = runs.list_runs()
+        values["status_device"] = "labjack"
         return templates.TemplateResponse(request, "runs.html", values)
 
     @router.get("/runs/backup/database", include_in_schema=False)
@@ -138,6 +133,8 @@ def build_ui_router(
             raise HTTPException(status_code=404, detail="Run not found")
         values = context(request)
         values["run"] = run_record
+        if run_record["status"] == "recording":
+            values["status_device"] = "labjack"
         return templates.TemplateResponse(request, "run_detail.html", values)
 
     @router.get("/runs/{run_id}/export.csv", include_in_schema=False)
@@ -147,13 +144,15 @@ def build_ui_router(
         headers = {"Content-Disposition": f'attachment; filename="acquisition-run-{run_id}.csv"'}
         return StreamingResponse(runs.csv_rows(run_id), media_type="text/csv", headers=headers)
 
-    @router.get("/fragments/labjack", include_in_schema=False)
-    def get_labjack_fragment(request: Request):
-        return labjack_fragment(request)
-
     @router.get("/fragments/labjack-connection", include_in_schema=False)
     def get_labjack_connection_fragment(request: Request):
         return labjack_connection_fragment(request)
+
+    @router.get("/fragments/run-table", include_in_schema=False)
+    def get_run_table_fragment(request: Request):
+        values = context(request)
+        values["runs"] = runs.list_runs()
+        return templates.TemplateResponse(request, "fragments/run_table.html", values)
 
     @router.put("/ui/cart/state/{state}", include_in_schema=False)
     def request_cart_state(request: Request, state: int):
@@ -200,22 +199,6 @@ def build_ui_router(
     def disconnect_labjack_ui(request: Request):
         labjack.disconnect()
         return labjack_connection_fragment(request)
-
-    @router.post("/ui/labjack/stream/start", include_in_schema=False)
-    def start_stream_ui(request: Request):
-        try:
-            labjack.start_stream(configured_graph(), configured_labjack_settings())
-        except (RuntimeError, ValueError) as error:
-            dashboard.log(f"LabJack stream failed: {error}", "error", "labjack")
-        return labjack_fragment(request)
-
-    @router.post("/ui/labjack/stream/stop", include_in_schema=False)
-    def stop_stream_ui(request: Request):
-        try:
-            labjack.stop_stream()
-        except RuntimeError as error:
-            dashboard.log(f"LabJack stop pending: {error}", "warning", "labjack")
-        return labjack_fragment(request)
 
     @router.delete("/ui/runs/{run_id}", include_in_schema=False)
     def delete_run(request: Request, run_id: int):

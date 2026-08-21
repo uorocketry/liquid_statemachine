@@ -94,8 +94,13 @@ generic Dashboard Signal/display-mode node.
 
 Dashboard placement is separate configuration under `dashboard.layout` and is
 saved through `/api/dashboard/layout`. `dashboard_layout.py` owns canonical
-12-column geometry and compact z-order. Frames may overlap; normal-view clicks
-raise a frame transiently, while Edit + Save persists authored stacking.
+snap-grid world coordinates, three optional camera presets, and compact z-order.
+Frames may overlap; normal-view clicks raise a frame transiently, while Edit +
+Save persists authored stacking. The Dashboard viewport clips the world so
+off-screen panels never increase document dimensions. Empty-space drag pans,
+wheel input zooms, Frame fits visible panels, and 1/2/3 recall saved camera
+presets. `viewport-camera.js` contains the shared camera math also used by DAQ
+Graph; Dashboard-specific code only adapts grid units to that generic camera.
 
 The Time Plot renderer is split by concern: tick selection,
 range/transform/layout, axis drawing, telemetry drawing, and time navigation are
@@ -107,10 +112,15 @@ Tick generation is bounded and label collision is handled by the renderer.
 Hardware services update `DashboardState` in memory. The global shell consumes
 one SSE stream (`/api/status/events`) and patches stable device DOM nodes only
 when status changes; device pages request extra detail over the same stream.
-The Dashboard's saved-graph telemetry is also one-way server-owned data, so it
-uses its own SSE stream (`/api/dashboard/telemetry/events`) instead of 4 Hz POST
-polling. Commands such as connect/reset/start/stop remain ordinary
-request-response actions.
+The Dashboard's saved-graph telemetry is also one-way server-owned data. One
+process-owned sampler evaluates the saved graph at 4 Hz, retains at most 10
+minutes of recent Time Plot history, and fans that shared state out over
+`/api/dashboard/telemetry/events`. Browser tabs therefore do not multiply
+hardware reads, and reconnecting restores retained history. The browser uses
+the same retention bound, so long-lived pages do not accumulate samples without
+limit. `/api/dashboard/history/reset` starts a new ephemeral live session
+without touching durable Runs. Commands such as connect/reset/start/stop remain
+ordinary request-response actions.
 
 This intentionally avoids both 1 Hz HTML-fragment polling and a WebSocket/DOM
 diff framework. SSE is the current one-way status transport; if richer

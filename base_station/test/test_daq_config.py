@@ -141,6 +141,10 @@ class DaqConfigTests(TestCase):
         })
         layout = normalize_dashboard_layout(graph, {
             "stale": True,
+            "cameraPresets": {
+                "1": {"x": -5.5, "y": 12.25, "scale": 1.2},
+                "4": {"x": 0, "y": 0, "scale": 1},
+            },
             "items": {
                 "number": {"x": 99, "y": -4, "w": 99, "h": 0, "z": 99, "visible": True, "stale": 1},
                 "gauge": {"x": 0, "y": 0, "w": 4, "h": 4, "z": 2, "visible": True},
@@ -148,18 +152,24 @@ class DaqConfigTests(TestCase):
                 "deleted": {"x": 0, "y": 0, "w": 1, "h": 1, "z": 0, "visible": True},
             },
         })
-        self.assertEqual(set(layout), {"items"})
+        self.assertEqual(set(layout), {"items", "cameraPresets"})
         self.assertEqual(set(layout["items"]), {"number", "gauge", "plot"})
         for item in layout["items"].values():
-            self.assertGreaterEqual(item["x"], 0)
-            self.assertGreaterEqual(item["y"], 0)
-            self.assertLessEqual(item["x"] + item["w"], 12)
+            self.assertGreaterEqual(item["w"], 2)
+            self.assertLessEqual(item["w"], 24)
+            self.assertGreaterEqual(item["h"], 1)
+            self.assertLessEqual(item["h"], 12)
             self.assertEqual(set(item), {"x", "y", "w", "h", "z", "visible"})
+        self.assertEqual(layout["items"]["number"]["x"], 99)
+        self.assertEqual(layout["items"]["number"]["y"], -4)
         self.assertEqual(layout["items"]["gauge"]["x"], 0)
         self.assertEqual(layout["items"]["plot"]["x"], 0)
         self.assertEqual(layout["items"]["gauge"]["y"], 0)
         self.assertEqual(layout["items"]["plot"]["y"], 0)
         self.assertEqual(sorted(item["z"] for item in layout["items"].values()), [0, 1, 2])
+        self.assertEqual(layout["cameraPresets"], {
+            "1": {"x": -5.5, "y": 12.25, "scale": 1.2},
+        })
 
     def test_unsupported_node_type_is_rejected(self) -> None:
         graph = {

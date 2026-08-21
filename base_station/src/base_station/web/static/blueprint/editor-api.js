@@ -1,7 +1,7 @@
 import { cloneGraph, normalizeGraph } from './model.js';
 import { cloneSelection, directedNodePath, pasteSelection } from './graph.js';
 import { MIN_SCALE, NODE_FALLBACK_HEIGHT, NODE_FALLBACK_WIDTH } from './editor-constants.js';
-import { clamp } from './editor-utils.js';
+import { cameraForBounds, cameraForWorldCenter } from '../viewport-camera.js';
 
 /** @typedef {import('./model.js').BlueprintGraph} BlueprintGraph */
 /** @typedef {import('./model.js').BlueprintNode} BlueprintNode */
@@ -149,11 +149,11 @@ export const editorApi = {
     const width = element?.offsetWidth ?? node.width ?? NODE_FALLBACK_WIDTH;
     const height = element?.offsetHeight ?? NODE_FALLBACK_HEIGHT;
     const scale = Math.min(1, Math.max(MIN_SCALE, this._camera.scale));
-    this._camera = {
+    this._camera = cameraForWorldCenter(
+      { x: node.x + width / 2, y: node.y + height / 2 },
+      viewport,
       scale,
-      x: viewport.width / 2 - (node.x + width / 2) * scale,
-      y: viewport.height / 2 - (node.y + height / 2) * scale,
-    };
+    );
     this._applyCamera();
   },
 
@@ -253,15 +253,11 @@ export const editorApi = {
     const minY = Math.min(...boxes.map((box) => box.y));
     const maxX = Math.max(...boxes.map((box) => box.x + box.width));
     const maxY = Math.max(...boxes.map((box) => box.y + box.height));
-    const padding = 64;
-    const width = Math.max(1, maxX - minX);
-    const height = Math.max(1, maxY - minY);
-    const scale = clamp(Math.min(1, (rect.width - padding * 2) / width, (rect.height - padding * 2) / height), MIN_SCALE, 1);
-    this._camera = {
-      scale,
-      x: (rect.width - width * scale) / 2 - minX * scale,
-      y: (rect.height - height * scale) / 2 - minY * scale,
-    };
+    this._camera = cameraForBounds(
+      { x: minX, y: minY, width: maxX - minX, height: maxY - minY },
+      rect,
+      { padding: 64, minScale: MIN_SCALE, maxScale: 1 },
+    );
     this._applyCamera();
   },
 };

@@ -1,11 +1,11 @@
 import {
-  DASHBOARD_COLUMNS,
   applyWidgetGeometry,
   bringToFront,
   clampMove,
   clampResize,
   cloneLayout,
   itemFor,
+  setCameraPreset,
   setVisible,
 } from './dashboard-layout-model.js';
 
@@ -13,8 +13,8 @@ export class DashboardLayoutEditor {
   constructor(options) {
     Object.assign(this, options);
     this.widgets = [];
-    this.committed = { items: {} };
-    this.viewLayout = { items: {} };
+    this.committed = { items: {}, cameraPresets: {} };
+    this.viewLayout = { items: {}, cameraPresets: {} };
     this.draft = null;
     this.editing = false;
     this.drag = null;
@@ -37,7 +37,11 @@ export class DashboardLayoutEditor {
     this.widgets = widgets;
     this.committed = cloneLayout(layout);
     if (!this.editing) this.viewLayout = cloneLayout(this.committed);
-    if (!this.editing) this.renderPicker();
+    if (!this.editing) {
+      this.renderPicker();
+      this.syncChrome();
+    }
+    this.workspace?.syncLayout(this.currentLayout());
   }
 
   currentLayout() {
@@ -51,6 +55,7 @@ export class DashboardLayoutEditor {
     this.syncChrome();
     this.renderPicker();
     this.onLayoutChange(this.draft);
+    this.workspace?.syncLayout(this.draft);
   }
 
   cancel() {
@@ -61,6 +66,7 @@ export class DashboardLayoutEditor {
     this.syncChrome();
     this.renderPicker();
     this.onLayoutChange(this.viewLayout);
+    this.workspace?.syncLayout(this.viewLayout);
   }
 
   async save() {
@@ -76,6 +82,7 @@ export class DashboardLayoutEditor {
       this.syncChrome();
       this.renderPicker();
       this.onLayoutChange(this.committed);
+      this.workspace?.syncLayout(this.committed);
     } catch (error) {
       this.onError?.(error);
     } finally {
@@ -86,7 +93,7 @@ export class DashboardLayoutEditor {
 
   decorateCard(card, widget) {
     const item = itemFor(this.currentLayout(), widget.id);
-    applyWidgetGeometry(card, item);
+    applyWidgetGeometry(card, item, this.workspace?.metrics());
     card.dataset.dashboardFrame = '';
     card.querySelector('header')?.setAttribute('data-dashboard-drag-handle', '');
     const handle = document.createElement('button');
@@ -99,9 +106,24 @@ export class DashboardLayoutEditor {
 
   onPickerChange(event) {
     const input = event.target.closest('input[data-dashboard-widget-id]');
-    if (!this.editing || !this.draft || !input) return;
-    setVisible(this.draft, input.dataset.dashboardWidgetId, input.checked);
+    if (!input) return;
+    const widgetId = input.dataset.dashboardWidgetId;
+    const visible = input.checked;
+    if (!this.editing) this.start();
+    if (!this.draft) return;
+    setVisible(this.draft, widgetId, visible);
+    this.renderPicker();
     this.onLayoutChange(this.draft);
+    this.workspace?.syncLayout(this.draft);
+    if (visible) this.workspace?.revealItem(itemFor(this.draft, widgetId));
+  }
+
+  saveCameraPreset(slot, preset) {
+    if (this.saving) return null;
+    if (!this.editing) this.start();
+    if (!this.draft || !setCameraPreset(this.draft, slot, preset)) return null;
+    this.workspace?.syncLayout(this.draft);
+    return this.draft;
   }
 
   onPointerDown(event) {
@@ -146,13 +168,14 @@ export class DashboardLayoutEditor {
   onPointerMove(event) {
     const drag = this.drag;
     if (!drag || drag.pointerId !== event.pointerId || !this.draft) return;
-    const dx = Math.round((event.clientX - drag.startX) / drag.metrics.columnStep);
-    const dy = Math.round((event.clientY - drag.startY) / drag.metrics.rowStep);
+    const scale = this.workspace?.scale ?? 1;
+    const dx = Math.round((event.clientX - drag.startX) / (drag.metrics.columnStep * scale));
+    const dy = Math.round((event.clientY - drag.startY) / (drag.metrics.rowStep * scale));
     const candidate = drag.mode === 'resize'
       ? clampResize(drag.startItem, drag.widget.nodeType, dx, dy)
       : clampMove(drag.startItem, dx, dy);
     Object.assign(this.draft.items[drag.widget.id], candidate);
-    applyWidgetGeometry(drag.card, candidate);
+    applyWidgetGeometry(drag.card, candidate, drag.metrics);
     this.onGeometryChange?.();
   }
 
@@ -165,18 +188,14 @@ export class DashboardLayoutEditor {
   }
 
   syncFrameStack(layout = this.currentLayout()) {
+    const metrics = this.workspace?.metrics();
     for (const card of this.grid.querySelectorAll('[data-dashboard-frame]')) {
-      applyWidgetGeometry(card, itemFor(layout, card.dataset.widgetId));
+      applyWidgetGeometry(card, itemFor(layout, card.dataset.widgetId), metrics);
     }
   }
 
   gridMetrics() {
-    const style = getComputedStyle(this.grid);
-    const columnGap = Number.parseFloat(style.columnGap) || 0;
-    const rowGap = Number.parseFloat(style.rowGap) || 0;
-    const rowHeight = Number.parseFloat(style.gridAutoRows) || 48;
-    const columnWidth = Math.max(1, (this.grid.clientWidth - columnGap * (DASHBOARD_COLUMNS - 1)) / DASHBOARD_COLUMNS);
-    return { columnStep: columnWidth + columnGap, rowStep: rowHeight + rowGap };
+    return this.workspace?.metrics() ?? { columnStep: 1, rowStep: 1 };
   }
 
   renderPicker() {
@@ -188,7 +207,6 @@ export class DashboardLayoutEditor {
       input.type = 'checkbox';
       input.dataset.dashboardWidgetId = widget.id;
       input.checked = itemFor(layout, widget.id)?.visible !== false;
-      input.disabled = !this.editing;
       const text = document.createElement('span');
       text.textContent = widget.config?.label ?? widget.id;
       label.append(input, text);
@@ -198,11 +216,12 @@ export class DashboardLayoutEditor {
 
   syncChrome() {
     this.grid.classList.toggle('dashboard-layout-editing', this.editing);
+    this.workspace?.setEditing(this.editing);
     this.timeControl.classList.toggle('dashboard-layout-editing', this.editing);
     this.editButton.hidden = this.editing;
     this.cancelButton.hidden = !this.editing;
     this.saveButton.hidden = !this.editing;
-    this.pickerDetails.hidden = !this.editing || !this.widgets.length;
+    this.pickerDetails.hidden = !this.widgets.length;
     if (!this.editing) this.pickerDetails.removeAttribute('open');
   }
 }
