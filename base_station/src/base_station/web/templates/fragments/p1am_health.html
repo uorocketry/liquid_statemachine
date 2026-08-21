@@ -1,22 +1,22 @@
 {% from "macros/actions.html" import action_button %}
-<section id="p1am-health" class="device-card" hx-get="/fragments/p1am-health" hx-trigger="every 1s" hx-swap="outerHTML" hx-sync="this:queue last">
-  <div class="device-status-row"><strong>Status</strong><span class="health-badge {{ cart.health }}">{{ cart.health }}</span></div>
+<section id="p1am-health" class="device-card" data-device-detail="p1am">
+  <div class="device-status-row"><strong>Status</strong><span class="health-badge {{ cart.health }}" data-device-field="health">{{ cart.health }}</span></div>
   <dl class="detail-list">
-    <div><dt>Endpoint</dt><dd>{{ cart.host }}</dd></div><div><dt>Firmware</dt><dd>{{ cart.firmware_version or "—" }}</dd></div>
-    <div><dt>Uptime</dt><dd>{{ (cart.uptime_ms / 1000)|int ~ " seconds" if cart.uptime_ms is not none else "—" }}</dd></div><div><dt>HTTP response</dt><dd>{{ cart.response_time_ms ~ " ms" if cart.response_time_ms is not none else "—" }}</dd></div>
-    <div><dt>Ethernet link</dt><dd>{{ "Linked" if cart.ethernet_link else "Not linked" }}</dd></div>
-    <div><dt>P1 rack <span class="info-tip" tabindex="0" title="One P1 rack; valve outputs target module slot 2.">i</span></dt><dd>{% if cart.p1_initialized %}{{ cart.modules_detected }} I/O modules{% else %}Not initialized{% endif %}</dd></div>
-    <div><dt>Failures</dt><dd>{{ cart.consecutive_failures }}</dd></div><div><dt>Last seen</dt><dd>{{ cart.last_seen or "—" }}</dd></div>
+    <div><dt>Endpoint</dt><dd data-device-field="host">{{ cart.host }}</dd></div><div><dt>Firmware</dt><dd data-device-field="firmware_version">{{ cart.firmware_version or "—" }}</dd></div>
+    <div><dt>Uptime</dt><dd data-device-field="uptime_ms">{{ (cart.uptime_ms / 1000)|int ~ " seconds" if cart.uptime_ms is not none else "—" }}</dd></div><div><dt>HTTP response</dt><dd data-device-field="response_time_ms">{{ cart.response_time_ms ~ " ms" if cart.response_time_ms is not none else "—" }}</dd></div>
+    <div><dt>Ethernet link</dt><dd data-device-field="ethernet_link">{{ "Linked" if cart.ethernet_link else "Not linked" }}</dd></div>
+    <div><dt>P1 rack <span class="info-tip" tabindex="0" title="One P1 rack; valve outputs target module slot 2.">i</span></dt><dd data-device-field="p1_rack">{% if cart.p1_initialized %}{{ cart.modules_detected }} I/O modules{% else %}Not initialized{% endif %}</dd></div>
+    <div><dt>Failures</dt><dd data-device-field="consecutive_failures">{{ cart.consecutive_failures }}</dd></div><div><dt>Last seen</dt><dd data-device-field="last_seen">{{ cart.last_seen or "—" }}</dd></div>
   </dl>
   <div class="device-actions">
     {{ action_button("Rack initialized" if cart.p1_initialized else "Initialize P1 rack", "post", "/ui/cart/initialize", "#p1am-health", disabled=(not cart.connected or cart.p1_initialized or cart.initialization_status == "initializing"), class_name="primary-button initialize-button") }}
     {{ action_button("Restart controller", "post", "/ui/cart/reset", "#p1am-health", disabled=(not cart.connected), class_name="secondary-button reset-controller", confirm="Restart the P1AM controller? Initialized outputs will be closed and the rack must be initialized again.") }}
   </div>
-  <p class="initialization-status">
+  <p class="initialization-status" data-device-field="initialization_status">
     {% if cart.initialization_status == "initializing" %}Searching for P1 modules…
     {% elif cart.initialization_status == "succeeded" %}{{ cart.modules_detected }} I/O modules detected.
     {% elif cart.initialization_status == "failed" %}Initialization failed: {{ cart.initialization_error or "unknown error" }}
     {% endif %}
   </p>
-  {% if cart.reset_message %}<p class="initialization-status">{{ cart.reset_message }}</p>{% endif %}
+  <p class="initialization-status" data-device-field="reset_message">{{ cart.reset_message or "" }}</p>
 </section>

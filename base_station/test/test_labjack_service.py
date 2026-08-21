@@ -22,7 +22,10 @@ class LabJackServiceTests(TestCase):
         service.stream_thread.is_alive.return_value = True
 
         with self.assertRaisesRegex(RuntimeError, "already active"):
-            service.start_stream({"nodes": [], "links": [], "metadata": {"scanRate": 2_000}})
+            service.start_stream(
+                {"nodes": [], "links": []},
+                {"scanRate": 2_000, "resolutionIndex": 0, "settlingUs": 0, "mux80Enabled": False},
+            )
 
         self.assertEqual(dashboard.labjack.scan_rate, 1_000)
 

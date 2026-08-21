@@ -1,62 +1,57 @@
 import '/static/blueprint/index.js';
-import { loadCapabilities, loadConfiguration, saveConfiguration } from './api.js';
+import { loadCapabilities, loadGraph, saveGraph } from './api.js';
 import { createNode } from './catalog.js';
-import { createPalette } from './palette.js';
+import { createPaletteMenus } from './palette.js';
 import { blockingIssues, validateGraph } from './validation.js';
 import { DaqLivePreview, highlightPathToSelection } from './live-preview.js';
 import { decorateNode } from './presentation.js';
 import { patchInlineNode } from './node-editing.js';
 import { daqConnectionAllowed } from './connection-policy.js';
 import { configureSpecDefaults, isPreviewSourceNode } from './node-specs.js';
-import { MetadataControls } from './metadata-controls.js';
 
-const EDITOR_CONTRACT_VERSION = 1;
+const EDITOR_CONTRACT_VERSION = 2;
 
 const editor = document.querySelector('#daq-blueprint');
-const palette = document.querySelector('#daq-palette');
-const issueSummary = document.querySelector('#daq-issue-summary');
 const nodeTools = document.querySelector('#daq-node-tools');
-const acquisitionTools = document.querySelector('#daq-acquisition-tools');
+const issueSummary = document.querySelector('#daq-issue-summary');
 const issueTools = document.querySelector('#daq-issue-tools');
 const issueCount = document.querySelector('#daq-issue-count');
 const saveButton = document.querySelector('#daq-save');
-const reloadButton = document.querySelector('#daq-reload');
 const undoButton = document.querySelector('#daq-undo');
 const redoButton = document.querySelector('#daq-redo');
 const frameButton = document.querySelector('#daq-frame');
 const saveState = document.querySelector('#daq-save-state');
-const scanRate = document.querySelector('#daq-scan-rate');
-const streamResolution = document.querySelector('#daq-stream-resolution');
-const streamSettling = document.querySelector('#daq-stream-settling');
-const signalQuality = document.querySelector('#daq-signal-quality');
 
 let capabilities = null;
+let labjackSettings = {};
 let insertionPoint = null;
 let dirty = false;
 let issues = [];
 let preview = null;
-let metadataControls = null;
+let paletteTools = null;
 
 bootstrap().catch((error) => {
   saveState.textContent = `Failed to load: ${error.message}`;
   saveState.className = 'daq-save-state error';
-  palette.replaceChildren();
+  nodeTools.replaceChildren();
   const message = document.createElement('p');
-  message.className = 'daq-setting-note';
+  message.className = 'daq-tool-message';
   message.textContent = error.message;
-  palette.append(message);
+  nodeTools.append(message);
 });
 
 async function bootstrap() {
-  const [configuration, capabilityPayload] = await Promise.all([
-    loadConfiguration(),
+  const [payload, capabilityPayload] = await Promise.all([
+    loadGraph(),
     loadCapabilities().catch(() => null),
   ]);
-  assertEditorContract(configuration);
-  configureSpecDefaults(configuration.specDefaults);
+  assertEditorContract(payload);
+  configureSpecDefaults(payload.specDefaults);
   capabilities = capabilityPayload;
+  labjackSettings = payload.sourceContext?.labjack ?? {};
+
   editor.nodeDecorator = (node, graph) => {
-    const displayNode = decorateNode(node, graph, capabilities);
+    const displayNode = decorateNode(node, graph, capabilities, labjackSettings);
     displayNode.diagnostics = issues
       .filter((issue) => issue.subject === node.id)
       .sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
@@ -66,22 +61,19 @@ async function bootstrap() {
   editor.connectionPolicy = (source, target, sourceNode, targetNode) => (
     daqConnectionAllowed(source, target, sourceNode, targetNode, editor.graph)
   );
-  editor.graph = configuration.graph;
-  metadataControls = new MetadataControls(editor, [
-    { element: scanRate, key: 'scanRate', valueType: 'number' },
-    { element: streamResolution, key: 'streamResolutionIndex', valueType: 'number' },
-    { element: streamSettling, key: 'streamSettlingUs', valueType: 'number' },
-  ], refreshSaveState);
-  syncAcquisitionControls();
-  createPalette(palette, addNodeFromPalette);
-  preview = new DaqLivePreview(editor);
+  editor.graph = payload.graph;
+
+  paletteTools = createPaletteMenus(nodeTools, addNodeFromPalette, () => {
+    issueTools.open = false;
+  });
+  preview = new DaqLivePreview(editor, labjackSettings);
   bindEvents();
   refreshUi();
   syncPreviewState();
 }
 
-function assertEditorContract(configuration) {
-  if (configuration?.editorContract !== EDITOR_CONTRACT_VERSION || !configuration?.specDefaults) {
+function assertEditorContract(payload) {
+  if (payload?.editorContract !== EDITOR_CONTRACT_VERSION || !payload?.specDefaults) {
     throw new Error('DAQ editor/server versions do not match. Restart the base station.');
   }
 }
@@ -89,8 +81,8 @@ function assertEditorContract(configuration) {
 function bindEvents() {
   editor.addEventListener('blueprint-create-request', (event) => {
     insertionPoint = event.detail.point;
-    openToolMenu(nodeTools);
-    palette.classList.add('awaiting-placement');
+    paletteTools?.closeAll();
+    paletteTools?.markPlacement(true);
   });
   editor.addEventListener('blueprint-selection-change', (event) => {
     highlightPathToSelection(editor, editor.graph, event.detail.nodeIds[0] ?? null);
@@ -101,20 +93,16 @@ function bindEvents() {
     syncPreviewState();
     preview?.refreshSoon();
   });
-  editor.addEventListener('blueprint-inline-draft-change', () => refreshSaveState());
+  editor.addEventListener('blueprint-inline-draft-change', refreshSaveState);
+
   saveButton.addEventListener('click', save);
-  reloadButton.addEventListener('click', reload);
   undoButton.addEventListener('click', () => editor.undo());
   redoButton.addEventListener('click', () => editor.redo());
   frameButton.addEventListener('click', () => editor.fitGraph());
-  for (const menu of [nodeTools, acquisitionTools, issueTools]) {
-    menu.addEventListener('toggle', () => {
-      if (!menu.open) return;
-      for (const other of [nodeTools, acquisitionTools, issueTools]) {
-        if (other !== menu) other.open = false;
-      }
-    });
-  }
+  issueTools.addEventListener('toggle', () => {
+    if (issueTools.open) paletteTools?.closeAll();
+  });
+
   window.addEventListener('keydown', (event) => {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
       event.preventDefault();
@@ -122,7 +110,7 @@ function bindEvents() {
     }
   });
   window.addEventListener('beforeunload', (event) => {
-    if (!dirty && !hasPendingUiEdits()) return;
+    if (!dirty && !editor.hasPendingInlineEdit) return;
     event.preventDefault();
     event.returnValue = '';
   });
@@ -130,11 +118,11 @@ function bindEvents() {
 
 function addNodeFromPalette(nodeType) {
   const point = insertionPoint ?? editorCenterPoint();
-  const node = createNode(nodeType, point, capabilities, editor.graph);
+  const node = createNode(nodeType, point, capabilities, editor.graph, labjackSettings);
   editor.addNode(node);
   insertionPoint = null;
-  palette.classList.remove('awaiting-placement');
-  nodeTools.open = false;
+  paletteTools?.markPlacement(false);
+  paletteTools?.closeAll();
 }
 
 function editorCenterPoint() {
@@ -147,7 +135,7 @@ function editorCenterPoint() {
 }
 
 function refreshUi() {
-  issues = validateGraph(editor.graph);
+  issues = validateGraph(editor.graph, labjackSettings);
   editor.refreshPresentation();
   renderIssues();
   refreshSaveState();
@@ -157,11 +145,10 @@ function refreshUi() {
 
 function refreshSaveState() {
   const errors = blockingIssues(issues);
-  const unsaved = dirty || hasPendingUiEdits();
-  // A pending text/number edit may be correcting the currently reported
-  // validation error. Let it commit on blur; save() validates the graph again.
-  saveButton.disabled = !unsaved || (errors.length > 0 && !hasPendingUiEdits());
-  const showError = errors.length > 0 && !hasPendingUiEdits();
+  const pending = editor.hasPendingInlineEdit;
+  const unsaved = dirty || pending;
+  saveButton.disabled = !unsaved || (errors.length > 0 && !pending);
+  const showError = errors.length > 0 && !pending;
   saveState.textContent = showError
     ? `Error · ${errors[0].message}`
     : unsaved ? 'Unsaved changes' : 'Saved';
@@ -174,8 +161,9 @@ function renderIssues() {
   issueTools.classList.toggle('error', issues.some((issue) => issue.severity === 'error'));
   issueCount.textContent = String(issues.length);
   if (!issues.length) issueTools.open = false;
-  const orderedIssues = [...issues].sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
-  for (const issue of orderedIssues) {
+
+  const ordered = [...issues].sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
+  for (const issue of ordered) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = `daq-issue-item ${issue.severity}`;
@@ -190,7 +178,7 @@ function renderIssues() {
 }
 
 function issueSubjectLabel(subject) {
-  if (subject === 'graph') return 'Acquisition';
+  if (subject === 'graph') return 'Graph';
   const node = editor.graph.nodes.find((candidate) => candidate.id === subject);
   if (!node) return subject;
   const channel = node.config?.channel;
@@ -198,15 +186,7 @@ function issueSubjectLabel(subject) {
 }
 
 function focusIssue(issue) {
-  if (issue.subject === 'graph') {
-    openToolMenu(acquisitionTools);
-    const target = issue.message.toLowerCase().includes('resolution')
-      ? streamResolution
-      : issue.message.toLowerCase().includes('settling') ? streamSettling : scanRate;
-    if (target !== scanRate) signalQuality.open = true;
-    target.focus({ preventScroll: true });
-    return;
-  }
+  if (issue.subject === 'graph') return editor.fitGraph();
   if (!editor.graph.nodes.some((node) => node.id === issue.subject)) return;
   editor.selectNode(issue.subject);
   requestAnimationFrame(() => editor.frameNode(issue.subject));
@@ -214,34 +194,20 @@ function focusIssue(issue) {
 
 async function save() {
   editor.flushInlineEdit();
-  metadataControls?.flush();
-  const errors = blockingIssues(validateGraph(editor.graph));
+  const errors = blockingIssues(validateGraph(editor.graph, labjackSettings));
   if (errors.length) return refreshUi();
   saveButton.disabled = true;
   saveState.textContent = 'Saving…';
   try {
-    const result = await saveConfiguration(editor.graph);
+    const result = await saveGraph(editor.graph);
     dirty = false;
     issues = result.issues ?? [];
     editor.adoptGraph(result.graph);
-    syncAcquisitionControls();
     refreshUi();
   } catch (error) {
-    saveState.textContent = error.detail?.issues?.[0]?.message ?? error.message;
+    saveState.textContent = issueMessage(error) ?? error.message;
     saveState.className = 'daq-save-state error';
   }
-}
-
-async function reload() {
-  if ((dirty || hasPendingUiEdits()) && !window.confirm('Discard unsaved DAQ configuration changes?')) return;
-  const payload = await loadConfiguration();
-  configureSpecDefaults(payload.specDefaults);
-  editor.graph = payload.graph;
-  syncAcquisitionControls();
-  dirty = false;
-  refreshUi();
-  syncPreviewState();
-  preview?.refreshSoon();
 }
 
 function syncPreviewState() {
@@ -251,20 +217,9 @@ function syncPreviewState() {
   else preview.stop();
 }
 
-function syncAcquisitionControls() {
-  const metadata = editor.graph.metadata ?? {};
-  metadataControls?.sync(metadata);
-  signalQuality.open = Number(streamResolution.value) !== 0 || Number(streamSettling.value) > 0;
-}
-
-function hasPendingUiEdits() {
-  return editor.hasPendingInlineEdit || Boolean(metadataControls?.hasPending);
-}
-
-function openToolMenu(menu) {
-  for (const other of [nodeTools, acquisitionTools, issueTools]) {
-    other.open = other === menu;
-  }
+function issueMessage(error) {
+  const issue = error.detail?.issues?.[0];
+  return typeof issue === 'string' ? issue : issue?.message;
 }
 
 function severityRank(severity) {

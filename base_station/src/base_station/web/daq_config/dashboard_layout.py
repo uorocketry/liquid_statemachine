@@ -1,4 +1,4 @@
-"""Canonical dashboard layout metadata for operator widgets."""
+"""Canonical dashboard layout for operator widgets."""
 
 from __future__ import annotations
 
@@ -23,10 +23,9 @@ MIN_SIZES = {
 }
 
 
-def normalize_dashboard_layout(graph: dict) -> None:
+def normalize_dashboard_layout(graph: dict, layout: object) -> dict:
     """Keep one bounded layout entry per dashboard node with stable z-order."""
-    metadata = graph.setdefault("metadata", {})
-    source_layout = metadata.get("dashboardLayout")
+    source_layout = layout if isinstance(layout, dict) else {}
     source_items = source_layout.get("items", {}) if isinstance(source_layout, dict) else {}
     if not isinstance(source_items, dict):
         source_items = {}
@@ -54,7 +53,7 @@ def normalize_dashboard_layout(graph: dict) -> None:
 
     _place_missing_items(items, missing)
     _normalize_z(items, order)
-    metadata["dashboardLayout"] = {"items": items}
+    return {"items": items}
 
 
 def _normalize_item(
@@ -116,6 +115,7 @@ def _bounded_int(value: object, fallback: int, minimum: int, maximum: int) -> in
     return max(minimum, min(maximum, number))
 
 
-def copy_layout(graph: dict) -> dict:
+def copy_layout(layout: object) -> dict:
     """Return a detached layout payload for API responses."""
-    return deepcopy(graph.get("metadata", {}).get("dashboardLayout", {"items": {}}))
+    source = layout if isinstance(layout, dict) else {"items": {}}
+    return deepcopy(source)

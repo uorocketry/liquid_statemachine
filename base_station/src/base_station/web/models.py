@@ -78,6 +78,23 @@ class DashboardState:
                 "logs": list(self.logs),
             }
 
+    def navigation_status(self) -> dict[str, dict[str, str]]:
+        """Small stable status payload used by the global sidebar stream."""
+        with self.lock:
+            return {
+                "p1am": {"status": self.cart.health},
+                "labjack": {"status": "online" if self.labjack.connected else "offline"},
+            }
+
+    def device_status(self, device_id: str) -> dict[str, Any] | None:
+        """Return one detached detail snapshot for a device page."""
+        with self.lock:
+            if device_id == "p1am":
+                return asdict(self.cart)
+            if device_id == "labjack":
+                return asdict(self.labjack)
+        return None
+
     def log_snapshot(
         self, level: str | None = None, component: str | None = None, limit: int = 200
     ) -> list[dict[str, str | int]]:

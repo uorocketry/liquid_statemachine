@@ -15,22 +15,31 @@
     <script src="/static/vendor/htmx-2.0.10.min.js" defer></script>
   </head>
   <body>
-    <div id="site-shell" class="site-shell">
+    <div id="site-shell" class="site-shell" data-active-device="{{ active_device or '' }}">
       <aside id="site-sidebar" class="site-sidebar">
         <div class="site-sidebar-scroll">
           <div class="site-brand">
             <strong>FillCart</strong>
           </div>
-          <section class="site-sidebar-section site-status-section">
-            <h2>Devices</h2>
-            {% include "fragments/system_status.html" %}
-          </section>
-          <nav class="site-sidebar-section site-nav" aria-label="Primary navigation">
-            <a class="{% if active_page == 'dashboard' %}active{% endif %}" href="/"><span class="site-nav-icon icon-dashboard" aria-hidden="true"></span><span>Dashboard</span></a>
-            <a class="{% if active_page == 'state' %}active{% endif %}" href="/state"><span class="site-nav-icon icon-state-machine" aria-hidden="true"></span><span>State Machine</span></a>
-            <a class="{% if active_page == 'configuration' %}active{% endif %}" href="/configuration"><span class="site-nav-icon icon-daq" aria-hidden="true"></span><span>DAQ Graph</span></a>
-            <a class="{% if active_page == 'runs' %}active{% endif %}" href="/runs"><span class="site-nav-icon icon-runs" aria-hidden="true"></span><span>Runs</span></a>
-            <a class="{% if active_page == 'logs' %}active{% endif %}" href="/logs"><span class="site-nav-icon icon-logs" aria-hidden="true"></span><span>Logs</span></a>
+          <nav class="site-sidebar-nav" aria-label="Sidebar navigation">
+            <section class="site-sidebar-section site-status-section">
+              <h2>Devices</h2>
+              <div class="status-cluster">
+                <a href="/devices/p1am" data-device-status="p1am" class="service-status {{ cart.health }}{% if active_device == 'p1am' %} active{% endif %}">
+                  <span class="device-nav-icon arduino-icon" aria-hidden="true"></span><b>P1AM</b><em>{{ cart.health }}</em>
+                </a>
+                <a href="/devices/labjack" data-device-status="labjack" class="service-status {{ 'online' if labjack.connected else 'offline' }}{% if active_device == 'labjack' %} active{% endif %}">
+                  <span class="device-nav-icon labjack-icon" aria-hidden="true"></span><b>LabJack</b><em>{{ 'online' if labjack.connected else 'offline' }}</em>
+                </a>
+              </div>
+            </section>
+            <div class="site-sidebar-section site-nav">
+              <a class="{% if active_page == 'dashboard' %}active{% endif %}" href="/"><span class="site-nav-icon icon-dashboard" aria-hidden="true"></span><span>Dashboard</span></a>
+              <a class="{% if active_page == 'state' %}active{% endif %}" href="/state"><span class="site-nav-icon icon-state-machine" aria-hidden="true"></span><span>State Machine</span></a>
+              <a class="{% if active_page == 'configuration' %}active{% endif %}" href="/configuration"><span class="site-nav-icon icon-daq" aria-hidden="true"></span><span>DAQ Graph</span></a>
+              <a class="{% if active_page == 'runs' %}active{% endif %}" href="/runs"><span class="site-nav-icon icon-runs" aria-hidden="true"></span><span>Runs</span></a>
+              <a class="{% if active_page == 'logs' %}active{% endif %}" href="/logs"><span class="site-nav-icon icon-logs" aria-hidden="true"></span><span>Logs</span></a>
+            </div>
           </nav>
         </div>
         <div class="site-sidebar-footer">

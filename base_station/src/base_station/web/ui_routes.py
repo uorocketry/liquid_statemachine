@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse, Response, StreamingResponse
@@ -11,7 +11,6 @@ from fastapi.templating import Jinja2Templates
 
 from base_station.web.cart_service import CartService, STATE_NAMES
 from base_station.web.daq_config.repository import DaqConfigRepository
-from base_station.web.daq_config.schema import normalize_graph
 from base_station.web.labjack_service import LabJackService
 from base_station.web.models import DashboardState
 from base_station.web.run_repository import RunRepository
@@ -42,10 +41,6 @@ def build_ui_router(
 
     def context(request: Request) -> dict:
         path = request.url.path
-        if path == "/fragments/system-status":
-            current_url = request.headers.get("HX-Current-URL")
-            if current_url:
-                path = urlparse(current_url).path
         active_device = path.removeprefix("/devices/") if path.startswith("/devices/") else None
         return {
             "request": request,
@@ -56,14 +51,18 @@ def build_ui_router(
         }
 
     def configured_graph() -> dict:
-        return normalize_graph(daq_config.load())
+        return daq_config.load()["graph"]
+
+    def configured_labjack_settings() -> dict:
+        return daq_config.load()["sources"]["labjack"]
 
     def configured_scan_rate() -> int:
-        return int(configured_graph().get("metadata", {}).get("scanRate", 1000))
+        return int(configured_labjack_settings().get("scanRate", 1000))
 
     def labjack_context(request: Request) -> dict:
         values = context(request)
         values["configured_scan_rate"] = configured_scan_rate()
+        values["labjack_settings"] = configured_labjack_settings()
         return values
 
     def cart_fragment(request: Request):
@@ -92,7 +91,7 @@ def build_ui_router(
 
     @router.get("/devices/labjack", include_in_schema=False)
     def labjack_device(request: Request):
-        return templates.TemplateResponse(request, "device_labjack.html", context(request))
+        return templates.TemplateResponse(request, "device_labjack.html", labjack_context(request))
 
     @router.get("/logs", include_in_schema=False)
     def log_list(request: Request):
@@ -144,21 +143,9 @@ def build_ui_router(
     def get_cart_fragment(request: Request):
         return cart_fragment(request)
 
-    @router.get("/fragments/system-status", include_in_schema=False)
-    def system_status_fragment(request: Request):
-        return templates.TemplateResponse(request, "fragments/system_status.html", context(request))
-
     @router.get("/fragments/labjack", include_in_schema=False)
     def get_labjack_fragment(request: Request):
         return labjack_fragment(request)
-
-    @router.get("/fragments/p1am-health", include_in_schema=False)
-    def get_p1am_health_fragment(request: Request):
-        return p1am_health_fragment(request)
-
-    @router.get("/fragments/labjack-health", include_in_schema=False)
-    def labjack_health_fragment(request: Request):
-        return templates.TemplateResponse(request, "fragments/labjack_health.html", context(request))
 
     @router.get("/fragments/labjack-connection", include_in_schema=False)
     def get_labjack_connection_fragment(request: Request):
@@ -219,7 +206,7 @@ def build_ui_router(
     @router.post("/ui/labjack/stream/start", include_in_schema=False)
     def start_stream_ui(request: Request):
         try:
-            labjack.start_stream(configured_graph())
+            labjack.start_stream(configured_graph(), configured_labjack_settings())
         except (RuntimeError, ValueError) as error:
             dashboard.log(f"LabJack stream failed: {error}", "error", "labjack")
         return labjack_fragment(request)

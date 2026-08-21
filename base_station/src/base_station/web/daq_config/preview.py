@@ -18,11 +18,17 @@ if TYPE_CHECKING:
     from base_station.web.labjack_service import LabJackService
 
 
-def preview_graph(service: LabJackService, graph: dict, *, now_s: float | None = None) -> dict:
-    values, errors = read_physical_sources(service, graph)
+def preview_graph(
+    service: LabJackService,
+    graph: dict,
+    labjack_settings: dict,
+    *,
+    now_s: float | None = None,
+) -> dict:
+    values, errors = read_physical_sources(service, graph, labjack_settings)
     incoming = _incoming_links(graph)
     timestamp = monotonic() if now_s is None else float(now_s)
-    sample_rate_hz = float(graph.get("metadata", {}).get("scanRate", 1000))
+    sample_rate_hz = float(labjack_settings.get("scanRate", 1000))
     pending = {
         node["id"]: node
         for node in graph.get("nodes", [])

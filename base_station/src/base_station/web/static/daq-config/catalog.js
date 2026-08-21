@@ -20,9 +20,10 @@ export const NODE_CATALOG = [...HARDWARE_NODE_CATALOG, ...SPEC_NODE_CATALOG];
  * @param {{x:number,y:number}} point
  * @param {Object} capabilities
  * @param {Object} graph
+ * @param {Object} labjackSettings
  * @returns {BlueprintNode}
  */
-export function createNode(nodeType, point, capabilities, graph) {
+export function createNode(nodeType, point, capabilities, graph, labjackSettings = {}) {
   const definition = NODE_CATALOG.find((item) => item.type === nodeType);
   if (!definition) throw new Error(`Unknown DAQ node type: ${nodeType}`);
   const id = uniqueNodeId(graph, nodeType);
@@ -40,7 +41,7 @@ export function createNode(nodeType, point, capabilities, graph) {
   if (specNode) return specNode;
 
   if (nodeType === 'labjack-channel') {
-    const source = sourceDefaults(capabilities, graph);
+    const source = sourceDefaults(capabilities, graph, labjackSettings);
     return {
       ...common,
       badge: source.channel,
@@ -49,7 +50,7 @@ export function createNode(nodeType, point, capabilities, graph) {
     };
   }
   if (nodeType === 'labjack-channel-pair') {
-    const source = pairDefaults(capabilities, graph);
+    const source = pairDefaults(capabilities, graph, labjackSettings);
     return {
       ...common,
       badge: `${source.channel} / ${differentialNegative(source.channel)}`,
@@ -111,34 +112,26 @@ export function createNode(nodeType, point, capabilities, graph) {
   throw new Error(`No node factory for DAQ node type: ${nodeType}`);
 }
 
-function sourceDefaults(capabilities, graph) {
-  const muxEnabled = Boolean(graph?.metadata?.mux80Enabled);
+function sourceDefaults(capabilities, graph, labjackSettings) {
+  const muxEnabled = Boolean(labjackSettings?.mux80Enabled);
   const channels = availableChannels(capabilities, muxEnabled);
   const used = new Set((graph?.nodes ?? [])
     .filter((node) => node.nodeType === 'labjack-channel')
     .map((node) => node.config?.channel)
     .filter(Boolean));
   const channel = channels.find((candidate) => !used.has(candidate)) ?? channels[0] ?? 'AIN0';
-  return {
-    deviceSerial: capabilities?.device?.serial_number ?? null,
-    deviceIp: capabilities?.device?.ip ?? '192.168.8.51',
-    channel,
-  };
+  return { channel };
 }
 
-function pairDefaults(capabilities, graph) {
-  const muxEnabled = Boolean(graph?.metadata?.mux80Enabled);
+function pairDefaults(capabilities, graph, labjackSettings) {
+  const muxEnabled = Boolean(labjackSettings?.mux80Enabled);
   const channels = differentialPositiveChannels(capabilities, muxEnabled);
   const used = new Set((graph?.nodes ?? [])
     .filter((node) => node.nodeType === 'labjack-channel-pair')
     .map((node) => node.config?.channel)
     .filter(Boolean));
   const channel = channels.find((candidate) => !used.has(candidate)) ?? channels[0] ?? 'AIN0';
-  return {
-    deviceSerial: capabilities?.device?.serial_number ?? null,
-    deviceIp: capabilities?.device?.ip ?? '192.168.8.51',
-    channel,
-  };
+  return { channel };
 }
 
 function measurementDefaults() {

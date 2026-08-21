@@ -11,9 +11,10 @@ const HARDWARE_NODE_TYPES = new Set([
 /**
  * Fast client-side checks. The server repeats authoritative validation on save.
  * @param {Object} graph
+ * @param {Object} labjackSettings
  * @returns {{severity:'error'|'warning',subject:string,message:string}[]}
  */
-export function validateGraph(graph) {
+export function validateGraph(graph, labjackSettings = {}) {
   const issues = [];
   const nodes = graph?.nodes ?? [];
   const incoming = new Map();
@@ -21,7 +22,7 @@ export function validateGraph(graph) {
     incoming.set(`${link.toNode}:${link.toPin}`, link);
   }
   validateLinks(graph, issues);
-  const mux = Boolean(graph?.metadata?.mux80Enabled);
+  const mux = Boolean(labjackSettings?.mux80Enabled);
   const usedSources = new Map();
 
   for (const node of nodes) {
@@ -70,19 +71,6 @@ export function validateGraph(graph) {
       if (!(Number(excitation) > 0)) issues.push(issue('error', node.id, 'Load cell excitation must be positive'));
     }
   }
-  const metadata = graph?.metadata ?? {};
-  const scanRate = numericMetadata(metadata, 'scanRate', 1000);
-  if (!Number.isInteger(scanRate) || scanRate < 1 || scanRate > 100000) {
-    issues.push(issue('error', 'graph', 'Scan rate must be between 1 and 100,000 samples/s'));
-  }
-  const resolution = numericMetadata(metadata, 'streamResolutionIndex', 0);
-  if (!Number.isInteger(resolution) || resolution < 0 || resolution > 8) {
-    issues.push(issue('error', 'graph', 'Stream resolution must be Auto or index 1 through 8'));
-  }
-  const settling = numericMetadata(metadata, 'streamSettlingUs', 0);
-  if (!Number.isFinite(settling) || settling < 0) {
-    issues.push(issue('error', 'graph', 'Stream settling time cannot be negative'));
-  }
   return issues;
 }
 
@@ -121,7 +109,7 @@ function validateChannel(node, mux, usedSources, issues) {
       issues.push(issue('error', node.id, `${channel ?? 'Channel'} cannot start a differential pair`));
     }
   }
-  const key = `${node.config?.deviceSerial ?? 'T7'}:${channel}`;
+  const key = channel;
   const previous = usedSources.get(key);
   if (previous && previous !== node.id) {
     issues.push(issue('warning', node.id, `${channel} is also referenced by ${previous}`));
@@ -186,13 +174,6 @@ function issue(severity, subject, message) {
 
 export function blockingIssues(issues) {
   return issues.filter((item) => item.severity === 'error');
-}
-
-function numericMetadata(metadata, key, fallback) {
-  const value = metadata?.[key];
-  if (value === undefined) return fallback;
-  if (value === null || value === '' || typeof value === 'boolean') return Number.NaN;
-  return Number(value);
 }
 
 function requiredNumber(value) {

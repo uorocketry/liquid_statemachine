@@ -1,49 +1,44 @@
-# DAQ configuration
+# DAQ Graph browser modules
 
-Browser modules for `/configuration`. The graph is saved through FastAPI and
-edited directly on nodes.
+Browser code for `/configuration` owns **graph topology only**. LabJack
+acquisition policy is edited on `/devices/labjack`; Dashboard frame geometry is
+edited on the Dashboard. Those domains have separate API transactions.
 
-Page-specific controls are kept out of the global site sidebar. Nodes,
-acquisition settings, validation issues, history, framing, reload, and save live
-in the graph's bottom toolbar/popovers.
+## Node creation
 
-## Nodes
+`palette.js` owns the toolbar category registry and builds the category menus at
+runtime. Current groups are LabJack inputs, Sensor transforms, Math +
+Simulation, and Dashboard outputs. Add or reorganize a toolbar category there
+rather than duplicating menu markup in the Jinja template.
 
-- channel / channel pair;
-- analog current and voltage inputs;
-- thermocouple;
-- pressure calibration;
-- load cell;
-- simulation sine wave;
-- constant, add, subtract, gain, moving average, rate-of-change;
-- dashboard Number, Gauge, and Time plot sinks.
+`catalog.js` owns hardware-node factories. `node-specs.js` owns declarative
+simulation/math/dashboard node presentation and receives its persisted defaults
+from the server at bootstrap. `presentation.js` adds hardware-specific inline
+controls and inferred units.
 
-Linkable settings use literal-or-link inputs: type a value on the node or wire a
-compatible output into the pin. Units propagate through derived nodes where
-possible.
+## Editing and save lifecycle
 
-## Modules
+`app.js` owns page lifecycle, dirty state, graph validation, undo/redo/frame,
+and canonical graph saves. There is intentionally no explicit Reload/Discard
+button: normal navigation/reload uses the browser's unsaved-changes guard to
+confirm discarding edits.
 
-- `app.js` — page lifecycle and save state.
-- `catalog.js` — node factories.
-- `presentation.js` — inline controls and inferred units.
-- `validation.js` — browser validation.
-- `live-preview.js` — low-rate preview/path highlighting.
-- `metadata-controls.js` — shared draft/commit handling for acquisition settings.
-- `api.js` — FastAPI client.
-
-The reusable DOM/editor code lives in `static/blueprint/`.
+The Blueprint editor owns pending text/number drafts. `Cmd/Ctrl+S` or Save
+flushes the pending draft before validation. The server returns the exact graph
+it stored, and the editor adopts it. Do not recreate separate pending-edit
+state in DAQ Graph code.
 
 ## Preview
 
-When the LabJack is connected and idle, preview reads configured inputs through
-the existing LJM handle. A graph containing a simulation sine-wave source can
-also preview while the LabJack is disconnected. Preview does not write power-up
-defaults. Thermocouples use raw AIN voltage plus device cold-junction
-temperature and host LJM conversion.
+`live-preview.js` owns one WebSocket to `/api/daq/preview/ws`. The browser sends
+the current unsaved graph when it changes; the server continuously returns
+preview values while that graph is valid. LabJack settings arrive as read-only
+source context and are never written by this page. Simulation sources can
+preview without connected hardware.
 
-MUX80 channel rules remain supported in the model but are not exposed in the
-normal UI until that optional hardware is needed.
+This bidirectional editor preview is intentionally separate from server-owned
+Dashboard telemetry, which uses SSE. Do not turn either stream back into
+periodic HTTP polling.
 
-Stream resolution and settling are graph-wide acquisition settings. Analog
-input range remains node-specific.
+The reusable editor implementation remains in `static/blueprint/`; keep it
+domain-neutral.

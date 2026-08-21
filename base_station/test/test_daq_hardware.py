@@ -10,6 +10,16 @@ from base_station.web.daq_config import labjack_source as hardware, preview
 from base_station.web.models import DashboardState
 
 
+def labjack_settings(**overrides) -> dict:
+    return {
+        "scanRate": 1000,
+        "resolutionIndex": 0,
+        "settlingUs": 0.0,
+        "mux80Enabled": False,
+        **overrides,
+    }
+
+
 class DaqHardwareTests(TestCase):
     def setUp(self) -> None:
         self.dashboard = DashboardState()
@@ -37,11 +47,12 @@ class DaqHardwareTests(TestCase):
             "links": [
                 {"fromNode": "pair", "toNode": "pt", "toPin": "channel"},
             ],
-            "metadata": {"streamResolutionIndex": 3, "streamSettlingUs": 20},
         }
         self.sdk.eReadName.return_value = 0.047
         with patch.object(hardware, "_sdk", return_value=(self.sdk, self.constants)):
-            values, errors = hardware.read_physical_sources(self.service, graph)
+            values, errors = hardware.read_physical_sources(
+                self.service, graph, labjack_settings(resolutionIndex=3, settlingUs=20)
+            )
 
         self.assertEqual(errors, [])
         self.assertAlmostEqual(values["pt"]["value"], 0.047)
@@ -59,11 +70,10 @@ class DaqHardwareTests(TestCase):
                 {"id": "input", "nodeType": "labjack-ain", "config": {"rangeV": 1}},
             ],
             "links": [{"fromNode": "ain", "toNode": "input", "toPin": "channel"}],
-            "metadata": {"streamResolutionIndex": 0, "streamSettlingUs": 0},
         }
         self.sdk.eReadName.return_value = 0.25
         with patch.object(hardware, "_sdk", return_value=(self.sdk, self.constants)):
-            hardware.read_physical_sources(self.service, graph)
+            hardware.read_physical_sources(self.service, graph, labjack_settings())
         self.assertEqual(self.sdk.eWriteNames.call_args.args[3][2:], [1, 0.0])
 
     def test_current_preview_uses_configured_shunt(self) -> None:
@@ -80,7 +90,7 @@ class DaqHardwareTests(TestCase):
         }
         self.sdk.eReadName.return_value = 5.0
         with patch.object(hardware, "_sdk", return_value=(self.sdk, self.constants)):
-            values, _ = hardware.read_physical_sources(self.service, graph)
+            values, _ = hardware.read_physical_sources(self.service, graph, labjack_settings())
         self.assertAlmostEqual(values["current"]["value"], 0.020)
         self.assertEqual(values["current"]["unit"], "A")
 
@@ -100,7 +110,7 @@ class DaqHardwareTests(TestCase):
         self.sdk.eReadName.side_effect = [0.0012, 296.5]
         self.sdk.tcVoltsToTemp.return_value = 326.4
         with patch.object(hardware, "_sdk", return_value=(self.sdk, self.constants)):
-            values, _ = hardware.read_physical_sources(self.service, graph)
+            values, _ = hardware.read_physical_sources(self.service, graph, labjack_settings())
         self.assertEqual(values["tc"]["unit"], "K")
         self.assertAlmostEqual(values["tc"]["value"], 326.4)
         self.sdk.tcVoltsToTemp.assert_called_once_with(6004, 0.0012, 296.5)
@@ -123,7 +133,7 @@ class DaqHardwareTests(TestCase):
             preview, "read_physical_sources",
             return_value=({"source": {"value": 0.012, "unit": "A"}}, []),
         ):
-            result = preview.preview_graph(self.service, graph)
+            result = preview.preview_graph(self.service, graph, labjack_settings())
         self.assertAlmostEqual(result["values"]["scale"]["value"], 500.0)
         self.assertAlmostEqual(result["values"]["display"]["value"], 500.0)
 
@@ -142,13 +152,12 @@ class DaqHardwareTests(TestCase):
             ],
         }
         with patch.object(preview, "read_physical_sources", return_value=({}, [])):
-            result = preview.preview_graph(self.service, graph)
+            result = preview.preview_graph(self.service, graph, labjack_settings())
         self.assertAlmostEqual(result["values"]["load"]["value"], 100.0)
         self.assertEqual(result["values"]["load"]["unit"], "kg")
 
     def test_preview_evaluates_simulation_math_without_hardware_values(self) -> None:
         graph = {
-            "metadata": {"scanRate": 1000},
             "nodes": [
                 {"id": "sine", "nodeType": "sine-wave", "config": {
                     "amplitude": 2.0, "periodS": 4.0, "offset": 10.0,
@@ -172,7 +181,7 @@ class DaqHardwareTests(TestCase):
             preview, "read_physical_sources",
             return_value=({}, ["LabJack T7 is not connected"]),
         ):
-            result = preview.preview_graph(self.service, graph, now_s=1.0)
+            result = preview.preview_graph(self.service, graph, labjack_settings(), now_s=1.0)
         self.assertAlmostEqual(result["values"]["sine"]["value"], 12.0)
         self.assertAlmostEqual(result["values"]["gain"]["value"], 6.0)
         self.assertAlmostEqual(result["values"]["sum"]["value"], 7.0)
@@ -182,7 +191,6 @@ class DaqHardwareTests(TestCase):
 
     def test_stream_plan_and_batches_are_graph_driven(self) -> None:
         graph = {
-            "metadata": {"scanRate": 2000, "streamResolutionIndex": 4, "streamSettlingUs": 12},
             "nodes": [
                 {"id": "pair", "nodeType": "labjack-channel-pair", "config": {"channel": "AIN0"}},
                 {"id": "voltage", "nodeType": "labjack-ain", "config": {"rangeV": 0.1}},
@@ -196,7 +204,8 @@ class DaqHardwareTests(TestCase):
                 {"fromNode": "shunt", "toNode": "current", "toPin": "shunt"},
             ],
         }
-        plan = hardware.compile_stream_plan(graph)
+        settings = labjack_settings(scanRate=2000, resolutionIndex=4, settlingUs=12)
+        plan = hardware.compile_stream_plan(graph, settings)
         self.assertEqual(plan.scan_rate, 2000)
         self.assertEqual([signal.id for signal in plan.signals], ["voltage", "current"])
         self.assertEqual([channel.name for channel in plan.channels], ["AIN0", "AIN2"])
@@ -221,7 +230,6 @@ class DaqHardwareTests(TestCase):
 
     def test_stream_plan_rejects_invalid_source_parameters(self) -> None:
         current_graph = {
-            "metadata": {"scanRate": 1000, "streamResolutionIndex": 0, "streamSettlingUs": 0},
             "nodes": [
                 {"id": "channel", "nodeType": "labjack-channel", "config": {"channel": "AIN0"}},
                 {"id": "current", "nodeType": "labjack-current", "config": {"rangeV": 10, "shuntOhms": None}},
@@ -229,10 +237,9 @@ class DaqHardwareTests(TestCase):
             "links": [{"fromNode": "channel", "toNode": "current", "toPin": "channel"}],
         }
         with self.assertRaisesRegex(ValueError, "Shunt resistance"):
-            hardware.compile_stream_plan(current_graph)
+            hardware.compile_stream_plan(current_graph, labjack_settings())
 
         thermocouple_graph = {
-            "metadata": {"scanRate": 1000, "streamResolutionIndex": 0, "streamSettlingUs": 0},
             "nodes": [
                 {"id": "pair", "nodeType": "labjack-channel-pair", "config": {"channel": "AIN0"}},
                 {"id": "tc", "nodeType": "labjack-thermocouple", "config": {"rangeV": 0.01, "thermocoupleType": ""}},
@@ -240,13 +247,12 @@ class DaqHardwareTests(TestCase):
             "links": [{"fromNode": "pair", "toNode": "tc", "toPin": "pair"}],
         }
         with self.assertRaisesRegex(ValueError, "thermocouple type"):
-            hardware.compile_stream_plan(thermocouple_graph)
+            hardware.compile_stream_plan(thermocouple_graph, labjack_settings())
 
-        invalid_rate = deepcopy(current_graph)
-        invalid_rate["nodes"][1]["config"]["shuntOhms"] = 250
-        invalid_rate["metadata"]["scanRate"] = 1000.5
+        valid_graph = deepcopy(current_graph)
+        valid_graph["nodes"][1]["config"]["shuntOhms"] = 250
         with self.assertRaisesRegex(ValueError, "Scan rate must be an integer"):
-            hardware.compile_stream_plan(invalid_rate)
+            hardware.compile_stream_plan(valid_graph, labjack_settings(scanRate=1000.5))
 
 
 if __name__ == "__main__":

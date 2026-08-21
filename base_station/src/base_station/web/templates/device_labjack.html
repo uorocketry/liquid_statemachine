@@ -5,5 +5,45 @@
 <main class="page device-page">
   {% include "fragments/labjack_health.html" %}
   {% include "fragments/labjack_connection.html" %}
+  <section id="labjack-acquisition-settings" class="connection-settings source-settings">
+    <div class="section-heading compact"><h2>Acquisition settings</h2></div>
+    <div class="source-settings-grid">
+      <label class="field">
+        <span>Scan rate</span>
+        <span class="source-setting-value">
+          <input id="labjack-scan-rate" type="number" min="1" max="100000" step="1" value="{{ labjack_settings.scanRate }}" />
+          <em>samples/s</em>
+        </span>
+      </label>
+      <label class="field">
+        <span>Resolution</span>
+        <select id="labjack-resolution-index">
+          <option value="0"{% if labjack_settings.resolutionIndex == 0 %} selected{% endif %}>Auto</option>
+          {% for index in range(1, 9) %}<option value="{{ index }}"{% if labjack_settings.resolutionIndex == index %} selected{% endif %}>{{ index }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="field">
+        <span>Settling</span>
+        <span class="source-setting-value">
+          <input id="labjack-settling-us" type="number" min="0" step="1" value="{{ labjack_settings.settlingUs }}" />
+          <em>µs</em>
+        </span>
+      </label>
+      <fieldset class="source-boolean-field">
+        <legend>MUX80</legend>
+        <label><input type="radio" name="labjack-mux80" value="false"{% if not labjack_settings.mux80Enabled %} checked{% endif %} />False</label>
+        <label><input type="radio" name="labjack-mux80" value="true"{% if labjack_settings.mux80Enabled %} checked{% endif %} />True</label>
+      </fieldset>
+    </div>
+    <div class="source-settings-actions">
+      <button id="labjack-settings-save" class="secondary-button" type="button" disabled>Save settings</button>
+      <span id="labjack-settings-state" class="device-note" aria-live="polite">Saved</span>
+    </div>
+    <p class="device-note">These settings apply to preview and the next acquisition. An active run keeps the stream plan it started with.</p>
+  </section>
 </main>
+{% endblock %}
+{% block scripts %}
+<script type="module" src="/static/device-status.js"></script>
+<script type="module" src="/static/labjack-settings.js"></script>
 {% endblock %}

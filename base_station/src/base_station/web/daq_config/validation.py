@@ -22,7 +22,7 @@ SUPPORTED_NODE_TYPES = SPEC_NODE_TYPES | HARDWARE_NODE_TYPES
 VALID_RANGES = {10.0, 1.0, 0.1, 0.01}
 
 
-def validate_graph(graph: object) -> list[dict[str, str]]:
+def validate_graph(graph: object, labjack_settings: object | None = None) -> list[dict[str, str]]:
     issues: list[dict[str, str]] = []
     if not isinstance(graph, dict):
         return [_issue("graph", "Configuration must be a JSON object")]
@@ -32,17 +32,6 @@ def validate_graph(graph: object) -> list[dict[str, str]]:
         return [_issue("graph", "Configuration requires nodes[] and links[]")]
     if len(nodes) > 250 or len(links) > 500:
         issues.append(_issue("graph", "Configuration is larger than the supported editor limit"))
-    metadata = graph.get("metadata") if isinstance(graph.get("metadata"), dict) else {}
-    scan_rate = metadata.get("scanRate", 1000)
-    if not _integer_number(scan_rate) or not 1 <= int(scan_rate) <= 100_000:
-        issues.append(_issue("graph", "Scan rate must be between 1 and 100,000 samples/s"))
-    resolution = metadata.get("streamResolutionIndex", 0)
-    if not _integer_number(resolution) or int(resolution) not in range(9):
-        issues.append(_issue("graph", "Stream resolution must be Auto or index 1 through 8"))
-    settling = metadata.get("streamSettlingUs", 0)
-    if not _finite_number(settling) or float(settling) < 0:
-        issues.append(_issue("graph", "Stream settling time cannot be negative"))
-
     node_map: dict[str, dict] = {}
     for node in nodes:
         if not isinstance(node, dict) or not isinstance(node.get("id"), str):
@@ -65,7 +54,8 @@ def validate_graph(graph: object) -> list[dict[str, str]]:
     issues.extend(validate_link_types(graph))
 
     incoming = _incoming_links(links)
-    mux_enabled = bool(metadata.get("mux80Enabled", False))
+    settings = labjack_settings if isinstance(labjack_settings, dict) else {}
+    mux_enabled = bool(settings.get("mux80Enabled", False))
     for node in nodes:
         if not isinstance(node, dict):
             continue
@@ -83,6 +73,27 @@ def validate_graph(graph: object) -> list[dict[str, str]]:
 
 def blocking_issues(issues: list[dict[str, str]]) -> list[dict[str, str]]:
     return [issue for issue in issues if issue.get("severity") == "error"]
+
+
+def validate_labjack_graph_compatibility(
+    graph: object,
+    labjack_settings: object,
+) -> list[dict[str, str]]:
+    """Validate only graph constraints affected by LabJack-wide settings."""
+    if not isinstance(graph, dict):
+        return [_issue("graph", "Configuration must be a JSON object")]
+    nodes = graph.get("nodes")
+    if not isinstance(nodes, list):
+        return [_issue("graph", "Configuration requires nodes[] and links[]")]
+    settings = labjack_settings if isinstance(labjack_settings, dict) else {}
+    mux_enabled = bool(settings.get("mux80Enabled", False))
+    issues: list[dict[str, str]] = []
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
+        if node.get("nodeType") in {"labjack-channel", "labjack-channel-pair"}:
+            _validate_channel(node, mux_enabled, issues)
+    return issues
 
 
 def _validate_required_inputs(

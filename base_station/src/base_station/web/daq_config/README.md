@@ -1,126 +1,122 @@
-# DAQ graph architecture
+# DAQ configuration architecture
 
-The DAQ graph separates **node schema**, **runtime math**, **hardware
-integration**, and **dashboard rendering**. Keep those boundaries when adding
-features.
+The DAQ subsystem has three independently owned configuration domains:
 
-## Current schema only
+```text
+daq-config.json
+├── graph
+│   ├── nodes
+│   └── links
+├── sources
+│   └── labjack
+│       ├── scanRate
+│       ├── resolutionIndex
+│       ├── settlingUs
+│       └── mux80Enabled
+└── dashboard
+    └── layout
+```
 
-This project supports one graph schema at a time. `schema.py` normalizes the
-current fields, pins, and graph-wide acquisition defaults. Unknown node types
-are validation errors, and unknown config keys are discarded during
-normalization. There is intentionally no compatibility layer for retired
-schemas unless one is explicitly requested.
+`DaqConfigRepository` is the only persistence boundary. It exposes section
+writes (`save_graph`, `save_labjack_settings`, `save_dashboard_layout`) so one
+page cannot overwrite stale state owned by another page. The project supports
+one current schema only; retired schemas are not carried through production
+code unless migration is explicitly requested.
 
-## Hardware-independent nodes
+Graph saves may reconcile dashboard **membership** because adding or deleting a
+dashboard sink changes which frame ids are valid. Existing authored frame
+geometry is preserved. Source settings and graph topology otherwise remain
+independent transactions.
 
-Simulation, math, and dashboard nodes live in two matching registries:
+## Graph topology
 
-- Server: `node_specs.py` owns current defaults, persisted pins, and
-  authoritative validation.
-- Browser: `static/daq-config/node-specs.js` owns palette metadata, inline
-  controls, presentation-only unit inference, and immediate client validation.
+`schema.py` normalizes only `nodes` and `links`. Device connection identity,
+stream policy, and dashboard placement do not belong on graph nodes or graph
+metadata.
 
-Their node-type names and config keys are a contract. Update both registries
-and their contract tests together. Runtime computation belongs in
-`node_runtime.py`; vectorized math belongs in `signal_math.py`.
+Hardware-independent simulation, math, and dashboard nodes have matching
+registries:
 
-### Configuration persistence contract
+- `node_specs.py` owns authoritative defaults, canonical pins, and server
+  validation.
+- `static/daq-config/node-specs.js` owns editor controls, palette metadata,
+  presentation-only unit inference, and fast client validation.
+- `node_runtime.py` owns scalar preview execution.
+- `signal_math.py` owns reusable/vectorized math.
 
-All inline node controls use the Blueprint editor's shared draft/commit lifecycle.
-Text and number inputs may remain as one pending draft while the user types;
-selects and radios commit immediately. Save first flushes any pending draft, then
-the server normalizes and validates the graph, atomically writes it, and returns
-the exact canonical graph that was persisted. The editor adopts that returned
-graph without resetting camera, selection, or undo history. Do not add page-level
-shadow state for individual controls or assume that the submitted graph is the
-same graph the server stored.
+The server remains authoritative. Inline text/number controls use the Blueprint
+editor's shared draft lifecycle; Save flushes the pending draft, the server
+normalizes and validates the graph, atomically stores it, and returns the exact
+canonical graph. The editor adopts that returned graph without resetting camera
+or selection. Do not add page-level shadow state for individual node controls.
 
-Inactive conditional settings remain persisted intentionally (for example a
-Time Plot's previous trailing-window length while Fixed bounds are selected), so
-switching modes restores the previous setup. Validation and rendering must only
-apply the fields active for the selected mode. Live preview pauses while client
-validation has blocking errors instead of sending known-invalid preview requests.
-Graph-wide acquisition inputs use the same pattern through
-`metadata-controls.js`: number fields keep a draft while typing, selects commit
-immediately, and Save flushes metadata drafts before validation. This avoids
-separate one-off save behavior for scan rate, resolution, or settling time.
+## Source configuration and acquisition
 
-## Acquisition sources
+LabJack-wide acquisition policy lives in `labjack_settings.py`, is edited on the
+LabJack device page, and is persisted through `/api/sources/labjack/settings`.
+The graph receives those settings only as read-only source context for channel
+availability and validation.
 
-Hardware-specific node semantics stay explicit instead of being forced through
-the declarative-node registry. The reusable boundary is the acquisition batch,
-not a plugin framework:
+Hardware-specific node semantics stay explicit. The reusable ingestion
+boundary is deliberately small:
 
 - `acquisition.py` defines `SignalDescriptor` and `SampleBatch`.
-- A source adapter compiles its hardware nodes from the current graph and
-  yields aligned batches keyed by stable signal ids.
-- `RunRepository` persists those descriptors/batches without importing or
-  branching on the source type.
-- Runs API/CSV/history render from persisted signal metadata, so adding a new
-  source does not require new storage columns or run-history templates.
+- A source adapter compiles its graph nodes plus source settings and yields
+  aligned batches keyed by stable signal ids.
+- `RunRepository` persists descriptors/batches without branching on hardware.
+- Runs API, CSV export, decimation, and history rendering consume persisted
+  signal metadata rather than LabJack-specific columns.
 
-`labjack_source.py` is the T7 adapter. It owns both low-rate preview reads and
-high-rate stream compilation/conversion. `LabJackService` owns only T7
-connection/thread/status lifecycle and hands generic batches to the run store.
-Do not put fixed AIN channel names in `LabJackService` or `RunRepository`.
+`labjack_source.py` is the T7 adapter. It owns low-rate reads, stream-plan
+compilation, LJM configuration, and engineering-unit conversion.
+`LabJackService` owns connection/thread/run lifecycle only.
 
-To add a new acquisition source, implement its graph nodes/validation and a
-source adapter that produces `SignalDescriptor` + `SampleBatch`. Source-specific
-connect/disconnect/status UI can remain source-specific. A dynamic plugin loader
-is intentionally not part of the architecture; explicit application wiring is
-preferable while the source count is small.
+To add another hardware family, add its hardware-node UI/validation and a
+source adapter that produces the shared descriptors/batches, then wire its
+service explicitly. Do not add a plugin loader until source count/operational
+requirements justify one. Storage, CSV, Runs UI, Dashboard widgets, and generic
+timeline code should not need source-specific branches.
 
-The run database supports only its current pre-release schema. Recorded values
-are stored in aligned binary chunks with per-chunk statistics, which keeps
-high-rate writes compact while allowing bounded min/max/mean decimation for
-history views. Changing that schema may reset local pre-release run history
-rather than carrying compatibility code unless migration is explicitly needed.
+One recorded run currently assumes one aligned source clock. Multi-device
+synchronization should get an explicit timebase policy when it is actually
+required rather than being guessed now.
 
-## Dashboard nodes
+## Dashboard
 
-Dashboard presentation is modeled with first-class sink nodes:
+Dashboard presentation uses first-class sink nodes:
 
-- `number` owns numeric formatting and unit visibility.
-- `gauge` owns gauge geometry, range limits, and gauge visibility settings.
-- `time-plot` owns its plot axes and participates in the shared time
-  conductor. X can follow the Dashboard view, show the full data extent, use a
-  trailing window, or use fixed elapsed-time bounds. Y can use auto, soft, or
-  fixed bounds with a linear or base-10 logarithmic scale. Major tick spacing
-  can be automatic or explicit on linear axes; optional minor ticks/grid are
-  derived by the renderer. Axis labels and grid visibility are node config.
+- `number` — formatting and unit visibility.
+- `gauge` — geometry, engineering limits, value/unit/range visibility.
+- `time-plot` — axes and shared timeline participation.
 
-All three receive an engineering value through their `value` input. Fan-out in
-the graph is how one source is shown in more than one way; there is no combined
-display mode.
+Fan-out is how one engineering signal is shown in multiple ways. There is no
+generic Dashboard Signal/display-mode node.
 
-Dashboard rendering is dispatched by `dashboard-widget-registry.js` to
-dedicated renderers. Only `time-plot` nodes allocate history or enter the
-timeline navigator. New visualization types should get their own node type,
-schema, renderer, and tests rather than adding another mode to an existing
-node.
+Dashboard placement is separate configuration under `dashboard.layout` and is
+saved through `/api/dashboard/layout`. `dashboard_layout.py` owns canonical
+12-column geometry and compact z-order. Frames may overlap; normal-view clicks
+raise a frame transiently, while Edit + Save persists authored stacking.
 
-Dashboard placement is separate from widget configuration. Canonical frame
-geometry lives under `metadata.dashboardLayout.items` as integer `x`, `y`,
-`w`, `h`, `z`, and `visible` fields on a 12-column grid. Frames may overlap;
-`z` is normalized to a compact deterministic stack, and grabbing a frame for
-move/resize brings it to the front. `dashboard_layout.py` sanitizes persisted
-metadata while `dashboard-layout-model.js` mirrors the geometry/stacking
-contract in the browser. `dashboard-layout-editor.js` owns drag/resize/edit
-session behavior.
-Layout saves use the dedicated `/api/daq/dashboard-layout` endpoint so a stale
-Dashboard tab never writes an old copy of the node graph back to disk.
+The Time Plot renderer is split by concern: tick selection,
+range/transform/layout, axis drawing, telemetry drawing, and time navigation are
+separate modules. Configuration describes axis intent, not raw canvas pixels.
+Tick generation is bounded and label collision is handled by the renderer.
 
-Plot configuration describes **axis intent**, not raw canvas geometry.
-`dashboard-axis-ticks.js` chooses bounded "nice" ticks,
-`dashboard-plot-axis.js` resolves ranges/transforms/margins, and
-`dashboard-axis-renderer.js` draws axes while suppressing overlapping labels.
-`dashboard-time-renderer.js` only draws telemetry into that resolved plot
-frame. This separation is intentional: malformed or extremely dense manual
-tick requests must never create unbounded drawing work or unreadable labels.
-Logarithmic plots skip non-positive samples rather than connecting across an
-invalid domain. Time remains linear elapsed time even when Y is logarithmic.
+## Runtime status transport
 
-Canvas plots expose a DOM description through `aria-describedby` and support
-keyboard sample inspection with Left/Right/Home/End. Keep that accessible
-fallback synchronized whenever axis semantics or inspection behavior changes.
+Hardware services update `DashboardState` in memory. The global shell consumes
+one SSE stream (`/api/status/events`) and patches stable device DOM nodes only
+when status changes; device pages request extra detail over the same stream.
+The Dashboard's saved-graph telemetry is also one-way server-owned data, so it
+uses its own SSE stream (`/api/dashboard/telemetry/events`) instead of 4 Hz POST
+polling. Commands such as connect/reset/start/stop remain ordinary
+request-response actions.
+
+This intentionally avoids both 1 Hz HTML-fragment polling and a WebSocket/DOM
+diff framework. SSE is the current one-way status transport; if richer
+bidirectional realtime interaction becomes necessary later, the UI-facing
+status event contract can remain while the transport changes. DAQ Graph live
+preview is intentionally different: the browser owns an unsaved draft graph,
+so it uses one WebSocket (`/api/daq/preview/ws`) to send graph revisions upstream
+and receive preview values downstream. The socket holds only ephemeral preview
+state; Save remains an ordinary canonical HTTP transaction.

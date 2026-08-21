@@ -63,13 +63,13 @@ class LabJackService:
             ljm.close(self.handle)
             self.handle = None
 
-    def start_stream(self, graph: dict) -> None:
+    def start_stream(self, graph: dict, settings: dict) -> None:
         with self.operation_lock:
             if self.handle is None:
                 raise RuntimeError("Connect the LabJack before starting acquisition")
             if self.stream_thread and self.stream_thread.is_alive():
                 raise RuntimeError("Acquisition is already active")
-            plan = compile_stream_plan(graph)
+            plan = compile_stream_plan(graph, settings)
             if not 1 <= plan.scan_rate <= 100_000:
                 raise ValueError("Scan rate must be between 1 and 100,000 Hz")
             with self.dashboard.lock:

@@ -14,7 +14,7 @@ import {
 } from './node-specs.js';
 
 /** Add view-only inline controls, literals and inferred pin units. */
-export function decorateNode(node, graph, capabilities) {
+export function decorateNode(node, graph, capabilities, labjackSettings = {}) {
   const specNode = decorateSpecNode(node, graph, { incomingUnit });
   if (specNode) return specNode;
   const next = structuredClone(node);
@@ -24,7 +24,7 @@ export function decorateNode(node, graph, capabilities) {
   const range = rangeControl(config, capabilities);
 
   if (node.nodeType === 'labjack-channel') {
-    const mux = Boolean(graph?.metadata?.mux80Enabled);
+    const mux = Boolean(labjackSettings?.mux80Enabled);
     next.badge = config.channel ?? '—';
     setPinLabel(next, 'channel', 'Reference');
     next.controls = [selectControl(
@@ -32,7 +32,7 @@ export function decorateNode(node, graph, capabilities) {
       availableChannels(capabilities, mux).map((channel) => [channel, channelLabel(channel)]),
     )];
   } else if (node.nodeType === 'labjack-channel-pair') {
-    const mux = Boolean(graph?.metadata?.mux80Enabled);
+    const mux = Boolean(labjackSettings?.mux80Enabled);
     const negative = differentialNegative(config.channel ?? 'AIN0');
     next.badge = `${config.channel ?? '—'} / ${negative}`;
     setPinLabel(next, 'pair', 'Reference');

@@ -12,42 +12,7 @@
   </section>
 
   <div class="daq-floating-tools" role="toolbar" aria-label="DAQ graph tools">
-    <details id="daq-node-tools" class="daq-tool-menu">
-      <summary aria-label="Add node" title="Add node">
-        <span class="ui-icon icon-add" aria-hidden="true"></span>
-      </summary>
-      <div class="daq-tool-popover daq-node-popover">
-        <div id="daq-palette"></div>
-      </div>
-    </details>
-
-    <details id="daq-acquisition-tools" class="daq-tool-menu">
-      <summary aria-label="Acquisition settings" title="Acquisition settings">
-        <span class="ui-icon icon-display-settings" aria-hidden="true"></span>
-      </summary>
-      <div class="daq-tool-popover daq-acquisition-popover">
-        <label class="daq-setting-row">
-          <span>Scan rate</span>
-          <span class="daq-setting-value"><input id="daq-scan-rate" type="number" min="1" max="100000" step="1" /><em>samples/s</em></span>
-        </label>
-        <details id="daq-signal-quality" class="daq-signal-quality">
-          <summary>Signal quality</summary>
-          <label class="daq-setting-row">
-            <span>Resolution</span>
-            <select id="daq-stream-resolution">
-              <option value="0">Auto</option>
-              <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
-              <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option>
-            </select>
-          </label>
-          <label class="daq-setting-row">
-            <span>Settling</span>
-            <span class="daq-setting-value"><input id="daq-stream-settling" type="number" min="0" step="1" /><em>µs</em></span>
-          </label>
-          <p class="daq-setting-note">0 µs = Auto · shared by streamed analog inputs</p>
-        </details>
-      </div>
-    </details>
+    <div id="daq-node-tools" class="daq-node-toolset" aria-label="Add nodes"></div>
 
     <details id="daq-issue-tools" class="daq-tool-menu" hidden>
       <summary aria-label="Validation issues" title="Validation issues">
@@ -70,9 +35,6 @@
       <span class="ui-icon icon-frame" aria-hidden="true"></span>
     </button>
     <span class="daq-tool-divider" aria-hidden="true"></span>
-    <button id="daq-reload" type="button" aria-label="Reload saved graph" title="Reload saved graph">
-      <span class="ui-icon icon-reload" aria-hidden="true"></span>
-    </button>
     <button id="daq-save" type="button" aria-label="Save graph" title="Save graph">
       <span class="ui-icon icon-save" aria-hidden="true"></span>
     </button>

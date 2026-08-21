@@ -75,6 +75,7 @@
 .service-status.active { color: var(--color-text); background: var(--color-surface-hover); }
 .service-status b { font-size: 9px; line-height: 1.1; }
 .service-status em { font: normal 8px ui-monospace, monospace; text-transform: uppercase; }
+.service-status.healthy em,
 .service-status.online em { color: var(--color-success); }
 .service-status.degraded em { color: var(--color-warning); }
 .service-status.offline em { color: var(--color-danger); }

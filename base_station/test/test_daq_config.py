@@ -1,13 +1,18 @@
-"""Tests for the current persisted DAQ blueprint schema and validation."""
+"""Tests for the current section-owned DAQ configuration schema."""
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 
+from base_station.web.daq_config.dashboard_layout import normalize_dashboard_layout
+from base_station.web.daq_config.labjack_settings import (
+    normalize_labjack_settings,
+    validate_labjack_settings,
+)
 from base_station.web.daq_config.repository import DaqConfigRepository
-from base_station.web.daq_config.routes import persist_configuration
+from base_station.web.daq_config.routes import persist_graph
 from base_station.web.daq_config.node_specs import DEFAULT_CONFIGS, spec_defaults
-from base_station.web.daq_config.schema import normalize_graph
+from base_station.web.daq_config.schema import normalize_config, normalize_graph
 from base_station.web.daq_config.validation import blocking_issues, validate_graph
 
 
@@ -16,7 +21,7 @@ def channel(node_id: str, ain: str) -> dict:
         "id": node_id,
         "nodeType": "labjack-channel",
         "pins": [{"id": "channel", "direction": "output", "type": "channel-ref"}],
-        "config": {"deviceSerial": None, "deviceIp": "192.168.8.51", "channel": ain},
+        "config": {"channel": ain},
     }
 
 
@@ -25,11 +30,15 @@ def pair(node_id: str, positive: str) -> dict:
         "id": node_id,
         "nodeType": "labjack-channel-pair",
         "pins": [{"id": "pair", "direction": "output", "type": "channel-pair-ref"}],
-        "config": {"deviceSerial": None, "deviceIp": "192.168.8.51", "channel": positive},
+        "config": {"channel": positive},
     }
 
 
-def differential_graph(positive: str, mux: bool = False) -> dict:
+def labjack_settings(**overrides) -> dict:
+    return normalize_labjack_settings(overrides)
+
+
+def differential_graph(positive: str) -> dict:
     return {
         "nodes": [
             pair("pair", positive),
@@ -57,30 +66,26 @@ def differential_graph(positive: str, mux: bool = False) -> dict:
                 "toPin": "channel",
             },
         ],
-        "metadata": {
-            "scanRate": 1000,
-            "streamResolutionIndex": 0,
-            "streamSettlingUs": 0,
-            "mux80Enabled": mux,
-        },
     }
 
 
 class DaqConfigTests(TestCase):
     def test_valid_builtin_differential_source(self) -> None:
-        self.assertEqual(validate_graph(differential_graph("AIN0")), [])
+        self.assertEqual(validate_graph(differential_graph("AIN0"), labjack_settings()), [])
 
     def test_mux80_rejects_consumed_builtin_ain(self) -> None:
         graph = {
             "nodes": [channel("input", "AIN4")],
             "links": [],
-            "metadata": {"scanRate": 1000, "mux80Enabled": True},
         }
-        messages = [issue["message"] for issue in validate_graph(graph)]
+        messages = [issue["message"] for issue in validate_graph(graph, labjack_settings(mux80Enabled=True))]
         self.assertIn("AIN4-AIN13 are occupied when MUX80 is enabled", messages)
 
     def test_extended_differential_pair_is_plus_eight(self) -> None:
-        self.assertEqual(validate_graph(differential_graph("AIN48", mux=True)), [])
+        self.assertEqual(
+            validate_graph(differential_graph("AIN48"), labjack_settings(mux80Enabled=True)),
+            [],
+        )
 
     def test_current_schema_normalizes_only_current_fields(self) -> None:
         normalized = normalize_graph({
@@ -95,13 +100,9 @@ class DaqConfigTests(TestCase):
                 {"id": "ain", "nodeType": "labjack-ain", "config": {"rangeV": 1, "stale": 99}},
             ],
             "links": [],
-            "metadata": {"name": "Liquid DAQ"},
         })
         nodes = {node["id"]: node for node in normalized["nodes"]}
-        self.assertEqual(normalized["metadata"]["schemaVersion"], 1)
-        self.assertEqual(normalized["metadata"]["scanRate"], 1000)
-        self.assertEqual(normalized["metadata"]["streamResolutionIndex"], 0)
-        self.assertEqual(normalized["metadata"]["streamSettlingUs"], 0.0)
+        self.assertEqual(set(normalized), {"nodes", "links"})
         self.assertEqual(nodes["sine"]["config"], {
             "amplitude": 2,
             "periodS": 4,
@@ -128,29 +129,25 @@ class DaqConfigTests(TestCase):
         self.assertEqual(nodes["plot"]["config"]["showMinorGrid"], False)
         self.assertNotIn("group", nodes["plot"]["config"])
         self.assertEqual(nodes["ain"]["config"], {"rangeV": 1})
-        self.assertEqual(set(normalized["metadata"]["dashboardLayout"]["items"]), {"number", "gauge", "plot"})
 
     def test_dashboard_layout_is_bounded_overlap_preserving_and_current(self) -> None:
-        normalized = normalize_graph({
+        graph = normalize_graph({
             "nodes": [
                 {"id": "number", "nodeType": "number", "config": {"label": "Value"}},
                 {"id": "gauge", "nodeType": "gauge", "config": {"label": "Gauge"}},
                 {"id": "plot", "nodeType": "time-plot", "config": {"label": "Plot"}},
             ],
             "links": [],
-            "metadata": {
-                "dashboardLayout": {
-                    "stale": True,
-                    "items": {
-                        "number": {"x": 99, "y": -4, "w": 99, "h": 0, "z": 99, "visible": True, "stale": 1},
-                        "gauge": {"x": 0, "y": 0, "w": 4, "h": 4, "z": 2, "visible": True},
-                        "plot": {"x": 0, "y": 0, "w": 6, "h": 4, "z": 2, "visible": True},
-                        "deleted": {"x": 0, "y": 0, "w": 1, "h": 1, "z": 0, "visible": True},
-                    },
-                },
+        })
+        layout = normalize_dashboard_layout(graph, {
+            "stale": True,
+            "items": {
+                "number": {"x": 99, "y": -4, "w": 99, "h": 0, "z": 99, "visible": True, "stale": 1},
+                "gauge": {"x": 0, "y": 0, "w": 4, "h": 4, "z": 2, "visible": True},
+                "plot": {"x": 0, "y": 0, "w": 6, "h": 4, "z": 2, "visible": True},
+                "deleted": {"x": 0, "y": 0, "w": 1, "h": 1, "z": 0, "visible": True},
             },
         })
-        layout = normalized["metadata"]["dashboardLayout"]
         self.assertEqual(set(layout), {"items"})
         self.assertEqual(set(layout["items"]), {"number", "gauge", "plot"})
         for item in layout["items"].values():
@@ -168,7 +165,6 @@ class DaqConfigTests(TestCase):
         graph = {
             "nodes": [{"id": "old", "nodeType": "obsolete-widget", "pins": [], "config": {}}],
             "links": [],
-            "metadata": {},
         }
         self.assertIn(
             "Unsupported node type: obsolete-widget",
@@ -193,40 +189,55 @@ class DaqConfigTests(TestCase):
                 },
             ],
             "links": [{"fromNode": "pair", "fromPin": "pair", "toNode": "number", "toPin": "value"}],
-            "metadata": {"scanRate": 1000, "mux80Enabled": False},
         }
         messages = [issue["message"] for issue in validate_graph(graph)]
         self.assertIn("Value cannot accept channel-pair-ref", messages)
 
     def test_invalid_acquisition_settings_are_rejected(self) -> None:
-        graph = {
-            "nodes": [],
-            "links": [],
-            "metadata": {"scanRate": 100001, "streamResolutionIndex": 9, "streamSettlingUs": -1},
-        }
-        messages = [issue["message"] for issue in validate_graph(graph)]
+        messages = validate_labjack_settings({
+            "scanRate": 100001,
+            "resolutionIndex": 9,
+            "settlingUs": -1,
+            "mux80Enabled": False,
+        })
         self.assertIn("Scan rate must be between 1 and 100,000 samples/s", messages)
         self.assertIn("Stream resolution must be Auto or index 1 through 8", messages)
         self.assertIn("Stream settling time cannot be negative", messages)
 
     def test_empty_and_wrong_type_acquisition_settings_are_rejected(self) -> None:
-        graph = {
-            "nodes": [],
-            "links": [],
-            "metadata": {"scanRate": 1000.5, "streamResolutionIndex": 1.5, "streamSettlingUs": True},
-        }
-        messages = [issue["message"] for issue in validate_graph(graph)]
+        messages = validate_labjack_settings({
+            "scanRate": 1000.5,
+            "resolutionIndex": 1.5,
+            "settlingUs": True,
+            "mux80Enabled": "yes",
+        })
         self.assertIn("Scan rate must be between 1 and 100,000 samples/s", messages)
         self.assertIn("Stream resolution must be Auto or index 1 through 8", messages)
         self.assertIn("Stream settling time cannot be negative", messages)
+        self.assertIn("MUX80 enabled must be true or false", messages)
 
-    def test_repository_round_trip(self) -> None:
+    def test_repository_round_trip_and_section_writes_are_isolated(self) -> None:
         with TemporaryDirectory() as directory:
             path = Path(directory) / "daq.json"
             repository = DaqConfigRepository(path)
-            graph = {"nodes": [channel("input", "AIN0")], "links": [], "metadata": {"scanRate": 500}}
-            repository.save(graph)
-            self.assertEqual(repository.load(), graph)
+            document = normalize_config({
+                "graph": {"nodes": [channel("input", "AIN0")], "links": []},
+                "sources": {"labjack": {"scanRate": 500}},
+                "dashboard": {"layout": {"items": {}}},
+            })
+            repository.save(document)
+            original_graph = repository.load()["graph"]
+            original_layout = repository.load()["dashboard"]["layout"]
+            repository.save_labjack_settings({
+                "scanRate": 2000,
+                "resolutionIndex": 2,
+                "settlingUs": 5,
+                "mux80Enabled": False,
+            })
+            current = repository.load()
+            self.assertEqual(current["graph"], original_graph)
+            self.assertEqual(current["dashboard"]["layout"], original_layout)
+            self.assertEqual(current["sources"]["labjack"]["scanRate"], 2000)
 
     def test_spec_defaults_are_detached_from_authoritative_defaults(self) -> None:
         defaults = spec_defaults()
@@ -234,26 +245,47 @@ class DaqConfigTests(TestCase):
         defaults["time-plot"]["xWindowS"] = 999
         self.assertEqual(DEFAULT_CONFIGS["time-plot"]["xWindowS"], 10)
 
-    def test_configuration_save_returns_exact_canonical_graph(self) -> None:
+    def test_graph_save_returns_exact_canonical_graph_without_touching_other_sections(self) -> None:
         with TemporaryDirectory() as directory:
             repository = DaqConfigRepository(Path(directory) / "daq.json")
+            repository.save({
+                "graph": {
+                    "nodes": [{"id": "number", "nodeType": "number", "config": {"label": "Value"}}],
+                    "links": [],
+                },
+                "sources": {"labjack": {"scanRate": 4321}},
+                "dashboard": {"layout": {"items": {
+                    "number": {"x": 7, "y": 3, "w": 3, "h": 1, "z": 0, "visible": True},
+                }}},
+            })
+            source_before = repository.load()["sources"]
+            number_layout_before = repository.load()["dashboard"]["layout"]["items"]["number"]
             graph = {
-                "nodes": [{
-                    "id": "plot",
-                    "nodeType": "time-plot",
-                    "config": {
-                        "label": "Plot",
-                        "xRangeMode": "window",
-                        "xWindowS": 7.5,
-                        "stale": "discard me",
+                "nodes": [
+                    {"id": "number", "nodeType": "number", "config": {"label": "Value"}},
+                    {
+                        "id": "plot",
+                        "nodeType": "time-plot",
+                        "config": {
+                            "label": "Plot",
+                            "xRangeMode": "window",
+                            "xWindowS": 7.5,
+                            "stale": "discard me",
+                        },
                     },
-                }],
+                ],
                 "links": [],
-                "metadata": {},
             }
-            result = persist_configuration(repository, graph)
-            self.assertEqual(result["graph"], repository.load())
-            config = result["graph"]["nodes"][0]["config"]
+            result = persist_graph(repository, graph)
+            stored = repository.load()
+            self.assertEqual(result["graph"], stored["graph"])
+            self.assertEqual(stored["sources"], source_before)
+            self.assertEqual(
+                stored["dashboard"]["layout"]["items"]["number"],
+                number_layout_before,
+            )
+            self.assertIn("plot", stored["dashboard"]["layout"]["items"])
+            config = result["graph"]["nodes"][1]["config"]
             self.assertEqual(config["xRangeMode"], "window")
             self.assertEqual(config["xWindowS"], 7.5)
             self.assertNotIn("stale", config)

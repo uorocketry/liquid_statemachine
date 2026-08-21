@@ -21,6 +21,8 @@
 .icon-signals { --ui-icon: url('/static/icons/sf/waveform.svg'); }
 .icon-open-daq { --ui-icon: url('/static/icons/sf/daq-blueprint.svg'); }
 .icon-add { --ui-icon: url('/static/icons/sf/plus.svg'); }
+.icon-labjack { --ui-icon: url('/static/icons/labjack-mask.png'); }
+.icon-math { --ui-icon: url('/static/icons/sf/radicand.squareroot.svg'); }
 .icon-issues { --ui-icon: url('/static/icons/sf/exclamationmark.triangle.svg'); }
 .icon-undo { --ui-icon: url('/static/icons/sf/arrow.uturn.backward.svg'); }
 .icon-redo { --ui-icon: url('/static/icons/sf/arrow.uturn.forward.svg'); }

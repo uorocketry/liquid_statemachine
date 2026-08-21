@@ -1,26 +1,34 @@
-/** Thin fetch client for the DAQ configuration endpoints. */
+/** Thin fetch client for section-owned DAQ configuration APIs. */
 
 export async function loadCapabilities() {
   return request('/api/daq/capabilities');
 }
 
-export async function loadConfiguration() {
-  return request('/api/daq/configuration');
+export async function loadGraph() {
+  return request('/api/daq/graph');
 }
 
 /** @param {Object} graph */
-export async function saveConfiguration(graph) {
-  return request('/api/daq/configuration', { method: 'PUT', body: JSON.stringify(graph) });
+export async function saveGraph(graph) {
+  return request('/api/daq/graph', { method: 'PUT', body: JSON.stringify(graph) });
 }
 
-/** Persist only dashboard frame geometry/visibility, never a stale DAQ graph. */
+export async function loadLabJackSettings() {
+  return request('/api/sources/labjack/settings');
+}
+
+/** @param {Object} settings */
+export async function saveLabJackSettings(settings) {
+  return request('/api/sources/labjack/settings', { method: 'PUT', body: JSON.stringify(settings) });
+}
+
+export async function loadDashboardLayout() {
+  return request('/api/dashboard/layout');
+}
+
+/** @param {Object} layout */
 export async function saveDashboardLayout(layout) {
-  return request('/api/daq/dashboard-layout', { method: 'PUT', body: JSON.stringify(layout) });
-}
-
-/** @param {Object} graph */
-export async function previewConfiguration(graph) {
-  return request('/api/daq/preview', { method: 'POST', body: JSON.stringify(graph) });
+  return request('/api/dashboard/layout', { method: 'PUT', body: JSON.stringify(layout) });
 }
 
 async function request(url, options = {}) {

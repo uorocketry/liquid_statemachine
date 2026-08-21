@@ -11,8 +11,20 @@
 .reset-controller { margin: 0; color: var(--color-danger); border-color: var(--color-danger); background: var(--color-danger-soft); }
 .connection-settings { max-width: 620px; margin-top: 18px; padding: 14px 12px; border-top: 1px solid var(--line); }
 .connection-settings .secondary-button { margin-top: 9px; }
+.source-settings { max-width: 760px; }
+.source-settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; }
+.source-setting-value { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 7px; }
+.source-setting-value em { color: var(--muted); font-size: 8px; font-style: normal; white-space: nowrap; }
+.source-boolean-field { min-width: 0; margin: 0; padding: 0; border: 0; }
+.source-boolean-field legend { margin-bottom: 6px; color: var(--muted); font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+.source-boolean-field label { display: inline-flex; align-items: center; gap: 5px; margin-right: 14px; font-size: 9px; }
+.source-settings-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.source-settings-actions .secondary-button, .source-settings-actions .device-note { margin-top: 0; }
+.source-settings-actions .dirty { color: var(--color-warning); }
+.source-settings-actions .error { color: var(--color-danger); }
 @media (max-width: 760px) {
   .detail-list { grid-template-columns: 1fr; }
   .device-actions { align-items: stretch; flex-direction: column; }
   .initialize-button { width: 100%; }
+  .source-settings-grid { grid-template-columns: 1fr; }
 }

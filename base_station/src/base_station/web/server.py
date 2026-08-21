@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 import webbrowser
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -9,6 +11,7 @@ from threading import Timer
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
@@ -16,7 +19,6 @@ from pydantic import BaseModel, Field
 from base_station.web.cart_service import CartService, STATE_NAMES
 from base_station.web.daq_config import build_daq_router
 from base_station.web.daq_config.repository import DaqConfigRepository
-from base_station.web.daq_config.schema import normalize_graph
 from base_station.web.labjack_service import LabJackService
 from base_station.web.models import DashboardState
 from base_station.web.run_repository import RunRepository
@@ -25,7 +27,7 @@ from base_station.web.ui_routes import build_ui_router
 STATIC_DIR = Path(__file__).with_name("static")
 TEMPLATE_DIR = Path(__file__).with_name("templates")
 DATA_DIR = Path(__file__).resolve().parents[3] / "data"
-DAQ_CONFIG_PATH = DATA_DIR / "daq-blueprint.json"
+DAQ_CONFIG_PATH = DATA_DIR / "daq-config.json"
 
 templates = Jinja2Templates(directory=TEMPLATE_DIR)
 dashboard = DashboardState()
@@ -44,7 +46,11 @@ class StateRequest(BaseModel):
 
 
 def configured_graph() -> dict:
-    return normalize_graph(daq_config.load())
+    return daq_config.load()["graph"]
+
+
+def configured_labjack_settings() -> dict:
+    return daq_config.load()["sources"]["labjack"]
 
 
 @asynccontextmanager
@@ -62,12 +68,45 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="Liquid State Machine", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.include_router(build_ui_router(templates, dashboard, cart, labjack, runs, daq_config))
-app.include_router(build_daq_router(dashboard, labjack, DAQ_CONFIG_PATH))
+app.include_router(build_daq_router(dashboard, labjack, daq_config))
 
 
 @app.get("/api/status")
 def status() -> dict:
     return {**dashboard.snapshot(), "state_names": STATE_NAMES}
+
+
+@app.get("/api/status/events", include_in_schema=False)
+async def status_events(device: str | None = Query(default=None, pattern="^(p1am|labjack)$")) -> StreamingResponse:
+    """Push global navigation status changes over one long-lived SSE request."""
+
+    async def stream():
+        previous = None
+        heartbeat_ticks = 0
+        yield "retry: 2000\n\n"
+        while True:
+            snapshot: dict[str, object] = {"navigation": dashboard.navigation_status()}
+            if device:
+                snapshot["device"] = {"id": device, "status": dashboard.device_status(device)}
+            payload = json.dumps(snapshot, separators=(",", ":"))
+            if payload != previous:
+                yield f"event: status\ndata: {payload}\n\n"
+                previous = payload
+                heartbeat_ticks = 0
+            elif heartbeat_ticks >= 30:
+                yield ": keep-alive\n\n"
+                heartbeat_ticks = 0
+            await asyncio.sleep(0.5)
+            heartbeat_ticks += 1
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @app.get("/api/logs")
@@ -144,7 +183,7 @@ def disconnect_labjack() -> dict[str, bool]:
 @app.post("/api/labjack/stream/start")
 def start_stream() -> dict[str, bool]:
     try:
-        labjack.start_stream(configured_graph())
+        labjack.start_stream(configured_graph(), configured_labjack_settings())
     except (RuntimeError, ValueError) as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
     return {"ok": True}

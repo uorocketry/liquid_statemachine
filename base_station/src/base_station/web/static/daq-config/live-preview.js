@@ -1,91 +1,116 @@
-import { previewConfiguration } from './api.js';
 import { isPreviewSourceNode } from './node-specs.js';
 import { blockingIssues, validateGraph } from './validation.js';
 
-/** Low-rate configuration preview driver backed by the real LJM API endpoint. */
+/** One WebSocket session for browser-owned draft graph preview. */
 export class DaqLivePreview {
-  constructor(editor, onStatus) {
+  constructor(editor, labjackSettings = {}, onStatus) {
     this.editor = editor;
+    this.labjackSettings = labjackSettings;
     this.onStatus = onStatus;
     this.enabled = false;
-    this.timer = null;
-    this.inFlight = false;
+    this.socket = null;
+    this.sendTimer = null;
+    this.reconnectTimer = null;
     this.histories = new Map();
   }
 
   start() {
     if (this.enabled) return;
     this.enabled = true;
-    this._schedule(0);
+    this._connect();
   }
 
   stop() {
     this.enabled = false;
-    if (this.timer) window.clearTimeout(this.timer);
-    this.timer = null;
+    if (this.sendTimer) window.clearTimeout(this.sendTimer);
+    if (this.reconnectTimer) window.clearTimeout(this.reconnectTimer);
+    this.sendTimer = null;
+    this.reconnectTimer = null;
+    this.socket?.close();
+    this.socket = null;
     this.editor.clearNodePreview();
     this.onStatus?.('paused', 'Live preview paused');
   }
 
   refreshSoon() {
     if (!this.enabled) return;
-    if (this.timer) window.clearTimeout(this.timer);
-    this._schedule(80);
+    if (this.sendTimer) window.clearTimeout(this.sendTimer);
+    this.sendTimer = window.setTimeout(() => {
+      this.sendTimer = null;
+      this._sendGraph();
+    }, 80);
   }
 
-  async _poll() {
-    if (!this.enabled || this.inFlight) return;
-    this.inFlight = true;
-    try {
-      const graph = this.editor.graph;
-      if (blockingIssues(validateGraph(graph)).length) {
-        this.editor.clearNodePreview();
-        this.onStatus?.('warning', 'Fix configuration errors to preview');
-        return;
-      }
-      const payload = await previewConfiguration(graph);
-      const previews = {};
-      for (const [nodeId, reading] of Object.entries(payload.values ?? {})) {
-        const history = this.histories.get(nodeId) ?? [];
-        history.push(Number(reading.value));
-        if (history.length > 48) history.shift();
-        this.histories.set(nodeId, history);
-        previews[nodeId] = {
-          label: 'Live',
-          value: formatValue(reading.value),
-          unit: reading.unit ?? '',
-          samples: history,
-          detail: previewDetail(reading),
-        };
-      }
-      for (const nodeId of payload.unresolved ?? []) {
-        const node = graph.nodes.find((candidate) => candidate.id === nodeId);
-        if (node?.nodeType === 'rate-of-change') {
-          const unit = rateUnit(node, graph);
-          previews[nodeId] = {
-            label: 'Stream only', value: '—', unit,
-            detail: 'Requires acquisition history',
-          };
-        }
-      }
-      if (payload.errors?.length && !Object.keys(payload.values ?? {}).length) {
-        this.editor.clearNodePreview();
-      }
-      this.editor.updateNodePreviews(previews);
-      if (payload.errors?.length) this.onStatus?.('warning', payload.errors[0]);
-      else if (Object.keys(previews).length) this.onStatus?.('live', 'Live LabJack preview');
-      else this.onStatus?.('idle', 'Waiting for configured inputs');
-    } catch (error) {
-      if (error.status === 422) this.onStatus?.('warning', 'Fix configuration errors to preview');
-      else this.onStatus?.('error', error.message);
-    } finally {
-      this.inFlight = false;
-      if (this.enabled) this._schedule(650);
+  _connect() {
+    if (!this.enabled || this.socket) return;
+    const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
+    const socket = new WebSocket(`${scheme}://${location.host}/api/daq/preview/ws`);
+    this.socket = socket;
+    socket.addEventListener('open', () => this._sendGraph());
+    socket.addEventListener('message', (event) => this._handlePayload(event.data));
+    socket.addEventListener('close', () => {
+      if (this.socket === socket) this.socket = null;
+      if (!this.enabled) return;
+      this.onStatus?.('warning', 'Live preview reconnecting…');
+      this.reconnectTimer = window.setTimeout(() => {
+        this.reconnectTimer = null;
+        this._connect();
+      }, 1000);
+    });
+  }
+
+  _sendGraph() {
+    if (!this.enabled) return;
+    const graph = this.editor.graph;
+    if (blockingIssues(validateGraph(graph, this.labjackSettings)).length) {
+      this.editor.clearNodePreview();
+      this.onStatus?.('warning', 'Fix configuration errors to preview');
+    }
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify({ type: 'graph', graph }));
     }
   }
 
-  _schedule(delay) {
-    this.timer = window.setTimeout(() => this._poll(), delay);
+  _handlePayload(data) {
+    let payload;
+    try { payload = JSON.parse(data); } catch { return; }
+    if (payload.issues?.length) {
+      this.editor.clearNodePreview();
+      this.onStatus?.('warning', payload.issues[0]?.message ?? 'Fix configuration errors to preview');
+      return;
+    }
+    const graph = this.editor.graph;
+    const previews = {};
+    for (const [nodeId, reading] of Object.entries(payload.values ?? {})) {
+      const history = this.histories.get(nodeId) ?? [];
+      history.push(Number(reading.value));
+      if (history.length > 48) history.shift();
+      this.histories.set(nodeId, history);
+      previews[nodeId] = {
+        label: 'Live',
+        value: formatValue(reading.value),
+        unit: reading.unit ?? '',
+        samples: history,
+        detail: previewDetail(reading),
+      };
+    }
+    for (const nodeId of payload.unresolved ?? []) {
+      const node = graph.nodes.find((candidate) => candidate.id === nodeId);
+      if (node?.nodeType === 'rate-of-change') {
+        previews[nodeId] = {
+          label: 'Stream only', value: '—', unit: rateUnit(node, graph),
+          detail: 'Requires acquisition history',
+        };
+      }
+    }
+    if (payload.errors?.length && !Object.keys(payload.values ?? {}).length) {
+      this.editor.clearNodePreview();
+    } else {
+      this.editor.updateNodePreviews(previews);
+    }
+    if (payload.errors?.length) this.onStatus?.('warning', payload.errors[0]);
+    else if (Object.keys(previews).length) this.onStatus?.('live', 'Live preview');
+    else this.onStatus?.('idle', 'Waiting for configured inputs');
   }
 }
 
@@ -118,18 +143,11 @@ export function highlightPathToSelection(editor, graph, nodeId) {
 function formatValue(value) {
   const number = Number(value);
   if (!Number.isFinite(number)) return '—';
-  const magnitude = Math.abs(number);
-  if (magnitude >= 1000) return number.toFixed(0);
-  if (magnitude >= 100) return number.toFixed(1);
-  if (magnitude >= 1) return number.toFixed(3);
-  return number.toPrecision(5);
+  if (Math.abs(number) >= 1000 || (Math.abs(number) > 0 && Math.abs(number) < 0.001)) return number.toExponential(4);
+  return Number(number.toPrecision(6)).toString();
 }
 
 function previewDetail(reading) {
-  if (reading.rawVolts === undefined) return '';
-  const raw = Number(reading.rawVolts);
-  if (reading.coldJunctionK !== undefined) {
-    return `${raw.toFixed(6)} V · CJC ${Number(reading.coldJunctionK).toFixed(2)} K`;
-  }
-  return `${raw.toFixed(6)} V raw`;
+  if (Number.isFinite(reading.rawVolts) && reading.unit !== 'V') return `${formatValue(reading.rawVolts)} V raw`;
+  return '';
 }

@@ -1,41 +1,56 @@
-"""Normalize DAQ graphs to the only supported current schema."""
+"""Normalize the current DAQ configuration document."""
 
 from __future__ import annotations
 
 from copy import deepcopy
 
-from base_station.web.daq_config.acquisition import normalize_acquisition_metadata
 from base_station.web.daq_config.dashboard_layout import normalize_dashboard_layout
+from base_station.web.daq_config.labjack_settings import normalize_labjack_settings
 from base_station.web.daq_config.node_specs import normalize_spec_node
 
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_CONFIG_VERSION = 1
 
 
 def normalize_graph(graph: dict) -> dict:
     """Return a canonical copy of a current-schema graph."""
-    normalized = deepcopy(graph)
-    normalized.setdefault("nodes", [])
-    normalized.setdefault("links", [])
-    normalize_acquisition_metadata(normalized)
+    source = graph if isinstance(graph, dict) else {}
+    normalized = {
+        "nodes": deepcopy(source.get("nodes", [])) if isinstance(source.get("nodes"), list) else [],
+        "links": deepcopy(source.get("links", [])) if isinstance(source.get("links"), list) else [],
+    }
     for node in normalized["nodes"]:
         if not isinstance(node, dict):
             continue
         if normalize_spec_node(node):
             continue
         _normalize_hardware_node(node)
-    normalize_dashboard_layout(normalized)
-    normalized["metadata"]["schemaVersion"] = CURRENT_SCHEMA_VERSION
     return normalized
+
+
+def normalize_config(document: object) -> dict:
+    """Return the only supported current DAQ configuration document shape."""
+    source = document if isinstance(document, dict) else {}
+    graph = normalize_graph(source.get("graph", {}))
+    sources = source.get("sources") if isinstance(source.get("sources"), dict) else {}
+    labjack = normalize_labjack_settings(sources.get("labjack"))
+    dashboard = source.get("dashboard") if isinstance(source.get("dashboard"), dict) else {}
+    layout = normalize_dashboard_layout(graph, dashboard.get("layout"))
+    return {
+        "schemaVersion": CURRENT_CONFIG_VERSION,
+        "graph": graph,
+        "sources": {"labjack": labjack},
+        "dashboard": {"layout": layout},
+    }
 
 
 def _normalize_hardware_node(node: dict) -> None:
     node_type = node.get("nodeType")
     source = node.get("config") if isinstance(node.get("config"), dict) else {}
     if node_type == "labjack-channel":
-        node["config"] = _config(source, {"deviceSerial": None, "deviceIp": "192.168.8.51", "channel": "AIN0"})
+        node["config"] = _config(source, {"channel": "AIN0"})
         node["pins"] = [_output("channel", "Channel", "channel-ref")]
     elif node_type == "labjack-channel-pair":
-        node["config"] = _config(source, {"deviceSerial": None, "deviceIp": "192.168.8.51", "channel": "AIN0"})
+        node["config"] = _config(source, {"channel": "AIN0"})
         node["pins"] = [_output("pair", "Pair", "channel-pair-ref")]
     elif node_type == "labjack-ain":
         node["config"] = _config(source, {"rangeV": 0.1})

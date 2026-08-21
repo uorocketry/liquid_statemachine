@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING, Iterator
 from base_station.web.daq_config.acquisition import (
     SampleBatch,
     SignalDescriptor,
-    preview_resolution_index,
 )
+from base_station.web.daq_config.labjack_settings import preview_resolution_index
 from base_station.web.daq_config.signal_math import current_from_shunt, scalar
 
 if TYPE_CHECKING:
@@ -52,7 +52,7 @@ class LabJackStreamPlan:
         return tuple(measurement.signal for measurement in self.measurements)
 
 
-def compile_stream_plan(graph: dict) -> LabJackStreamPlan:
+def compile_stream_plan(graph: dict, settings: dict) -> LabJackStreamPlan:
     """Compile current LabJack measurement nodes into one aligned stream plan."""
     nodes = {
         node.get("id"): node
@@ -60,15 +60,14 @@ def compile_stream_plan(graph: dict) -> LabJackStreamPlan:
         if isinstance(node, dict) and isinstance(node.get("id"), str)
     }
     incoming = _incoming_links(graph)
-    metadata = graph.get("metadata") if isinstance(graph.get("metadata"), dict) else {}
-    scan_rate = _integer(metadata.get("scanRate", 1000), "Scan rate", minimum=1, maximum=100_000)
+    scan_rate = _integer(settings.get("scanRate", 1000), "Scan rate", minimum=1, maximum=100_000)
     resolution = _integer(
-        metadata.get("streamResolutionIndex", 0),
+        settings.get("resolutionIndex", 0),
         "Stream resolution",
         minimum=0,
         maximum=8,
     )
-    settling = _number(metadata.get("streamSettlingUs", 0), "Stream settling time", minimum=0)
+    settling = _number(settings.get("settlingUs", 0), "Stream settling time", minimum=0)
 
     channels: dict[str, LabJackChannel] = {}
     measurements: list[LabJackMeasurement] = []
@@ -99,7 +98,11 @@ def compile_stream_plan(graph: dict) -> LabJackStreamPlan:
     )
 
 
-def read_physical_sources(service: LabJackService, graph: dict) -> tuple[dict, list[str]]:
+def read_physical_sources(
+    service: LabJackService,
+    graph: dict,
+    settings: dict,
+) -> tuple[dict, list[str]]:
     """Read configured physical source nodes without starting a stream."""
     sdk, constants = _sdk()
     with service.dashboard.lock:
@@ -113,13 +116,12 @@ def read_physical_sources(service: LabJackService, graph: dict) -> tuple[dict, l
         errors: list[str] = []
         nodes = {node.get("id"): node for node in graph.get("nodes", []) if isinstance(node, dict)}
         incoming = _incoming_links(graph)
-        acquisition = graph.get("metadata") if isinstance(graph.get("metadata"), dict) else {}
         for node in graph.get("nodes", []):
             if node.get("nodeType") not in MEASUREMENT_TYPES:
                 continue
             try:
                 values[node["id"]] = _read_source(
-                    handle, node, nodes, incoming, acquisition, sdk, constants
+                    handle, node, nodes, incoming, settings, sdk, constants
                 )
             except Exception as error:
                 errors.append(f"{node.get('title', node.get('id', 'source'))}: {error}")
@@ -176,11 +178,11 @@ def stream_batches(
             _restore_channels(handle, plan.channels, sdk)
 
 
-def _read_source(handle: int, node: dict, nodes: dict, incoming: dict, acquisition: dict, sdk, constants) -> dict:
+def _read_source(handle: int, node: dict, nodes: dict, incoming: dict, settings: dict, sdk, constants) -> dict:
     node_type = node["nodeType"]
     config = _measurement_config(node, nodes, incoming)
-    config["resolutionIndex"] = preview_resolution_index(acquisition)
-    config["settlingUs"] = float(acquisition.get("streamSettlingUs", 0))
+    config["resolutionIndex"] = preview_resolution_index(settings)
+    config["settlingUs"] = float(settings.get("settlingUs", 0))
     channel = config["channel"]
     _configure_channel(
         handle,

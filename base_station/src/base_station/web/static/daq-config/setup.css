@@ -5,36 +5,6 @@
   background: var(--color-canvas);
 }
 
-.daq-setting-row {
-  min-height: 31px;
-  display: grid;
-  grid-template-columns: minmax(76px, 1fr) 116px;
-  align-items: center;
-  gap: 8px;
-  color: var(--color-text-muted);
-  font-size: 9px;
-  font-weight: 700;
-}
-.daq-setting-row input, .daq-setting-row select {
-  width: 100%;
-  min-width: 0;
-  height: 26px;
-  padding: 3px 6px;
-  border: 1px solid var(--color-border);
-  border-radius: 3px;
-  outline: 0;
-  background: var(--color-input);
-  color: var(--color-text);
-  font: 9px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-.daq-setting-row input:focus, .daq-setting-row select:focus { border-color: var(--color-focus); outline: 2px solid var(--color-focus); outline-offset: 1px; }
-.daq-setting-value { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 5px; }
-.daq-setting-value em { color: var(--color-text-subtle); font-size: 8px; font-style: normal; white-space: nowrap; }
-.daq-signal-quality { margin-top: 6px; border-top: 1px solid var(--color-border-soft); }
-.daq-signal-quality summary { padding: 8px 2px 5px; color: var(--color-text-muted); font-size: 9px; font-weight: 750; cursor: pointer; }
-.daq-signal-quality[open] summary { margin-bottom: 2px; }
-.daq-setting-note { margin: 5px 2px 0; color: var(--color-text-subtle); font-size: 8px; line-height: 1.35; }
-
 .daq-graph-stage { width: 100%; height: 100%; min-width: 0; min-height: 0; background: var(--color-canvas); }
 .daq-graph-stage .liquid-blueprint-editor { --blueprint-bg: var(--color-canvas); height: 100%; }
 .daq-graph-stage .blueprint-toolbar { display: none; }
@@ -60,7 +30,8 @@
   transform: translateX(-50%);
 }
 .daq-floating-tools > button,
-.daq-floating-tools > .daq-tool-menu > summary {
+.daq-floating-tools > .daq-tool-menu > summary,
+.daq-node-toolset > .daq-tool-menu > summary {
   display: inline-grid;
   place-items: center;
   padding: 8px 12px;
@@ -74,19 +45,26 @@
 }
 .daq-tool-menu { position: relative; }
 .daq-tool-menu[hidden] { display: none; }
-.daq-floating-tools > .daq-tool-menu > summary::-webkit-details-marker { display: none; }
+.daq-node-toolset { display: contents; }
+.daq-node-toolset.awaiting-placement > .daq-tool-menu > summary { color: var(--color-text); background: var(--color-surface-hover); }
+.daq-floating-tools > .daq-tool-menu > summary::-webkit-details-marker,
+.daq-node-toolset > .daq-tool-menu > summary::-webkit-details-marker { display: none; }
 .daq-floating-tools > button:hover:not(:disabled),
 .daq-floating-tools > .daq-tool-menu > summary:hover,
-.daq-floating-tools > .daq-tool-menu[open] > summary { background: var(--color-surface-hover); color: var(--color-text); }
+.daq-floating-tools > .daq-tool-menu[open] > summary,
+.daq-node-toolset > .daq-tool-menu > summary:hover,
+.daq-node-toolset > .daq-tool-menu[open] > summary { background: var(--color-surface-hover); color: var(--color-text); }
 #daq-save:not(:disabled) { color: var(--color-text); }
 .daq-floating-tools > button:focus-visible,
-.daq-floating-tools > .daq-tool-menu > summary:focus-visible {
+.daq-floating-tools > .daq-tool-menu > summary:focus-visible,
+.daq-node-toolset > .daq-tool-menu > summary:focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: 1px;
 }
 .daq-floating-tools > button:disabled { opacity: .28; cursor: default; }
 .daq-floating-tools > button .ui-icon,
-.daq-floating-tools > .daq-tool-menu > summary .ui-icon { width: 20px; height: 20px; }
+.daq-floating-tools > .daq-tool-menu > summary .ui-icon,
+.daq-node-toolset > .daq-tool-menu > summary .ui-icon { width: 20px; height: 20px; }
 .daq-tool-divider { align-self: stretch; margin: 6px 3px; border-left: 1px solid var(--color-border-soft); }
 .daq-save-state { align-self: center; margin: 0 6px 0 4px; font-size: 8px; white-space: nowrap; }
 .daq-save-state.saved { color: var(--color-text-subtle); }
@@ -108,8 +86,8 @@
   transform: translateX(-50%);
   overflow-wrap: anywhere;
 }
-.daq-acquisition-popover { padding: 8px 10px; }
 .daq-issues-popover { padding: 4px; }
+.daq-tool-message { margin: 4px 6px; max-width: 28ch; color: var(--color-text-subtle); font-size: 8px; line-height: 1.35; }
 .daq-tool-badge {
   position: absolute;
   top: 3px;
