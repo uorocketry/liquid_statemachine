@@ -1,9 +1,10 @@
+import { bindPageResource } from './page-resource-lifecycle.js';
+
 (() => {
   const workspace = document.querySelector('#logs-workspace');
   const body = workspace?.querySelector('[data-log-body]');
-  const count = workspace?.querySelector('.log-count');
   const filters = workspace?.querySelector('.log-filters');
-  if (!workspace || !body || !count || !filters || !('EventSource' in window)) return;
+  if (!workspace || !body || !filters || !('EventSource' in window)) return;
 
   let logs = [];
   const render = () => {
@@ -12,21 +13,29 @@
     const visible = logs.filter((entry) => (
       (!component || entry.component === component) && (!level || entry.level === level)
     ));
-    count.textContent = `${visible.length} event${visible.length === 1 ? '' : 's'}`;
     body.replaceChildren(...visible.slice().reverse().map(logRow));
   };
 
   filters.addEventListener('change', render);
   filters.addEventListener('submit', (event) => event.preventDefault());
-  const source = new EventSource('/api/logs/events');
-  source.addEventListener('logs', (event) => {
+  let source = null;
+  const onLogs = (event) => {
     try {
       const payload = JSON.parse(event.data);
       logs = Array.isArray(payload?.logs) ? payload.logs : [];
       render();
     } catch { /* Ignore a malformed event and keep the last good log view. */ }
-  });
-  window.addEventListener('pagehide', () => source.close(), { once: true });
+  };
+  const start = () => {
+    if (source) return;
+    source = new EventSource('/api/logs/events');
+    source.addEventListener('logs', onLogs);
+  };
+  const stop = () => {
+    source?.close();
+    source = null;
+  };
+  bindPageResource({ start, stop });
 })();
 
 function logRow(entry) {

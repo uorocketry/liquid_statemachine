@@ -1,7 +1,6 @@
 {% extends "base.html" %}
-{% set active_page = "configuration" %}
-{% block title %}DAQ Graph · Liquid State Machine{% endblock %}
 {% block styles %}
+<link rel="stylesheet" href="/static/engineering-canvas.css" />
 <link rel="stylesheet" href="/static/blueprint/blueprint.css" />
 <link rel="stylesheet" href="/static/daq-config/setup.css" />
 {% endblock %}
@@ -11,7 +10,10 @@
     <liquid-blueprint-editor id="daq-blueprint"></liquid-blueprint-editor>
   </section>
 
-  <div class="daq-floating-tools" role="toolbar" aria-label="DAQ graph tools">
+  <div class="daq-floating-tools engineering-canvas-tools" role="toolbar" aria-label="DAQ graph tools">
+    <button class="engineering-canvas-tool" type="button" data-canvas-tool="select" aria-label="Select tool" aria-keyshortcuts="V" title="Select (V)" aria-pressed="true"><span class="ui-icon icon-select-tool" aria-hidden="true"></span></button>
+    <button class="engineering-canvas-tool" type="button" data-canvas-tool="hand" aria-label="Hand tool" aria-keyshortcuts="H" title="Hand (H)" aria-pressed="false"><span class="ui-icon icon-hand-tool" aria-hidden="true"></span></button>
+    <span class="daq-tool-divider engineering-canvas-divider" aria-hidden="true"></span>
     <div id="daq-node-tools" class="daq-node-toolset" aria-label="Add nodes"></div>
 
     <details id="daq-issue-tools" class="daq-tool-menu" hidden>
@@ -24,21 +26,18 @@
       </div>
     </details>
 
-    <span class="daq-tool-divider" aria-hidden="true"></span>
+    <span class="daq-tool-divider engineering-canvas-divider" aria-hidden="true"></span>
     <button id="daq-undo" type="button" aria-label="Undo" title="Undo">
       <span class="ui-icon icon-undo" aria-hidden="true"></span>
     </button>
     <button id="daq-redo" type="button" aria-label="Redo" title="Redo">
       <span class="ui-icon icon-redo" aria-hidden="true"></span>
     </button>
-    <button id="daq-frame" type="button" aria-label="Frame graph" title="Frame graph">
-      <span class="ui-icon icon-frame" aria-hidden="true"></span>
-    </button>
-    <span class="daq-tool-divider" aria-hidden="true"></span>
-    <button id="daq-save" type="button" aria-label="Save graph" title="Save graph">
+    <span class="daq-tool-divider engineering-canvas-divider" aria-hidden="true"></span>
+    <button id="daq-save" type="button" aria-label="Save graph" title="Save graph" disabled>
       <span class="ui-icon icon-save" aria-hidden="true"></span>
     </button>
-    <span id="daq-save-state" class="daq-save-state saved" aria-live="polite">Saved</span>
+    <span id="daq-save-feedback" class="visually-hidden" aria-live="polite"></span>
   </div>
 </main>
 {% endblock %}

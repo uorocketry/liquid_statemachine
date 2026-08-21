@@ -7,6 +7,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from threading import RLock
 from typing import Callable
+from uuid import uuid4
 
 from base_station.web.daq_config.schema import normalize_config
 
@@ -18,6 +19,7 @@ class DaqConfigRepository:
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = RLock()
+        self._generation = uuid4().hex
         self._revision = 0
 
     @property
@@ -25,6 +27,12 @@ class DaqConfigRepository:
         """Monotonic in-process revision for cheap configuration observers."""
         with self._lock:
             return self._revision
+
+    @property
+    def version(self) -> str:
+        """Process generation + revision token for browser freshness checks."""
+        with self._lock:
+            return f"{self._generation}:{self._revision}"
 
     def load(self) -> dict:
         with self._lock:
@@ -50,6 +58,18 @@ class DaqConfigRepository:
     def save_dashboard_layout(self, layout: dict) -> dict:
         def mutate(document: dict) -> None:
             document["dashboard"]["layout"] = layout
+
+        return self._update(mutate)["dashboard"]["layout"]
+
+    def save_dashboard_items(self, items: dict) -> dict:
+        def mutate(document: dict) -> None:
+            document["dashboard"]["layout"]["items"] = items
+
+        return self._update(mutate)["dashboard"]["layout"]
+
+    def save_dashboard_views(self, views: dict) -> dict:
+        def mutate(document: dict) -> None:
+            document["dashboard"]["layout"]["views"] = views
 
         return self._update(mutate)["dashboard"]["layout"]
 

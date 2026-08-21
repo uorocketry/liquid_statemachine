@@ -26,12 +26,12 @@ function updateP1am(section, status) {
 
   const initialize = section.querySelector('.initialize-button');
   if (initialize) {
-    initialize.disabled = !status.connected || status.p1_initialized || status.initialization_status === 'initializing';
-    const label = initialize.querySelector('.button-label');
-    if (label) label.textContent = status.p1_initialized ? 'Rack initialized' : 'Initialize P1 rack';
+    const busy = initialize.dataset.commandBusy === 'true';
+    initialize.disabled = busy || !status.connected || status.p1_initialized || status.initialization_status === 'initializing';
+    initialize.textContent = status.p1_initialized ? 'Rack initialized' : 'Initialize P1 rack';
   }
   const reset = section.querySelector('.reset-controller');
-  if (reset) reset.disabled = !status.connected;
+  if (reset) reset.disabled = reset.dataset.commandBusy === 'true' || !status.connected;
 }
 
 function updateLabJack(section, status) {

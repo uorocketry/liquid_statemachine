@@ -1,7 +1,12 @@
 import { cloneGraph, normalizeGraph } from './model.js';
-import { cloneSelection, directedNodePath, pasteSelection } from './graph.js';
-import { MIN_SCALE, NODE_FALLBACK_HEIGHT, NODE_FALLBACK_WIDTH } from './editor-constants.js';
-import { cameraForBounds, cameraForWorldCenter } from '../viewport-camera.js';
+import { directedNodePath } from './graph.js';
+import { NODE_FALLBACK_HEIGHT, NODE_FALLBACK_WIDTH } from './editor-constants.js';
+import {
+  ENGINEERING_CANVAS_ABSOLUTE_MIN_SCALE,
+  ENGINEERING_CANVAS_MAX_SCALE,
+  cameraForBounds,
+  cameraForWorldCenter,
+} from '../viewport-camera.js';
 
 /** @typedef {import('./model.js').BlueprintGraph} BlueprintGraph */
 /** @typedef {import('./model.js').BlueprintNode} BlueprintNode */
@@ -41,9 +46,14 @@ export const editorApi = {
   },
 
   get camera() { return { ...this._camera }; },
+  get interactionTool() { return this._interactionTool; },
+  set interactionTool(value) {
+    const next = value === 'hand' ? 'hand' : 'select';
+    if (next === this._interactionTool) return;
+    this._interactionTool = next;
+    this.dataset.canvasTool = next;
+  },
   get previewPath() { return [...this._previewPath]; },
-  get canUndo() { return this._history.canUndo; },
-  get canRedo() { return this._history.canRedo; },
 
   /** @param {string[]} nodeIds */
   setPreviewPath(nodeIds) {
@@ -148,7 +158,7 @@ export const editorApi = {
     const element = this._nodeElement(nodeId);
     const width = element?.offsetWidth ?? node.width ?? NODE_FALLBACK_WIDTH;
     const height = element?.offsetHeight ?? NODE_FALLBACK_HEIGHT;
-    const scale = Math.min(1, Math.max(MIN_SCALE, this._camera.scale));
+    const scale = Math.min(1, Math.max(ENGINEERING_CANVAS_ABSOLUTE_MIN_SCALE, this._camera.scale));
     this._camera = cameraForWorldCenter(
       { x: node.x + width / 2, y: node.y + height / 2 },
       viewport,
@@ -157,107 +167,38 @@ export const editorApi = {
     this._applyCamera();
   },
 
-  copySelection() {
-    this._clipboard = cloneSelection(this._graph.nodes, this._graph.links, this._selectedNodes);
-    this._updateMenus();
-  },
-
-  cutSelection() {
-    this.copySelection();
-    this.deleteSelection();
-  },
-
-  pasteSelection() {
-    if (!this._clipboard?.nodes?.length) return;
-    this._pasteSerial += 1;
-    const before = cloneGraph(this._graph);
-    const result = pasteSelection(this._clipboard, this._graph, this._pasteSerial);
-    this._history.record(before);
-    this._graph = result.graph;
-    this._selectedNodes = result.selected;
-    this._selectedLinks.clear();
-    this._renderGraph();
-    this._emitChange('paste', true);
-    this._emitSelection();
-  },
-
-  duplicateSelection() {
-    const copied = cloneSelection(this._graph.nodes, this._graph.links, this._selectedNodes);
-    if (!copied.nodes.length) return;
-    this._clipboard = copied;
-    this.pasteSelection();
-  },
-
-  deleteSelection() {
-    const removable = new Set(this._graph.nodes
-      .filter((node) => this._selectedNodes.has(node.id) && !node.locked)
-      .map((node) => node.id));
-    const deletingLink = this._graph.links.some((link) => this._selectedLinks.has(link.id));
-    if (!removable.size && !deletingLink) return;
-    const next = cloneGraph(this._graph);
-    next.nodes = next.nodes.filter((node) => !removable.has(node.id));
-    next.links = next.links.filter((link) => !this._selectedLinks.has(link.id)
-      && !removable.has(link.fromNode) && !removable.has(link.toNode));
-    this._selectedNodes = new Set([...this._selectedNodes].filter((id) => !removable.has(id)));
-    this._selectedLinks.clear();
-    this._commit(next, 'delete', true);
-    this._emitSelection();
-  },
-
-  breakSelectionLinks() {
-    const next = cloneGraph(this._graph);
-    const links = next.links.filter((link) => (
-      !this._selectedLinks.has(link.id)
-      && !this._selectedNodes.has(link.fromNode)
-      && !this._selectedNodes.has(link.toNode)
-    ));
-    if (links.length === next.links.length) return;
-    next.links = links;
-    this._selectedLinks.clear();
-    this._commit(next, 'break-links', true);
-  },
-
-  undo() {
-    const previous = this._history.undo(this._graph);
-    if (!previous) return;
-    this._graph = previous;
-    this._pruneSelection();
-    this._renderGraph();
-    this._emitChange('undo', true);
-    this._emitSelection();
-  },
-
-  redo() {
-    const next = this._history.redo(this._graph);
-    if (!next) return;
-    this._graph = next;
-    this._pruneSelection();
-    this._renderGraph();
-    this._emitChange('redo', true);
-    this._emitSelection();
-  },
-
-  fitGraph() {
+  fitGraph(animate = true) {
     if (!this._rendered || !this._graph.nodes.length) return;
     const rect = this._viewport.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
-    const boxes = this._graph.nodes.map((node) => {
-      const element = this._nodeElement(node.id);
-      return {
-        x: node.x, y: node.y,
-        width: element?.offsetWidth || node.width || NODE_FALLBACK_WIDTH,
-        height: element?.offsetHeight || NODE_FALLBACK_HEIGHT,
-      };
-    });
-    const minX = Math.min(...boxes.map((box) => box.x));
-    const minY = Math.min(...boxes.map((box) => box.y));
-    const maxX = Math.max(...boxes.map((box) => box.x + box.width));
-    const maxY = Math.max(...boxes.map((box) => box.y + box.height));
-    this._camera = cameraForBounds(
-      { x: minX, y: minY, width: maxX - minX, height: maxY - minY },
+    const bounds = this._contentBounds();
+    if (!bounds) return;
+    const camera = cameraForBounds(
+      bounds,
       rect,
-      { padding: 64, minScale: MIN_SCALE, maxScale: 1 },
+      { padding: 64, minScale: ENGINEERING_CANVAS_ABSOLUTE_MIN_SCALE, maxScale: 1 },
     );
-    this._applyCamera();
+    if (animate) this._animateCameraTo(camera);
+    else {
+      this._stopCameraAnimation();
+      this._camera = camera;
+      this._applyCamera();
+    }
+  },
+
+  frameSelection() {
+    if (!this._rendered) return;
+    const bounds = this._selectionBounds();
+    const rect = this._viewport.getBoundingClientRect();
+    if (!bounds || !rect.width || !rect.height) return;
+    this._animateCameraTo(cameraForBounds(
+      bounds,
+      rect,
+      {
+        padding: 64,
+        minScale: ENGINEERING_CANVAS_ABSOLUTE_MIN_SCALE,
+        maxScale: ENGINEERING_CANVAS_MAX_SCALE,
+      },
+    ));
   },
 };

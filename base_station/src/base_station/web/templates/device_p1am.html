@@ -1,9 +1,40 @@
 {% extends "base.html" %}
-{% block title %}P1AM · Liquid State Machine{% endblock %}
+{% block title %}P1AM · {{ product_name }}{% endblock %}
 {% block styles %}<link rel="stylesheet" href="/static/devices.css" />{% endblock %}
 {% block content %}
 <main class="page device-page">
-  {% include "fragments/p1am_health.html" %}
+  <section class="device-section" data-device-detail="p1am">
+    <div class="device-heading"><h2>Status</h2><span class="health-badge {{ cart.health }}" data-device-field="health">{{ cart.health }}</span></div>
+    <dl class="detail-list">
+      <div><dt>Endpoint</dt><dd data-device-field="host">{{ cart.host }}</dd></div>
+      <div><dt>Firmware</dt><dd data-device-field="firmware_version">{{ cart.firmware_version or "—" }}</dd></div>
+      <div><dt>Uptime</dt><dd data-device-field="uptime_ms">{{ (cart.uptime_ms / 1000)|int ~ " seconds" if cart.uptime_ms is not none else "—" }}</dd></div>
+      <div><dt>HTTP response</dt><dd data-device-field="response_time_ms">{{ cart.response_time_ms ~ " ms" if cart.response_time_ms is not none else "—" }}</dd></div>
+      <div><dt>Ethernet link</dt><dd data-device-field="ethernet_link">{{ "Linked" if cart.ethernet_link else "Not linked" }}</dd></div>
+      <div><dt>P1 rack <span class="info-tip" tabindex="0" title="One P1 rack; valve outputs target module slot 2.">i</span></dt><dd data-device-field="p1_rack">{% if cart.p1_initialized %}{{ cart.modules_detected }} I/O modules{% else %}Not initialized{% endif %}</dd></div>
+      <div><dt>Failures</dt><dd data-device-field="consecutive_failures">{{ cart.consecutive_failures }}</dd></div>
+      <div><dt>Last seen</dt><dd data-device-field="last_seen">{{ cart.last_seen or "—" }}</dd></div>
+      <div data-device-row="error"{% if not cart.error %} hidden{% endif %}><dt>Issue</dt><dd data-device-field="error">{{ cart.error or "" }}</dd></div>
+    </dl>
+  </section>
+  <section class="device-section">
+    <h2>Controls</h2>
+    <div class="device-actions">
+      <button type="button" class="primary-button initialize-button" data-p1am-action="initialize" {% if not cart.connected or cart.p1_initialized or cart.initialization_status == "initializing" %}disabled{% endif %}>{{ "Rack initialized" if cart.p1_initialized else "Initialize P1 rack" }}</button>
+      <button type="button" class="secondary-button reset-controller" data-p1am-action="reset" data-confirm="Restart the P1AM controller? Initialized outputs will be closed and the rack must be initialized again." {% if not cart.connected %}disabled{% endif %}>Restart controller</button>
+    </div>
+    <p class="initialization-status" data-device-field="initialization_status">
+      {% if cart.initialization_status == "initializing" %}Searching for P1 modules…
+      {% elif cart.initialization_status == "succeeded" %}{{ cart.modules_detected }} I/O modules detected.
+      {% elif cart.initialization_status == "failed" %}Initialization failed: {{ cart.initialization_error or "unknown error" }}
+      {% endif %}
+    </p>
+    <p class="initialization-status" data-device-field="reset_message">{{ cart.reset_message or "" }}</p>
+    <p class="device-note" data-device-command-state aria-live="polite"></p>
+  </section>
 </main>
 {% endblock %}
-{% block scripts %}<script type="module" src="/static/device-status.js"></script>{% endblock %}
+{% block scripts %}
+<script type="module" src="/static/device-status.js"></script>
+<script type="module" src="/static/p1am-device.js"></script>
+{% endblock %}

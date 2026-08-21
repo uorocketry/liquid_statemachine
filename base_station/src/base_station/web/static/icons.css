@@ -28,6 +28,8 @@
 .icon-undo { --ui-icon: url('/static/icons/sf/arrow.uturn.backward.svg'); }
 .icon-redo { --ui-icon: url('/static/icons/sf/arrow.uturn.forward.svg'); }
 .icon-frame { --ui-icon: url('/static/icons/sf/viewfinder.svg'); }
+.icon-select-tool { --ui-icon: url('/static/icons/sf/pointer.arrow.svg'); }
+.icon-hand-tool { --ui-icon: url('/static/icons/sf/hand.draw.svg'); }
 .icon-reload { --ui-icon: url('/static/icons/sf/arrow.clockwise.svg'); }
 .icon-save { --ui-icon: url('/static/icons/sf/square.and.arrow.down.svg'); }
 .icon-cut { --ui-icon: url('/static/icons/sf/scissors.svg'); }

@@ -1,8 +1,0 @@
-<section id="labjack-health" class="device-card" data-device-detail="labjack">
-  <div class="device-status-row"><strong>Status</strong><span class="health-badge {{ 'healthy' if labjack.connected else 'offline' }}" data-device-field="health">{{ "Healthy" if labjack.connected else "Offline" }}</span></div>
-  <dl class="detail-list">
-    <div><dt>Endpoint</dt><dd data-device-field="ip">{{ labjack.ip }}</dd></div><div><dt>Serial</dt><dd data-device-field="serial_number">{{ labjack.serial_number or "—" }}</dd></div>
-    <div><dt>Acquisition</dt><dd data-device-field="acquisition_state">{{ labjack.acquisition_state|capitalize }}</dd></div>
-    <div><dt>Active rate</dt><dd data-device-field="active_rate">{{ labjack.scan_rate ~ " samples/s" if labjack.streaming else "—" }}</dd></div><div><dt>Samples</dt><dd data-device-field="sample_count">{{ "{:,}".format(labjack.sample_count) }}</dd></div>
-  </dl>
-</section>

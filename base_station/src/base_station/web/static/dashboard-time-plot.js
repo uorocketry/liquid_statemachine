@@ -14,12 +14,7 @@ export function createTimePlotWidget(node) {
   tooltip.className = 'dashboard-chart-tooltip';
   tooltip.dataset.chartTooltip = '';
   tooltip.hidden = true;
-  const summary = document.createElement('span');
-  summary.className = 'dashboard-chart-accessible';
-  summary.dataset.chartAccessible = '';
-  summary.id = `dashboard-chart-summary-${node.id}`;
-  canvas.setAttribute('aria-describedby', summary.id);
-  shell.append(canvas, tooltip, summary);
+  shell.append(canvas, tooltip);
   card.append(shell);
   return card;
 }

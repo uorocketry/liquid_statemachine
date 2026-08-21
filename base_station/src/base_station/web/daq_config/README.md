@@ -93,14 +93,20 @@ Fan-out is how one engineering signal is shown in multiple ways. There is no
 generic Dashboard Signal/display-mode node.
 
 Dashboard placement is separate configuration under `dashboard.layout` and is
-saved through `/api/dashboard/layout`. `dashboard_layout.py` owns canonical
-snap-grid world coordinates, three optional camera presets, and compact z-order.
-Frames may overlap; normal-view clicks raise a frame transiently, while Edit +
-Save persists authored stacking. The Dashboard viewport clips the world so
-off-screen panels never increase document dimensions. Empty-space drag pans,
-wheel input zooms, Frame fits visible panels, and 1/2/3 recall saved camera
-presets. `viewport-camera.js` contains the shared camera math also used by DAQ
-Graph; Dashboard-specific code only adapts grid units to that generic camera.
+stored as canonical snap-grid `items` plus three optional world-space `views`.
+`/dashboard/layout` edits only `items` through `/api/dashboard/layout/items`;
+`/dashboard/views` edits only `views` through `/api/dashboard/layout/views`, so
+the two authoring pages cannot overwrite each other's newer state. Frames may
+overlap and the authoring viewport clips the world so off-screen panels never
+increase document dimensions.
+
+The authoring pages share `viewport-camera.js`, `engineering-canvas.css`, and
+`engineering-canvas-zoom.js` for pan/zoom mechanics. The read-only `/dashboard` Live Dashboard
+does not use that camera transform. Instead, a saved view is treated as a source
+rectangle in the canonical 100%-zoom world and projected edge-to-edge onto the
+presentation viewport. Each widget receives a projected responsive box; its
+contents reflow normally rather than being transform-scaled. The live telemetry
+navigator exists only on the read-only Dashboard.
 
 The Time Plot renderer is split by concern: tick selection,
 range/transform/layout, axis drawing, telemetry drawing, and time navigation are
@@ -125,7 +131,7 @@ ordinary request-response actions.
 This intentionally avoids both 1 Hz HTML-fragment polling and a WebSocket/DOM
 diff framework. SSE is the current one-way status transport; if richer
 bidirectional realtime interaction becomes necessary later, the UI-facing
-status event contract can remain while the transport changes. DAQ Graph live
+status event contract can remain while the transport changes. Signal Graph live
 preview is intentionally different: the browser owns an unsaved draft graph,
 so it uses one WebSocket (`/api/daq/preview/ws`) to send graph revisions upstream
 and receive preview values downstream. The socket holds only ephemeral preview

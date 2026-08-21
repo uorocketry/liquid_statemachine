@@ -8,7 +8,6 @@ import {
 } from './dashboard-time-utils.js';
 import {
   buildPlotAxis,
-  plotAccessibilityText,
   plotTimeRange,
 } from './dashboard-plot-axis.js';
 import { drawPlotAxes, drawPlotGrid } from './dashboard-axis-renderer.js';
@@ -35,8 +34,6 @@ export class DashboardTimeRenderer {
     const xRange = plotTimeRange(plot, state, history);
     const summary = summarizeSamples(history, xRange, Math.max(1, Math.floor(width)));
     const colors = canvasColors();
-    context.fillStyle = colors.input;
-    context.fillRect(0, 0, width, height);
     const axis = buildPlotAxis(context, plot, state, summary, history, width, height);
     this.plotAxes.set(plot.id, axis);
     drawPlotGrid(context, axis, colors);
@@ -58,7 +55,6 @@ export class DashboardTimeRenderer {
         this.showChartTooltip(card, history, state.hoverTime, x, axis);
       }
     }
-    this.updateAccessibility(card, canvas, plot, axis, summary, history);
   }
 
   drawSeries(context, axis, summary, colors) {
@@ -152,13 +148,6 @@ export class DashboardTimeRenderer {
     tooltip.hidden = false;
   }
 
-  updateAccessibility(card, canvas, plot, axis, summary, history) {
-    const text = plotAccessibilityText(plot, axis, summary, history);
-    const description = card.querySelector('[data-chart-accessible]');
-    if (description) description.textContent = text;
-    canvas.textContent = text;
-  }
-
   renderNavigator(state) {
     if (!this.navigator.clientWidth || !this.navigator.clientHeight) return;
     const { context, width, height } = prepareCanvas(this.navigator);
@@ -166,8 +155,6 @@ export class DashboardTimeRenderer {
     const bandHeight = height / 3;
     const selectedIndex = { full: 0, context: 1, detail: 2 }[state.selectedTier] ?? 2;
     const names = ['FULL', this.durationLabel(state.contextSeconds), this.durationLabel(state.detailSeconds)];
-    context.fillStyle = colors.surface;
-    context.fillRect(0, 0, width, height);
 
     state.ranges.forEach((range, index) => {
       const y = index * bandHeight;

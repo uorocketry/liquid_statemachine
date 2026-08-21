@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block styles %}
+<link rel="stylesheet" href="/static/engineering-canvas.css" />
+<link rel="stylesheet" href="/static/dashboard-base.css" />
+<link rel="stylesheet" href="/static/dashboard-gauge.css" />
+<link rel="stylesheet" href="/static/dashboard-authoring.css" />
+{% endblock %}
+{% block content %}
+<main class="page dashboard-page">
+  <div id="dashboard-views-viewport" class="dashboard-viewport engineering-canvas-viewport dashboard-authoring-viewport dashboard-view-editing" role="region" aria-label="Dashboard camera view editor. Draw and resize view rectangles over the canonical 100 percent Dashboard layout.">
+    <div class="dashboard-grid engineering-canvas-grid" aria-hidden="true"></div>
+    <div id="dashboard-views-grid" class="dashboard-widget-groups"></div>
+    <div id="dashboard-view-layer" class="dashboard-view-layer"></div>
+    <div class="dashboard-authoring-controls engineering-canvas-tools" role="toolbar" aria-label="Dashboard view controls">
+      <button class="engineering-canvas-tool" type="button" data-canvas-tool="select" aria-label="Select tool" aria-keyshortcuts="V" title="Select (V)" aria-pressed="true"><span class="ui-icon icon-select-tool" aria-hidden="true"></span></button>
+      <button class="engineering-canvas-tool" type="button" data-canvas-tool="hand" aria-label="Hand tool" aria-keyshortcuts="H" title="Hand (H)" aria-pressed="false"><span class="ui-icon icon-hand-tool" aria-hidden="true"></span></button>
+      <span class="engineering-canvas-divider" aria-hidden="true"></span>
+      {% for slot in [1, 2, 3] %}<button class="dashboard-camera-slot" type="button" data-dashboard-view-slot-button="{{ slot }}" aria-label="Edit Dashboard view {{ slot }}">{{ slot }}</button>{% endfor %}
+      <span class="engineering-canvas-divider" aria-hidden="true"></span>
+      <button id="dashboard-views-cancel" type="button" aria-label="Discard view changes" title="Discard view changes" disabled><span class="ui-icon icon-undo" aria-hidden="true"></span></button>
+      <button id="dashboard-views-save" type="button" aria-label="Save dashboard views" title="Save dashboard views" disabled><span class="ui-icon icon-save" aria-hidden="true"></span></button>
+    </div>
+    <engineering-canvas-zoom id="dashboard-views-zoom" class="dashboard-zoom" aria-label="Dashboard views zoom"></engineering-canvas-zoom>
+  </div>
+</main>
+{% endblock %}
+{% block scripts %}<script type="module" src="/static/dashboard-views-page.js"></script>{% endblock %}

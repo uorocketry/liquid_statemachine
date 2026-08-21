@@ -1,7 +1,9 @@
 import './liquid-blueprint-node.js';
+import '../engineering-canvas-zoom.js';
 import { createHistory } from './history.js';
 import { pinsCompatible } from './graph.js';
 import { editorApi } from './editor-api.js';
+import { commandMethods } from './editor-commands.js';
 import { eventMethods } from './editor-events.js';
 import { pointerMethods } from './editor-pointer.js';
 import { renderMethods } from './editor-render.js';
@@ -28,6 +30,7 @@ export class LiquidBlueprintEditor extends HTMLElement {
     this._clipboard = null;
     this._pasteSerial = 0;
     this._camera = { x: 40, y: 40, scale: 1 };
+    this._interactionTool = 'select';
     this._marquee = null;
     this._pan = null;
     this._drag = null;
@@ -42,6 +45,7 @@ export class LiquidBlueprintEditor extends HTMLElement {
     this._rendered = false;
     this._wireFrame = 0;
     this._previewFrame = 0;
+    this._cameraAnimationCancel = null;
     this._resizeObserver = null;
     this._inlineDraft = null;
     /** @type {(source:BlueprintPin,target:BlueprintPin,sourceNode:BlueprintNode,targetNode:BlueprintNode)=>boolean} */
@@ -65,6 +69,7 @@ export class LiquidBlueprintEditor extends HTMLElement {
     if (this._rendered) return;
     this._rendered = true;
     this.classList.add('liquid-blueprint-editor');
+    this.dataset.canvasTool = this._interactionTool;
     this._renderShell();
     this._bindEvents();
     this._renderGraph();
@@ -80,6 +85,7 @@ export class LiquidBlueprintEditor extends HTMLElement {
     this._resizeObserver?.disconnect();
     if (this._wireFrame) cancelAnimationFrame(this._wireFrame);
     if (this._previewFrame) cancelAnimationFrame(this._previewFrame);
+    this._cameraAnimationCancel?.();
     this._wireFrame = 0;
     this._previewFrame = 0;
     this._rendered = false;
@@ -87,7 +93,7 @@ export class LiquidBlueprintEditor extends HTMLElement {
 
 }
 
-for (const methods of [editorApi, eventMethods, pointerMethods, renderMethods, supportMethods]) {
+for (const methods of [editorApi, commandMethods, eventMethods, pointerMethods, renderMethods, supportMethods]) {
   installMethods(LiquidBlueprintEditor.prototype, methods);
 }
 

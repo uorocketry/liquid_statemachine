@@ -1,4 +1,4 @@
-import { clamp, compactNumber, formatTime } from './dashboard-time-utils.js';
+import { clamp } from './dashboard-time-utils.js';
 import {
   buildLinearMinorTicks,
   buildLinearTicks,
@@ -108,27 +108,6 @@ export function buildPlotAxis(context, plot, state, summary, history, width, hei
   };
 }
 
-export function plotAccessibilityText(plot, axis, summary, history) {
-  const label = String(plot?.config?.label ?? 'Time plot').trim() || 'Time plot';
-  const latest = latestFinite(history, axis.yScale, axis.xRange);
-  const scale = axis.yScale === 'log10' ? 'logarithmic base 10' : 'linear';
-  const parts = [
-    `${label} time plot.`,
-    `${axis.xTitle || 'X axis'} from ${formatTime(axis.xRange[0])} to ${formatTime(axis.xRange[1])}.`,
-    `${axis.yTitle || 'Y axis'} ${scale} scale from ${compactNumber(axis.yRange[0])} to ${compactNumber(axis.yRange[1])}.`,
-  ];
-  if (summary.count) {
-    parts.push(`${summary.count.toLocaleString()} samples in view.`);
-  } else {
-    parts.push('No samples in view.');
-  }
-  if (latest) {
-    parts.push(`Latest visible value ${compactNumber(latest.value)}${latest.unit ? ` ${latest.unit}` : ''} at ${formatTime(latest.time)}.`);
-  }
-  if (axis.invalidReason) parts.push(axis.invalidReason);
-  return parts.join(' ');
-}
-
 function resolveYDomain(config, summary) {
   const log = config.yAxisScale === 'log10';
   const dataMin = log ? summary.positiveMinimum : summary.minimum;
@@ -213,17 +192,6 @@ function latestUnit(plot, history) {
   if (latest?.unit) return String(latest.unit);
   const pinType = plot?.pins?.find((pin) => pin.id === 'value')?.type;
   return pinType && !['*', 'infer'].includes(pinType) ? String(pinType) : '';
-}
-
-function latestFinite(history, scale, range = null) {
-  for (let index = (history?.length ?? 0) - 1; index >= 0; index -= 1) {
-    const sample = history[index];
-    if (range && (sample.time < range[0] || sample.time > range[1])) continue;
-    if (!Number.isFinite(Number(sample?.value))) continue;
-    if (scale === 'log10' && Number(sample.value) <= 0) continue;
-    return sample;
-  }
-  return null;
 }
 
 function finite(value) { return value !== null && value !== '' && Number.isFinite(Number(value)); }

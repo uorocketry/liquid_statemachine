@@ -1,14 +1,48 @@
 {% extends "base.html" %}
-{% set active_page = "runs" %}
-{% block title %}Runs · Liquid State Machine{% endblock %}
 {% block styles %}<link rel="stylesheet" href="/static/runs.css" />{% endblock %}
 {% block content %}
 <main class="page runs-page">
   <div class="runs-toolbar">
-    {% include "fragments/labjack.html" %}
+    {% set acquisition_active = labjack.acquisition_state in ["starting", "running", "stopping"] %}
+    <div class="runs-recorder" data-runs-recorder>
+      <div class="runs-recorder-meta">
+        <span data-run-state class="recording-badge {% if labjack.acquisition_state == 'running' %}active{% endif %}"{% if not acquisition_active %} hidden{% endif %}>{{ labjack.acquisition_state|capitalize }}</span>
+        <a data-run-link class="detail-link" href="{% if labjack.current_run_id %}/runs/{{ labjack.current_run_id }}{% else %}#{% endif %}"{% if not labjack.current_run_id %} hidden{% endif %}>Run {{ labjack.current_run_id or "" }}</a>
+      </div>
+      <button data-record-action="start" type="button" class="record-control"{% if not labjack.connected or acquisition_active %} hidden{% endif %}>
+        <span class="record-symbol" aria-hidden="true"></span><strong>Record</strong>
+      </button>
+      <button data-record-action="stop" type="button" class="record-control stop-record"{% if not acquisition_active %} hidden{% endif %}{% if labjack.acquisition_state == "stopping" %} disabled{% endif %}>
+        <span class="record-symbol" aria-hidden="true"></span><strong>Stop</strong><small data-run-duration>{{ format_duration(labjack.sample_count / labjack.scan_rate) }}</small>
+      </button>
+      <span data-run-operation class="operation-status {% if labjack.acquisition_state in ['starting', 'stopping'] %}pending{% endif %}"{% if not acquisition_active or not labjack.operation_message %} hidden{% endif %}>{{ labjack.operation_message or "" }}</span>
+    </div>
     <a class="icon-button" href="/runs/backup/database" aria-label="Download database backup" title="Download database backup"><span class="ui-icon icon-download" aria-hidden="true"></span></a>
   </div>
-  {% include "fragments/run_table.html" %}
+  <p class="runs-table-state" data-run-table-state aria-live="polite"></p>
+  <div class="run-table-wrap">
+    <table class="run-table">
+      <thead><tr><th>Run</th><th>Started</th><th>Status</th><th>Rate</th><th>Samples</th><th>Duration</th><th>Actions</th></tr></thead>
+      <tbody data-run-table-body>
+        {% for run in runs %}
+        <tr data-run-id="{{ run.id }}">
+          <td><a href="/runs/{{ run.id }}">#{{ run.id }}</a></td>
+          <td>{{ run.started_at|replace("T", " ") }}</td>
+          <td><span class="run-status {{ run.status }}">{{ run.status }}</span></td>
+          <td>{{ "{:,}".format(run.scan_rate) }} Hz</td>
+          <td>{{ "{:,}".format(run.sample_count) }}</td>
+          <td>{{ (run.sample_count / run.scan_rate)|round(2) }} s</td>
+          <td class="run-actions">
+            <a class="icon-button" href="/runs/{{ run.id }}/export.csv" aria-label="Export run {{ run.id }} as CSV" title="Export CSV"><span class="ui-icon icon-export" aria-hidden="true"></span></a>
+            <button class="icon-button danger" type="button" data-run-delete="{{ run.id }}" aria-label="Delete run {{ run.id }}" title="Delete run"><span class="ui-icon icon-delete" aria-hidden="true"></span></button>
+          </td>
+        </tr>
+        {% else %}
+        <tr data-run-empty><td class="empty-table" colspan="7">No runs recorded yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </main>
 {% endblock %}
 {% block scripts %}<script type="module" src="/static/runs-recorder.js"></script>{% endblock %}

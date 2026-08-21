@@ -1,13 +1,32 @@
 {% extends "base.html" %}
-{% block title %}LabJack · Liquid State Machine{% endblock %}
+{% block title %}LabJack · {{ product_name }}{% endblock %}
 {% block styles %}<link rel="stylesheet" href="/static/devices.css" />{% endblock %}
 {% block content %}
 <main class="page device-page">
-  {% include "fragments/labjack_health.html" %}
-  {% include "fragments/labjack_connection.html" %}
-  <section id="labjack-acquisition-settings" class="connection-settings source-settings">
-    <div class="section-heading compact"><h2>Acquisition settings</h2></div>
-    <div class="source-settings-grid">
+  <section class="device-section" data-device-detail="labjack">
+    <div class="device-heading"><h2>Status</h2><span class="health-badge {{ 'healthy' if labjack.connected else 'offline' }}" data-device-field="health">{{ "Healthy" if labjack.connected else "Offline" }}</span></div>
+    <dl class="detail-list">
+      <div><dt>Endpoint</dt><dd data-device-field="ip">{{ labjack.ip }}</dd></div>
+      <div><dt>Serial</dt><dd data-device-field="serial_number">{{ labjack.serial_number or "—" }}</dd></div>
+      <div><dt>Acquisition</dt><dd data-device-field="acquisition_state">{{ labjack.acquisition_state|capitalize }}</dd></div>
+      <div><dt>Active rate</dt><dd data-device-field="active_rate">{{ labjack.scan_rate ~ " samples/s" if labjack.streaming else "—" }}</dd></div>
+      <div><dt>Samples</dt><dd data-device-field="sample_count">{{ "{:,}".format(labjack.sample_count) }}</dd></div>
+    </dl>
+  </section>
+  <section class="device-section" data-labjack-connection data-connected="{{ 'true' if labjack.connected else 'false' }}">
+    <h2>Connection</h2>
+    <form>
+      <label class="field"><span>Device IP</span><input data-labjack-ip value="{{ labjack.ip }}" inputmode="decimal" required /></label>
+      <div class="device-actions">
+        <button data-labjack-connect type="submit" class="secondary-button"{% if labjack.connected %} hidden{% endif %}>Connect device</button>
+        <button data-labjack-disconnect type="button" class="secondary-button"{% if not labjack.connected %} hidden{% endif %}>Disconnect device</button>
+        <span class="device-note" data-labjack-connection-state aria-live="polite">{% if labjack.error %}Connection failed. See Logs.{% endif %}</span>
+      </div>
+    </form>
+  </section>
+  <section id="labjack-acquisition-settings" class="device-section">
+    <h2>Acquisition settings</h2>
+    <div class="device-settings-grid">
       <label class="field">
         <span>Scan rate</span>
         <span class="source-setting-value">
@@ -35,7 +54,7 @@
         <label><input type="radio" name="labjack-mux80" value="true"{% if labjack_settings.mux80Enabled %} checked{% endif %} />True</label>
       </fieldset>
     </div>
-    <div class="source-settings-actions">
+    <div class="device-settings-actions">
       <button id="labjack-settings-save" class="secondary-button" type="button" disabled>Save settings</button>
       <span id="labjack-settings-state" class="device-note" aria-live="polite">Saved</span>
     </div>
@@ -45,5 +64,6 @@
 {% endblock %}
 {% block scripts %}
 <script type="module" src="/static/device-status.js"></script>
+<script type="module" src="/static/labjack-connection.js"></script>
 <script type="module" src="/static/labjack-settings.js"></script>
 {% endblock %}

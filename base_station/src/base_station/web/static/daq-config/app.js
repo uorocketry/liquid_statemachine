@@ -8,6 +8,9 @@ import { decorateNode } from './presentation.js';
 import { patchInlineNode } from './node-editing.js';
 import { daqConnectionAllowed } from './connection-policy.js';
 import { configureSpecDefaults, isPreviewSourceNode } from './node-specs.js';
+import { bindPageResource } from '../page-resource-lifecycle.js';
+import { bindEngineeringCanvasToolset } from '../engineering-canvas-toolset.js';
+import { SignalGraphPageUi } from './page-ui.js';
 
 const EDITOR_CONTRACT_VERSION = 2;
 
@@ -19,20 +22,25 @@ const issueCount = document.querySelector('#daq-issue-count');
 const saveButton = document.querySelector('#daq-save');
 const undoButton = document.querySelector('#daq-undo');
 const redoButton = document.querySelector('#daq-redo');
-const frameButton = document.querySelector('#daq-frame');
-const saveState = document.querySelector('#daq-save-state');
+const canvasToolButtons = [...document.querySelectorAll('.daq-floating-tools [data-canvas-tool]')];
+const saveFeedback = document.querySelector('#daq-save-feedback');
+const ui = new SignalGraphPageUi({
+  editor, issueSummary, issueTools, issueCount, saveButton, saveFeedback, undoButton, redoButton,
+});
 
 let capabilities = null;
 let labjackSettings = {};
 let insertionPoint = null;
-let dirty = false;
 let issues = [];
 let preview = null;
 let paletteTools = null;
 
 bootstrap().catch((error) => {
-  saveState.textContent = `Failed to load: ${error.message}`;
-  saveState.className = 'daq-save-state error';
+  saveButton.disabled = true;
+  saveButton.classList.add('error');
+  saveButton.title = `Failed to load: ${error.message}`;
+  saveButton.setAttribute('aria-label', saveButton.title);
+  saveFeedback.textContent = saveButton.title;
   nodeTools.replaceChildren();
   const message = document.createElement('p');
   message.className = 'daq-tool-message';
@@ -49,6 +57,7 @@ async function bootstrap() {
   configureSpecDefaults(payload.specDefaults);
   capabilities = capabilityPayload;
   labjackSettings = payload.sourceContext?.labjack ?? {};
+  issues = validateGraph(payload.graph, labjackSettings);
 
   editor.nodeDecorator = (node, graph) => {
     const displayNode = decorateNode(node, graph, capabilities, labjackSettings);
@@ -62,14 +71,22 @@ async function bootstrap() {
     daqConnectionAllowed(source, target, sourceNode, targetNode, editor.graph)
   );
   editor.graph = payload.graph;
+  ui.markSaved(payload.graph);
+  bindEngineeringCanvasToolset({
+    buttons: canvasToolButtons,
+    target: editor,
+    onChange: (tool) => { editor.interactionTool = tool; },
+  });
 
   paletteTools = createPaletteMenus(nodeTools, addNodeFromPalette, () => {
     issueTools.open = false;
   });
   preview = new DaqLivePreview(editor, labjackSettings);
   bindEvents();
-  refreshUi();
-  syncPreviewState();
+  refreshUi({ revalidate: false, presentation: false });
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    bindPageResource({ start: syncPreviewState, stop: () => preview?.stop() });
+  }));
 }
 
 function assertEditorContract(payload) {
@@ -88,17 +105,15 @@ function bindEvents() {
     highlightPathToSelection(editor, editor.graph, event.detail.nodeIds[0] ?? null);
   });
   editor.addEventListener('blueprint-change', () => {
-    dirty = true;
     refreshUi();
     syncPreviewState();
     preview?.refreshSoon();
   });
-  editor.addEventListener('blueprint-inline-draft-change', refreshSaveState);
+  editor.addEventListener('blueprint-inline-draft-change', () => ui.refreshSaveState(issues));
 
   saveButton.addEventListener('click', save);
   undoButton.addEventListener('click', () => editor.undo());
   redoButton.addEventListener('click', () => editor.redo());
-  frameButton.addEventListener('click', () => editor.fitGraph());
   issueTools.addEventListener('toggle', () => {
     if (issueTools.open) paletteTools?.closeAll();
   });
@@ -108,11 +123,6 @@ function bindEvents() {
       event.preventDefault();
       save();
     }
-  });
-  window.addEventListener('beforeunload', (event) => {
-    if (!dirty && !editor.hasPendingInlineEdit) return;
-    event.preventDefault();
-    event.returnValue = '';
   });
 }
 
@@ -134,79 +144,25 @@ function editorCenterPoint() {
   };
 }
 
-function refreshUi() {
-  issues = validateGraph(editor.graph, labjackSettings);
-  editor.refreshPresentation();
-  renderIssues();
-  refreshSaveState();
-  undoButton.disabled = !editor.canUndo;
-  redoButton.disabled = !editor.canRedo;
-}
-
-function refreshSaveState() {
-  const errors = blockingIssues(issues);
-  const pending = editor.hasPendingInlineEdit;
-  const unsaved = dirty || pending;
-  saveButton.disabled = !unsaved || (errors.length > 0 && !pending);
-  const showError = errors.length > 0 && !pending;
-  saveState.textContent = showError
-    ? `Error · ${errors[0].message}`
-    : unsaved ? 'Unsaved changes' : 'Saved';
-  saveState.className = `daq-save-state ${showError ? 'error' : unsaved ? 'dirty' : 'saved'}`;
-}
-
-function renderIssues() {
-  issueSummary.replaceChildren();
-  issueTools.hidden = issues.length === 0;
-  issueTools.classList.toggle('error', issues.some((issue) => issue.severity === 'error'));
-  issueCount.textContent = String(issues.length);
-  if (!issues.length) issueTools.open = false;
-
-  const ordered = [...issues].sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
-  for (const issue of ordered) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = `daq-issue-item ${issue.severity}`;
-    const subject = document.createElement('strong');
-    subject.textContent = issueSubjectLabel(issue.subject);
-    const message = document.createElement('span');
-    message.textContent = issue.message;
-    button.append(subject, message);
-    button.addEventListener('click', () => focusIssue(issue));
-    issueSummary.append(button);
-  }
-}
-
-function issueSubjectLabel(subject) {
-  if (subject === 'graph') return 'Graph';
-  const node = editor.graph.nodes.find((candidate) => candidate.id === subject);
-  if (!node) return subject;
-  const channel = node.config?.channel;
-  return channel ? `${node.title} · ${channel}` : node.title;
-}
-
-function focusIssue(issue) {
-  if (issue.subject === 'graph') return editor.fitGraph();
-  if (!editor.graph.nodes.some((node) => node.id === issue.subject)) return;
-  editor.selectNode(issue.subject);
-  requestAnimationFrame(() => editor.frameNode(issue.subject));
+function refreshUi({ revalidate = true, presentation = true } = {}) {
+  if (revalidate) issues = validateGraph(editor.graph, labjackSettings);
+  ui.refresh(issues, { presentation });
 }
 
 async function save() {
   editor.flushInlineEdit();
   const errors = blockingIssues(validateGraph(editor.graph, labjackSettings));
   if (errors.length) return refreshUi();
-  saveButton.disabled = true;
-  saveState.textContent = 'Saving…';
+  ui.setSaving();
   try {
     const result = await saveGraph(editor.graph);
-    dirty = false;
     issues = result.issues ?? [];
     editor.adoptGraph(result.graph);
+    ui.setSaved(result.graph);
     refreshUi();
   } catch (error) {
-    saveState.textContent = issueMessage(error) ?? error.message;
-    saveState.className = 'daq-save-state error';
+    const message = issueMessage(error) ?? error.message;
+    ui.setSaveError(message);
   }
 }
 
@@ -220,8 +176,4 @@ function syncPreviewState() {
 function issueMessage(error) {
   const issue = error.detail?.issues?.[0];
   return typeof issue === 'string' ? issue : issue?.message;
-}
-
-function severityRank(severity) {
-  return severity === 'error' ? 0 : severity === 'warning' ? 1 : 2;
 }

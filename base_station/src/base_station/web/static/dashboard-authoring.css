@@ -1,0 +1,153 @@
+.dashboard-authoring-viewport { height: 100%; }
+.dashboard-grid { z-index: 0; }
+.dashboard-zoom { position: absolute; right: 10px; bottom: 12px; }
+.dashboard-authoring-controls {
+  position: absolute;
+  z-index: 30;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+}
+
+.dashboard-authoring-viewport .dashboard-widget { border-color: var(--color-border); }
+.dashboard-authoring-viewport[data-canvas-tool="select"] [data-dashboard-frame] { cursor: move; }
+.dashboard-authoring-viewport[data-canvas-tool="hand"] [data-dashboard-frame],
+.dashboard-authoring-viewport[data-canvas-tool="hand"] .dashboard-widget header,
+.dashboard-authoring-viewport[data-canvas-tool="hand"] .dashboard-view-region { cursor: grab; }
+.dashboard-authoring-viewport .dashboard-widget header {
+  min-height: 27px;
+  margin: -8px -9px 7px;
+  padding: 0 9px;
+  border-bottom: 1px solid var(--color-border-soft);
+  background: var(--color-surface-subtle);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.dashboard-frame-selected { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+.dashboard-frame-active { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+.dashboard-frame-active header { cursor: grabbing; }
+.dashboard-resize-handle {
+  display: block;
+  position: absolute;
+  z-index: 6;
+  right: 1px;
+  bottom: 1px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+.dashboard-resize-handle::after {
+  content: "";
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--color-text-muted);
+  border-bottom: 2px solid var(--color-text-muted);
+}
+.dashboard-resize-handle:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+
+.dashboard-widget-picker { position: relative; }
+.dashboard-widget-options {
+  position: absolute;
+  z-index: 30;
+  right: 0;
+  bottom: calc(100% + 4px);
+  width: 240px;
+  max-height: 360px;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-ui);
+  background: var(--color-surface-raised);
+}
+.dashboard-widget-options label {
+  min-height: 31px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  border-radius: var(--radius-ui);
+  color: var(--color-text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.dashboard-widget-options label:hover { color: var(--color-text); background: var(--color-surface-hover); }
+.dashboard-widget-options input { accent-color: var(--color-text); }
+
+.dashboard-selection-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: 17;
+  pointer-events: none;
+  transform-origin: 0 0;
+}
+.dashboard-selection-marquee {
+  position: absolute;
+  border: 1px solid var(--color-focus);
+  background: color-mix(in srgb, var(--color-focus) 10%, transparent);
+}
+
+.dashboard-view-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: 18;
+  transform-origin: 0 0;
+}
+.dashboard-view-editing .dashboard-widget { pointer-events: none; }
+.dashboard-view-region {
+  position: absolute;
+  border: 2px solid var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-surface-raised) 18%, transparent);
+  cursor: move;
+}
+.dashboard-view-region.selected {
+  border-color: var(--color-focus);
+  background: color-mix(in srgb, var(--color-focus) 12%, transparent);
+}
+.dashboard-view-region.current { outline: 1px solid var(--color-text); outline-offset: 2px; }
+.dashboard-view-region > span {
+  position: absolute;
+  top: 4px;
+  left: 5px;
+  color: var(--color-text);
+  font: 800 10px ui-monospace, monospace;
+}
+.dashboard-view-region > button {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: nwse-resize;
+}
+.dashboard-view-region > button::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+}
+.dashboard-camera-slot { color: var(--color-text-subtle); font: 800 9px ui-monospace, monospace; }
+.engineering-canvas-tools > .dashboard-camera-slot.saved { color: var(--color-text); }
+.engineering-canvas-tools > .dashboard-camera-slot.selected { color: var(--color-focus); }
+.engineering-canvas-tools > .dashboard-camera-slot.current { color: var(--color-text); background: var(--color-surface-hover); }

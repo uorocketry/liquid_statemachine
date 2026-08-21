@@ -149,3 +149,20 @@ export function normalizeGraph(graph) {
   }));
   return copy;
 }
+
+/**
+ * Stable semantic signature for persisted graph state.
+ * Object key ordering is ignored so canonical server responses and equivalent
+ * browser edits compare cleanly after undo/redo.
+ */
+export function graphSignature(graph) {
+  return JSON.stringify(sortJson(normalizeGraph(graph)));
+}
+
+function sortJson(value) {
+  if (Array.isArray(value)) return value.map(sortJson);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(
+    Object.keys(value).sort().map((key) => [key, sortJson(value[key])]),
+  );
+}

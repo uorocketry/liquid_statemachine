@@ -1,13 +1,21 @@
 import { cloneGraph } from './model.js';
 import { additiveSelection, nextLinkId } from './graph.js';
-import { panCamera } from '../viewport-camera.js';
+import { beginPan, updatePan } from '../viewport-camera.js';
 
 export const pointerMethods = {
   _onPointerDown(event) {
     if (event.target.closest('.blueprint-inline-editor')) return;
     if (event.target.closest('.blueprint-menu')) return;
+    if (event.target.closest('button, summary, details, input, select, textarea, a')) return;
     this._viewport.focus({ preventScroll: true });
+    this._stopCameraAnimation();
     this._closeMenus();
+    if (event.button === 0 && this._interactionTool === 'hand') {
+      this._pan = beginPan(this._camera, event);
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     const pin = event.target.closest('.blueprint-pin');
     const nodeElement = event.target.closest('liquid-blueprint-node');
     const wire = event.target.closest('.blueprint-wire-hit');
@@ -42,11 +50,7 @@ export const pointerMethods = {
     }
     if (event.target !== this._viewport && !event.target.closest('.blueprint-grid')) return;
     if (event.button === 1 || event.button === 2) {
-      this._pan = {
-        x: event.clientX, y: event.clientY,
-        originX: this._camera.x, originY: this._camera.y,
-        moved: false, openMenuOnClick: event.button === 2,
-      };
+      this._pan = beginPan(this._camera, event, { openOnClick: event.button === 2 });
       if (event.button === 1) event.preventDefault();
       return;
     }
@@ -89,15 +93,10 @@ export const pointerMethods = {
 
   _onPointerMove(event) {
     if (this._pan) {
-      const dx = event.clientX - this._pan.x;
-      const dy = event.clientY - this._pan.y;
-      if (Math.hypot(dx, dy) > 3) this._pan.moved = true;
-      if (this._pan.moved) {
-        this._camera = panCamera(
-          { ...this._camera, x: this._pan.originX, y: this._pan.originY },
-          dx,
-          dy,
-        );
+      const update = updatePan(this._pan, event);
+      this._pan.moved = update.moved;
+      if (update.moved) {
+        this._camera = update.camera;
         this._applyCamera();
       }
     }
@@ -140,7 +139,7 @@ export const pointerMethods = {
 
   _onPointerUp(event) {
     if (this._pan) {
-      const shouldOpen = !this._pan.moved && this._pan.openMenuOnClick;
+      const shouldOpen = !this._pan.moved && this._pan.openOnClick;
       this._pan = null;
       if (shouldOpen) this._openCanvasMenu(event.clientX, event.clientY);
     }

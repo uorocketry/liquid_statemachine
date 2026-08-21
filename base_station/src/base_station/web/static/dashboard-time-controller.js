@@ -81,6 +81,7 @@ export class DashboardTimeController {
     for (const plot of this.plots) this.renderer.renderPlot(plot, state);
     this.renderer.renderNavigator(state);
     this.returnTail.hidden = this.following;
+    this.onRender?.(state);
   }
 
   renderState() {

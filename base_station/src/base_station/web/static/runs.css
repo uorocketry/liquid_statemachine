@@ -14,6 +14,7 @@
 .runs-recorder .record-control { width: auto; min-width: 92px; min-height: 34px; margin: 0 0 0 auto; grid-template-columns: 12px auto auto; }
 .runs-recorder .record-control small { margin: 0; }
 .runs-recorder .operation-status, .runs-recorder .form-error { margin: 0; font-size: 9px; }
+.runs-table-state { min-height: 12px; margin: 0 0 4px; color: var(--color-danger); font-size: 9px; }
 .run-table-wrap { overflow-x: auto; }
 .run-table { width: 100%; border-collapse: collapse; text-align: left; }
 .run-table th { padding: 8px; color: var(--muted); border-bottom: 1px solid var(--line); font-size: 8px; letter-spacing: .08em; text-transform: uppercase; }

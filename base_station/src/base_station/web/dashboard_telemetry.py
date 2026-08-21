@@ -19,6 +19,7 @@ from base_station.web.models import DashboardState
 
 SAMPLE_INTERVAL_SECONDS = 0.25
 LIVE_HISTORY_SECONDS = 600.0
+HISTORY_NODE_TYPES = {"gauge", "time-plot"}
 
 
 class DashboardTelemetryService:
@@ -51,7 +52,7 @@ class DashboardTelemetryService:
         self._settings: dict = {}
         self._issues: list[dict] = []
         self._dashboard_ids: tuple[str, ...] = ()
-        self._timeline_ids: tuple[str, ...] = ()
+        self._history_ids: tuple[str, ...] = ()
         self._published_signature = ""
         self._last_runtime_error = ""
         self.reset(log=False)
@@ -162,10 +163,10 @@ class DashboardTelemetryService:
             for node in graph.get("nodes", [])
             if node.get("nodeType") in DASHBOARD_NODE_TYPES
         )
-        self._timeline_ids = tuple(
+        self._history_ids = tuple(
             node["id"]
             for node in graph.get("nodes", [])
-            if node.get("nodeType") == "time-plot"
+            if node.get("nodeType") in HISTORY_NODE_TYPES
         )
         self._config_revision = revision
         self._config_signature = signature
@@ -177,7 +178,7 @@ class DashboardTelemetryService:
         values = payload.get("values", {})
         with self._lock:
             timestamp = monotonic() - self._session_started_monotonic
-            for node_id in self._timeline_ids:
+            for node_id in self._history_ids:
                 reading = values.get(node_id)
                 if not _finite_reading(reading):
                     self._missing.add(node_id)
@@ -199,7 +200,7 @@ class DashboardTelemetryService:
             enriched["timestamp"] = timestamp
             enriched["sessionId"] = self._session_id
             enriched["segments"] = {
-                node_id: self._segments[node_id] for node_id in self._timeline_ids
+                node_id: self._segments[node_id] for node_id in self._history_ids
             }
             self._latest = enriched
             self._published_signature = ""

@@ -1,20 +1,22 @@
-"""Operator pages, fragments, and HTMX actions."""
+"""Operator pages and file downloads."""
 
 from __future__ import annotations
 
 from datetime import datetime
-from urllib.parse import parse_qs
-
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse, Response, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
 from base_station.web.daq_config.repository import DaqConfigRepository
 from base_station.web.devices import DEVICE_DEFINITIONS, LOG_COMPONENTS
-from base_station.web.labjack_service import LabJackService
 from base_station.web.models import DashboardState
-from base_station.web.p1am import P1amService, STATE_DEFINITIONS, STATE_NAMES
-from base_station.web.p1am.errors import diagnostic_signature, operator_message
+from base_station.web.navigation import (
+    NAVIGATION_PAGES,
+    PRODUCT_NAME,
+    page_for_path,
+    page_path,
+)
+from base_station.web.p1am import STATE_DEFINITIONS, STATE_NAMES
 from base_station.web.run_repository import RunRepository
 
 
@@ -26,16 +28,9 @@ def format_duration(seconds: float) -> str:
     return f"{minutes:02d}:{remaining:04.1f}"
 
 
-async def form_values(request: Request) -> dict[str, str]:
-    values = parse_qs((await request.body()).decode("utf-8"), keep_blank_values=True)
-    return {key: entries[-1] for key, entries in values.items()}
-
-
 def build_ui_router(
     templates: Jinja2Templates,
     dashboard: DashboardState,
-    cart: P1amService,
-    labjack: LabJackService,
     runs: RunRepository,
     daq_config: DaqConfigRepository,
 ) -> APIRouter:
@@ -43,6 +38,7 @@ def build_ui_router(
 
     def context(request: Request) -> dict:
         path = request.url.path
+        page = page_for_path(path)
         active_device = path.removeprefix("/devices/") if path.startswith("/devices/") else None
         return {
             "request": request,
@@ -50,38 +46,43 @@ def build_ui_router(
             "state_names": STATE_NAMES,
             "state_definitions": STATE_DEFINITIONS,
             "format_duration": format_duration,
+            "active_page": page.id if page else None,
             "active_device": active_device,
             "devices": DEVICE_DEFINITIONS,
             "device_navigation": dashboard.navigation_status(),
             "log_components": LOG_COMPONENTS,
+            "navigation_pages": tuple(item for item in NAVIGATION_PAGES if item.section == "main"),
+            "settings_page": next(item for item in NAVIGATION_PAGES if item.section == "footer"),
+            "page_title": page.title if page else PRODUCT_NAME,
+            "product_name": PRODUCT_NAME,
+            "config_version": daq_config.version,
         }
 
     def configured_labjack_settings() -> dict:
         return daq_config.load()["sources"]["labjack"]
 
-    def configured_scan_rate() -> int:
-        return int(configured_labjack_settings().get("scanRate", 1000))
-
     def labjack_context(request: Request) -> dict:
         values = context(request)
-        values["configured_scan_rate"] = configured_scan_rate()
         values["labjack_settings"] = configured_labjack_settings()
         return values
 
-    def cart_fragment(request: Request):
-        return templates.TemplateResponse(request, "fragments/cart.html", context(request))
-
-    def p1am_health_fragment(request: Request):
-        return templates.TemplateResponse(request, "fragments/p1am_health.html", context(request))
-
-    def labjack_connection_fragment(request: Request):
-        return templates.TemplateResponse(request, "fragments/labjack_connection.html", context(request))
-
     @router.get("/", include_in_schema=False)
-    def index(request: Request):
+    def legacy_index():
+        return RedirectResponse(page_path("dashboard"), status_code=307)
+
+    @router.get(page_path("dashboard"), include_in_schema=False)
+    def dashboard_page(request: Request):
         return templates.TemplateResponse(request, "index.html", context(request))
 
-    @router.get("/state", include_in_schema=False)
+    @router.get(page_path("dashboard-layout"), include_in_schema=False)
+    def dashboard_layout(request: Request):
+        return templates.TemplateResponse(request, "dashboard_layout.html", context(request))
+
+    @router.get(page_path("dashboard-views"), include_in_schema=False)
+    def dashboard_views(request: Request):
+        return templates.TemplateResponse(request, "dashboard_views.html", context(request))
+
+    @router.get(page_path("state"), include_in_schema=False)
     def state_machine(request: Request):
         values = context(request)
         values["status_device"] = "p1am"
@@ -95,13 +96,13 @@ def build_ui_router(
     def labjack_device(request: Request):
         return templates.TemplateResponse(request, "device_labjack.html", labjack_context(request))
 
-    @router.get("/logs", include_in_schema=False)
+    @router.get(page_path("logs"), include_in_schema=False)
     def log_list(request: Request):
         values = context(request)
         values["logs"] = dashboard.log_snapshot(limit=500)
         return templates.TemplateResponse(request, "logs.html", values)
 
-    @router.get("/settings", include_in_schema=False)
+    @router.get(page_path("settings"), include_in_schema=False)
     def settings(request: Request):
         return templates.TemplateResponse(request, "settings.html", context(request))
 
@@ -110,12 +111,16 @@ def build_ui_router(
         return RedirectResponse("/logs", status_code=307)
 
     @router.get("/configuration", include_in_schema=False)
-    def configuration(request: Request):
+    def legacy_configuration():
+        return RedirectResponse(page_path("signals"), status_code=307)
+
+    @router.get(page_path("signals"), include_in_schema=False)
+    def signal_graph(request: Request):
         return templates.TemplateResponse(request, "configuration.html", context(request))
 
-    @router.get("/runs", include_in_schema=False)
+    @router.get(page_path("runs"), include_in_schema=False)
     def run_list(request: Request):
-        values = labjack_context(request)
+        values = context(request)
         values["runs"] = runs.list_runs()
         values["status_device"] = "labjack"
         return templates.TemplateResponse(request, "runs.html", values)
@@ -143,73 +148,5 @@ def build_ui_router(
             raise HTTPException(status_code=404, detail="Run not found")
         headers = {"Content-Disposition": f'attachment; filename="acquisition-run-{run_id}.csv"'}
         return StreamingResponse(runs.csv_rows(run_id), media_type="text/csv", headers=headers)
-
-    @router.get("/fragments/labjack-connection", include_in_schema=False)
-    def get_labjack_connection_fragment(request: Request):
-        return labjack_connection_fragment(request)
-
-    @router.get("/fragments/run-table", include_in_schema=False)
-    def get_run_table_fragment(request: Request):
-        values = context(request)
-        values["runs"] = runs.list_runs()
-        return templates.TemplateResponse(request, "fragments/run_table.html", values)
-
-    @router.put("/ui/cart/state/{state}", include_in_schema=False)
-    def request_cart_state(request: Request, state: int):
-        try:
-            cart.set_state(state)
-        except (OSError, ConnectionError, ValueError) as error:
-            with dashboard.lock:
-                dashboard.cart.transition_message = f"Request rejected: {operator_message(error)}"
-            dashboard.log(
-                f"Transition request failed: {diagnostic_signature(error)}", "error", "p1am"
-            )
-        return cart_fragment(request)
-
-    @router.post("/ui/cart/initialize", include_in_schema=False)
-    def initialize_cart_ui(request: Request):
-        try:
-            cart.initialize()
-        except (OSError, ConnectionError, ValueError):
-            pass
-        return p1am_health_fragment(request)
-
-    @router.post("/ui/cart/reset", include_in_schema=False)
-    def reset_cart_ui(request: Request):
-        try:
-            cart.reset()
-        except (OSError, ConnectionError, ValueError) as error:
-            with dashboard.lock:
-                dashboard.cart.reset_message = f"Restart request failed: {operator_message(error)}"
-            dashboard.log(
-                f"P1AM restart failed: {diagnostic_signature(error)}", "error", "p1am"
-            )
-        return p1am_health_fragment(request)
-
-    @router.post("/ui/labjack/connect", include_in_schema=False)
-    async def connect_labjack_ui(request: Request):
-        form = await form_values(request)
-        try:
-            labjack.connect(form.get("ip", ""))
-        except RuntimeError as error:
-            dashboard.log(f"LabJack connection failed: {error}", "error", "labjack")
-        return labjack_connection_fragment(request)
-
-    @router.post("/ui/labjack/disconnect", include_in_schema=False)
-    def disconnect_labjack_ui(request: Request):
-        labjack.disconnect()
-        return labjack_connection_fragment(request)
-
-    @router.delete("/ui/runs/{run_id}", include_in_schema=False)
-    def delete_run(request: Request, run_id: int):
-        with dashboard.lock:
-            active = dashboard.labjack.acquisition_state in {"starting", "running", "stopping"}
-            current_run_id = dashboard.labjack.current_run_id
-        if active and current_run_id == run_id:
-            raise HTTPException(status_code=409, detail="Stop the active run before deleting it")
-        runs.delete_run(run_id)
-        values = context(request)
-        values["runs"] = runs.list_runs()
-        return templates.TemplateResponse(request, "fragments/run_table.html", values)
 
     return router

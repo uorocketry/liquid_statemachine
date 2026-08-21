@@ -155,8 +155,6 @@ export function compactNumber(value) {
 export function canvasColors() {
   const style = getComputedStyle(document.documentElement);
   return {
-    input: style.getPropertyValue('--color-input').trim(),
-    surface: style.getPropertyValue('--color-surface').trim(),
     selected: style.getPropertyValue('--color-surface-subtle').trim(),
     text: style.getPropertyValue('--color-text').trim(),
     muted: style.getPropertyValue('--color-text-muted').trim(),

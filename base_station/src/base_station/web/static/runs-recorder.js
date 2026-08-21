@@ -1,4 +1,8 @@
+import { requestJson } from './json-request.js';
+
 const recorder = document.querySelector('[data-runs-recorder]');
+const runTableBody = document.querySelector('[data-run-table-body]');
+const runTableState = document.querySelector('[data-run-table-state]');
 
 if (recorder) {
   let previousActive = activeState(initialState());
@@ -12,11 +16,7 @@ if (recorder) {
     const operation = recorder.querySelector('[data-run-operation]');
     try {
       const action = button.dataset.recordAction;
-      const response = await fetch(`/api/labjack/stream/${action}`, { method: 'POST' });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.detail ?? `Request failed (${response.status})`);
-      }
+      await requestJson(`/api/labjack/stream/${action}`, { method: 'POST' });
     } catch (error) {
       if (operation) {
         operation.textContent = error.message;
@@ -39,7 +39,6 @@ if (recorder) {
     const start = recorder.querySelector('[data-record-action="start"]');
     const stop = recorder.querySelector('[data-record-action="stop"]');
     const badge = recorder.querySelector('[data-run-state]');
-    const rate = recorder.querySelector('[data-run-rate]');
     const link = recorder.querySelector('[data-run-link]');
     const duration = recorder.querySelector('[data-run-duration]');
     const operation = recorder.querySelector('[data-run-operation]');
@@ -54,7 +53,6 @@ if (recorder) {
       badge.textContent = titleCase(status.acquisition_state || 'idle');
       badge.classList.toggle('active', status.acquisition_state === 'running');
     }
-    if (rate) rate.textContent = `${active ? status.scan_rate : recorder.dataset.configuredRate} samples/s`;
     if (duration) duration.textContent = formatDuration((status.sample_count || 0) / Math.max(1, status.scan_rate || 1));
     if (link) {
       link.hidden = !status.current_run_id;
@@ -73,6 +71,22 @@ if (recorder) {
   }
 }
 
+runTableBody?.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-run-delete]');
+  if (!button || button.disabled) return;
+  const runId = Number(button.dataset.runDelete);
+  if (!Number.isInteger(runId) || !window.confirm(`Delete run ${runId} and all of its samples?`)) return;
+  button.disabled = true;
+  if (runTableState) runTableState.textContent = '';
+  try {
+    await requestJson(`/api/runs/${runId}`, { method: 'DELETE' });
+    await refreshRunTable();
+  } catch (error) {
+    if (runTableState) runTableState.textContent = error.message;
+    button.disabled = false;
+  }
+});
+
 function initialState() {
   return recorder?.querySelector('[data-run-state]')?.textContent.trim().toLowerCase() || 'idle';
 }
@@ -82,16 +96,87 @@ function activeState(state) {
 }
 
 async function refreshRunTable() {
-  const target = document.querySelector('#run-table-fragment');
-  if (!target) return;
-  const response = await fetch('/fragments/run-table');
-  if (!response.ok) return;
-  const template = document.createElement('template');
-  template.innerHTML = await response.text();
-  const replacement = template.content.firstElementChild;
-  if (!replacement) return;
-  target.replaceWith(replacement);
-  if (globalThis.htmx) htmx.process(replacement);
+  if (!runTableBody) return;
+  try {
+    const payload = await requestJson('/api/runs');
+    renderRunTable(payload.runs ?? []);
+    if (runTableState) runTableState.textContent = '';
+  } catch { /* Keep the last good table if refresh fails. */ }
+}
+
+function renderRunTable(runs) {
+  if (!runTableBody) return;
+  if (!runs.length) {
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    row.dataset.runEmpty = '';
+    cell.className = 'empty-table';
+    cell.colSpan = 7;
+    cell.textContent = 'No runs recorded yet.';
+    row.append(cell);
+    runTableBody.replaceChildren(row);
+    return;
+  }
+  runTableBody.replaceChildren(...runs.map(runRow));
+}
+
+function runRow(run) {
+  const row = document.createElement('tr');
+  row.dataset.runId = String(run.id);
+  const runLink = document.createElement('a');
+  runLink.href = `/runs/${run.id}`;
+  runLink.textContent = `#${run.id}`;
+  row.append(
+    tableCell(runLink),
+    tableCell(String(run.started_at ?? '').replace('T', ' ')),
+    statusCell(run.status),
+    tableCell(`${Number(run.scan_rate ?? 0).toLocaleString()} Hz`),
+    tableCell(Number(run.sample_count ?? 0).toLocaleString()),
+    tableCell(`${(Number(run.sample_count ?? 0) / Math.max(1, Number(run.scan_rate ?? 1))).toFixed(2)} s`),
+    actionCell(run.id),
+  );
+  return row;
+}
+
+function tableCell(value) {
+  const cell = document.createElement('td');
+  if (value instanceof Node) cell.append(value);
+  else cell.textContent = String(value ?? '');
+  return cell;
+}
+
+function statusCell(status) {
+  const badge = document.createElement('span');
+  badge.className = `run-status ${status ?? ''}`.trim();
+  badge.textContent = status ?? '';
+  return tableCell(badge);
+}
+
+function actionCell(runId) {
+  const cell = document.createElement('td');
+  cell.className = 'run-actions';
+  const exportLink = document.createElement('a');
+  exportLink.className = 'icon-button';
+  exportLink.href = `/runs/${runId}/export.csv`;
+  exportLink.title = 'Export CSV';
+  exportLink.setAttribute('aria-label', `Export run ${runId} as CSV`);
+  exportLink.append(icon('icon-export'));
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.className = 'icon-button danger';
+  remove.dataset.runDelete = String(runId);
+  remove.title = 'Delete run';
+  remove.setAttribute('aria-label', `Delete run ${runId}`);
+  remove.append(icon('icon-delete'));
+  cell.append(exportLink, remove);
+  return cell;
+}
+
+function icon(className) {
+  const element = document.createElement('span');
+  element.className = `ui-icon ${className}`;
+  element.setAttribute('aria-hidden', 'true');
+  return element;
 }
 
 function formatDuration(seconds) {

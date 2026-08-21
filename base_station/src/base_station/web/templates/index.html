@@ -1,35 +1,24 @@
 {% extends "base.html" %}
-{% set active_page = "dashboard" %}
 {% block styles %}
-<link rel="stylesheet" href="/static/dashboard-telemetry.css" />
+<link rel="stylesheet" href="/static/dashboard-base.css" />
+<link rel="stylesheet" href="/static/dashboard-timeline.css" />
 <link rel="stylesheet" href="/static/dashboard-gauge.css" />
 {% endblock %}
 {% block content %}
-<main class="page dashboard-page">
+<main class="page dashboard-page dashboard-live-page">
   <section class="telemetry dashboard-telemetry">
-    <div id="dashboard-viewport" class="dashboard-viewport" role="region" aria-label="Dashboard workspace. Drag empty space to pan; scroll to zoom; press 1, 2, or 3 to recall saved views.">
+    <div id="dashboard-viewport" class="dashboard-viewport" role="region" aria-label="Read-only Live Dashboard. Press 1, 2, or 3 to select a saved Dashboard view.">
       <div id="dashboard-widget-grid" class="dashboard-widget-groups"></div>
-      <div id="telemetry-empty" class="telemetry-empty" hidden><a href="/configuration"><span class="ui-icon icon-open-daq" aria-hidden="true"></span><span>DAQ Graph</span></a></div>
+      <div id="telemetry-empty" class="telemetry-empty" hidden><a href="/dashboard/layout"><span class="ui-icon icon-dashboard" aria-hidden="true"></span><span>Dashboard Layout</span></a></div>
     </div>
     <footer id="telemetry-time-control" class="telemetry-time-control" hidden>
+      <button id="telemetry-return-tail" class="telemetry-return-tail" type="button" hidden aria-label="Follow newest samples" title="Follow newest samples"><span class="ui-icon icon-end" aria-hidden="true"></span></button>
       <div class="telemetry-navigator-wrap">
         <canvas id="telemetry-tier-navigator" aria-label="Telemetry history navigator. Click Full, 60 second context, or 1 second detail to select that scale. Drag any band to scrub the current graph view through time."></canvas>
         <output id="telemetry-time-tooltip" class="telemetry-time-tooltip" hidden></output>
-      </div>
-      <div class="telemetry-time-actions">
-        <button id="dashboard-frame-workspace" class="icon-button" type="button" aria-label="Frame dashboard" title="Frame dashboard"><span class="ui-icon icon-frame" aria-hidden="true"></span></button>
-        <div class="dashboard-camera-presets" aria-label="Dashboard view presets">
-          {% for slot in [1, 2, 3] %}<button class="dashboard-camera-slot" type="button" data-dashboard-camera-slot="{{ slot }}" aria-label="Dashboard view {{ slot }}">{{ slot }}</button>{% endfor %}
-        </div>
-        <details class="dashboard-widget-picker" hidden><summary class="icon-button" aria-label="Add dashboard element" title="Dashboard elements"><span class="ui-icon icon-add" aria-hidden="true"></span></summary><div id="dashboard-widget-options" class="dashboard-widget-options"></div></details>
-        <button id="dashboard-layout-edit" class="dashboard-layout-action" type="button">Edit</button>
-        <button id="dashboard-layout-cancel" class="dashboard-layout-action" type="button" hidden>Cancel</button>
-        <button id="dashboard-layout-save" class="dashboard-layout-action dashboard-layout-save" type="button" hidden>Save</button>
-        <button id="dashboard-history-reset" class="icon-button" type="button" aria-label="Start a new live Dashboard session" title="New live session"><span class="ui-icon icon-reset" aria-hidden="true"></span></button>
-        <button id="telemetry-return-tail" class="icon-button telemetry-return-tail" type="button" hidden aria-label="Follow newest samples" title="Follow newest samples"><span class="ui-icon icon-end" aria-hidden="true"></span></button>
       </div>
     </footer>
   </section>
 </main>
 {% endblock %}
-{% block scripts %}<script type="module" src="/static/dashboard-telemetry.js"></script>{% endblock %}
+{% block scripts %}<script type="module" src="/static/dashboard-presenter.js"></script>{% endblock %}

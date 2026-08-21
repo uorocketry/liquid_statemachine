@@ -20,10 +20,17 @@
   place-items: center;
 }
 
+.dashboard-gauge-visual.dial {
+  width: min(100%, 680px);
+  height: 100%;
+  min-height: 0;
+}
+
 .dashboard-gauge-dial {
   display: block;
-  width: min(100%, 228px);
-  height: 142px;
+  width: 100%;
+  height: 100%;
+  min-height: 132px;
   overflow: visible;
 }
 .dashboard-gauge-dial path { fill: none; stroke-linecap: round; }
@@ -53,12 +60,6 @@
   gap: 5px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
-.dashboard-gauge-visual.dial .dashboard-gauge-readout {
-  position: absolute;
-  left: 50%;
-  bottom: 14px;
-  transform: translateX(-50%);
-}
 .dashboard-gauge-readout output {
   color: var(--color-text);
   font-size: 19px;
@@ -66,6 +67,29 @@
   letter-spacing: -.03em;
 }
 .dashboard-gauge-readout span { color: var(--color-text-muted); font-size: 9px; }
+
+.dashboard-gauge-dial-readout {
+  fill: var(--color-text);
+  font: 700 9px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: -.03em;
+}
+.dashboard-gauge-dial-units {
+  fill: var(--color-text-muted);
+  font-size: 4px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.dashboard-gauge-dial-range {
+  fill: var(--color-text-muted);
+  font: 500 3.25px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.dashboard-gauge-dial-state {
+  fill: var(--color-danger);
+  font: 700 2.8px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+.dashboard-gauge[data-state="low"] .dashboard-gauge-dial-state { fill: var(--color-warning); }
 
 .dashboard-gauge-visual.meter { min-height: 126px; }
 .dashboard-gauge-meter {
@@ -151,7 +175,3 @@
 }
 .dashboard-gauge[data-state="low"] .dashboard-gauge-range strong { color: var(--color-warning); }
 .dashboard-gauge .hidden { display: none; }
-
-@media (min-width: 1450px) {
-  .dashboard-gauge-dial { height: 150px; }
-}

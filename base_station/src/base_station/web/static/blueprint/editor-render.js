@@ -1,11 +1,13 @@
 import { intersects, rectFromPoints, wirePath } from './graph.js';
-import { MAX_SCALE, MIN_SCALE } from './editor-constants.js';
 import { cssEscape } from './editor-utils.js';
 import { html, render, repeat } from '/static/vendor/lit/lit.js';
 import { renderWireLayer } from './wire-template.js';
 import {
+  animateCamera,
   cameraTransform,
   clampScale,
+  ENGINEERING_CANVAS_ABSOLUTE_MIN_SCALE,
+  ENGINEERING_CANVAS_MAX_SCALE,
   worldPoint,
   zoomCameraAt,
 } from '../viewport-camera.js';
@@ -17,21 +19,21 @@ export const renderMethods = {
         <div class="blueprint-toolbar-actions">
           <button type="button" data-blueprint-action="undo" title="Undo">Undo</button>
           <button type="button" data-blueprint-action="redo" title="Redo">Redo</button>
-          <button type="button" data-blueprint-action="fit">Frame graph</button>
+          <button type="button" data-blueprint-action="fit">Zoom to fit</button>
         </div>
       </div>
-      <section class="blueprint-viewport" tabindex="0" aria-label="Blueprint graph editor">
-        <div class="blueprint-grid"></div>
+      <section class="blueprint-viewport engineering-canvas-viewport" tabindex="0" aria-label="Blueprint graph editor">
+        <div class="blueprint-grid engineering-canvas-grid"></div>
         <div class="blueprint-world">
           <svg class="blueprint-wire-layer" aria-label="Blueprint connections"></svg>
           <div class="blueprint-node-layer"></div>
           <div class="blueprint-selection-marquee" hidden></div>
         </div>
-        <div class="blueprint-zoom"><button type="button" data-blueprint-action="zoom-out">−</button><span data-blueprint-zoom>100%</span><button type="button" data-blueprint-action="zoom-in">+</button></div>
+        <engineering-canvas-zoom class="blueprint-zoom"></engineering-canvas-zoom>
         <div class="blueprint-menu blueprint-canvas-menu" hidden>
           <button type="button" data-menu-action="create"><span class="ui-icon icon-add" aria-hidden="true"></span><strong>Add node…</strong></button>
           <button type="button" data-menu-action="paste"><span>⌘V</span><strong>Paste</strong></button>
-          <button type="button" data-menu-action="fit"><span class="ui-icon icon-frame" aria-hidden="true"></span><strong>Frame graph</strong></button>
+          <button type="button" data-menu-action="fit"><span class="ui-icon icon-frame" aria-hidden="true"></span><strong>Zoom to fit</strong></button>
         </div>
         <div class="blueprint-menu blueprint-node-menu" hidden>
           <button type="button" data-menu-action="cut"><span class="ui-icon icon-cut" aria-hidden="true"></span><strong>Cut</strong></button>
@@ -48,7 +50,7 @@ export const renderMethods = {
     this._marqueeElement = this.querySelector('.blueprint-selection-marquee');
     this._canvasMenu = this.querySelector('.blueprint-canvas-menu');
     this._nodeMenu = this.querySelector('.blueprint-node-menu');
-    this._zoomElement = this.querySelector('[data-blueprint-zoom]');
+    this._zoomElement = this.querySelector('engineering-canvas-zoom');
     this._applyCamera();
   },
 
@@ -131,11 +133,14 @@ export const renderMethods = {
   _applyCamera() {
     if (!this._world) return;
     this._world.style.transform = cameraTransform(this._camera);
-    this._viewport.style.setProperty('--blueprint-major-grid', `${64 * this._camera.scale}px`);
-    this._viewport.style.setProperty('--blueprint-minor-grid', `${16 * this._camera.scale}px`);
-    this._viewport.style.setProperty('--blueprint-grid-x', `${this._camera.x}px`);
-    this._viewport.style.setProperty('--blueprint-grid-y', `${this._camera.y}px`);
-    if (this._zoomElement) this._zoomElement.textContent = `${Math.round(this._camera.scale * 100)}%`;
+    this._viewport.style.setProperty('--engineering-grid-major-x', `${64 * this._camera.scale}px`);
+    this._viewport.style.setProperty('--engineering-grid-major-y', `${64 * this._camera.scale}px`);
+    this._viewport.style.setProperty('--engineering-grid-minor-x', `${16 * this._camera.scale}px`);
+    this._viewport.style.setProperty('--engineering-grid-minor-y', `${16 * this._camera.scale}px`);
+    this._viewport.style.setProperty('--engineering-grid-x', `${this._camera.x}px`);
+    this._viewport.style.setProperty('--engineering-grid-y', `${this._camera.y}px`);
+    if (this._zoomElement) this._zoomElement.scale = this._camera.scale;
+    if (this._zoomElement) this._zoomElement.selectionAvailable = Boolean(this._selectionBounds());
     this._scheduleWireRender();
   },
 
@@ -166,12 +171,24 @@ export const renderMethods = {
     return worldPoint(this._camera, rect, clientX, clientY);
   },
 
-  _zoomAroundCenter(delta) {
+  _zoomToScale(nextScale) {
     const rect = this._viewport.getBoundingClientRect();
     const clientX = rect.left + rect.width / 2;
     const clientY = rect.top + rect.height / 2;
-    const scale = clampScale(this._camera.scale + delta, MIN_SCALE, MAX_SCALE);
-    this._camera = zoomCameraAt(this._camera, rect, clientX, clientY, scale);
-    this._applyCamera();
+    const scale = clampScale(nextScale, ENGINEERING_CANVAS_ABSOLUTE_MIN_SCALE, ENGINEERING_CANVAS_MAX_SCALE);
+    this._animateCameraTo(zoomCameraAt(this._camera, rect, clientX, clientY, scale));
+  },
+
+  _animateCameraTo(target) {
+    this._stopCameraAnimation();
+    this._cameraAnimationCancel = animateCamera(this._camera, target, (camera) => {
+      this._camera = camera;
+      this._applyCamera();
+    });
+  },
+
+  _stopCameraAnimation() {
+    this._cameraAnimationCancel?.();
+    this._cameraAnimationCancel = null;
   },
 };

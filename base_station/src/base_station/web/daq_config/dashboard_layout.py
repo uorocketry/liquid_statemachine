@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from math import floor
 
 from base_station.web.daq_config.node_specs import DASHBOARD_NODE_TYPES
 
@@ -11,9 +12,10 @@ DASHBOARD_PACK_COLUMNS = 12
 DASHBOARD_MAX_ITEM_WIDTH = 24
 DASHBOARD_MAX_ROWS_PER_ITEM = 12
 DASHBOARD_WORLD_LIMIT = 10_000
-CAMERA_MIN_SCALE = 0.5
-CAMERA_MAX_SCALE = 1.5
-CAMERA_SLOTS = ("1", "2", "3")
+VIEW_SLOTS = ("1", "2", "3")
+VIEW_SNAP = 0.25
+VIEW_MIN_SPAN = 0.25
+VIEW_MAX_SPAN = DASHBOARD_WORLD_LIMIT * 2
 
 DEFAULT_SIZES = {
     "number": (3, 1),
@@ -60,7 +62,7 @@ def normalize_dashboard_layout(graph: dict, layout: object) -> dict:
     _normalize_z(items, order)
     return {
         "items": items,
-        "cameraPresets": _normalize_camera_presets(source_layout.get("cameraPresets")),
+        "views": _normalize_views(source_layout.get("views")),
     }
 
 
@@ -123,20 +125,21 @@ def _bounded_int(value: object, fallback: int, minimum: int, maximum: int) -> in
     return max(minimum, min(maximum, number))
 
 
-def _normalize_camera_presets(source: object) -> dict[str, dict]:
+def _normalize_views(source: object) -> dict[str, dict]:
     raw = source if isinstance(source, dict) else {}
-    presets: dict[str, dict] = {}
-    for slot in CAMERA_SLOTS:
+    views: dict[str, dict] = {}
+    for slot in VIEW_SLOTS:
         candidate = raw.get(slot)
         if not isinstance(candidate, dict):
             continue
-        x = _bounded_float(candidate.get("x"), -DASHBOARD_WORLD_LIMIT, DASHBOARD_WORLD_LIMIT)
-        y = _bounded_float(candidate.get("y"), -DASHBOARD_WORLD_LIMIT, DASHBOARD_WORLD_LIMIT)
-        scale = _bounded_float(candidate.get("scale"), CAMERA_MIN_SCALE, CAMERA_MAX_SCALE)
-        if x is None or y is None or scale is None:
+        x = _bounded_view_float(candidate.get("x"), -DASHBOARD_WORLD_LIMIT, DASHBOARD_WORLD_LIMIT)
+        y = _bounded_view_float(candidate.get("y"), -DASHBOARD_WORLD_LIMIT, DASHBOARD_WORLD_LIMIT)
+        width = _bounded_view_float(candidate.get("w"), VIEW_MIN_SPAN, VIEW_MAX_SPAN)
+        height = _bounded_view_float(candidate.get("h"), VIEW_MIN_SPAN, VIEW_MAX_SPAN)
+        if x is None or y is None or width is None or height is None:
             continue
-        presets[slot] = {"x": x, "y": y, "scale": scale}
-    return presets
+        views[slot] = {"x": x, "y": y, "w": width, "h": height}
+    return views
 
 
 def _bounded_float(value: object, minimum: float, maximum: float) -> float | None:
@@ -145,7 +148,15 @@ def _bounded_float(value: object, minimum: float, maximum: float) -> float | Non
     return max(minimum, min(maximum, float(value)))
 
 
+def _bounded_view_float(value: object, minimum: float, maximum: float) -> float | None:
+    bounded = _bounded_float(value, minimum, maximum)
+    if bounded is None:
+        return None
+    snapped = floor(bounded / VIEW_SNAP + 0.5) * VIEW_SNAP
+    return max(minimum, min(maximum, round(snapped, 10)))
+
+
 def copy_layout(layout: object) -> dict:
     """Return a detached layout payload for API responses."""
-    source = layout if isinstance(layout, dict) else {"items": {}, "cameraPresets": {}}
+    source = layout if isinstance(layout, dict) else {"items": {}, "views": {}}
     return deepcopy(source)

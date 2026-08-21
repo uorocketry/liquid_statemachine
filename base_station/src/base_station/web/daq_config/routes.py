@@ -43,6 +43,10 @@ def build_daq_router(
     def capabilities() -> dict:
         return labjack_capabilities(dashboard)
 
+    @router.get("/config/revision", include_in_schema=False)
+    def configuration_revision() -> dict:
+        return {"version": repository.version}
+
     @router.get("/daq/graph")
     def load_graph() -> dict:
         document = repository.load()
@@ -171,6 +175,24 @@ def build_daq_router(
         document = repository.load()
         canonical = normalize_dashboard_layout(document["graph"], layout)
         saved = repository.save_dashboard_layout(canonical)
+        return {"saved": True, "layout": copy_layout(saved)}
+
+    @router.put("/dashboard/layout/items")
+    def save_dashboard_items(items: dict = Body(...)) -> dict:
+        document = repository.load()
+        layout = copy_layout(document["dashboard"]["layout"])
+        layout["items"] = items
+        canonical = normalize_dashboard_layout(document["graph"], layout)
+        saved = repository.save_dashboard_items(canonical["items"])
+        return {"saved": True, "layout": copy_layout(saved)}
+
+    @router.put("/dashboard/layout/views")
+    def save_dashboard_views(views: dict = Body(...)) -> dict:
+        document = repository.load()
+        layout = copy_layout(document["dashboard"]["layout"])
+        layout["views"] = views
+        canonical = normalize_dashboard_layout(document["graph"], layout)
+        saved = repository.save_dashboard_views(canonical["views"])
         return {"saved": True, "layout": copy_layout(saved)}
 
     return router

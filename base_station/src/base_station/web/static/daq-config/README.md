@@ -1,6 +1,6 @@
-# DAQ Graph browser modules
+# Signal Graph browser modules
 
-Browser code for `/configuration` owns **graph topology only**. LabJack
+Browser code for `/signals` owns **graph topology only**. LabJack
 acquisition policy is edited on `/devices/labjack`; Dashboard frame geometry is
 edited on the Dashboard. Those domains have separate API transactions.
 
@@ -18,15 +18,16 @@ controls and inferred units.
 
 ## Editing and save lifecycle
 
-`app.js` owns page lifecycle, dirty state, graph validation, undo/redo/frame,
-and canonical graph saves. There is intentionally no explicit Reload/Discard
-button: normal navigation/reload uses the browser's unsaved-changes guard to
-confirm discarding edits.
+`app.js` is the thin page coordinator: bootstrap, editor event wiring, canonical
+graph saves, and preview enable/disable decisions. `page-ui.js` owns issue-list
+rendering, save/undo/redo control state, and the unsaved-changes guard. There is
+intentionally no explicit Reload/Discard button: normal navigation/reload uses
+that guard to confirm discarding edits.
 
 The Blueprint editor owns pending text/number drafts. `Cmd/Ctrl+S` or Save
 flushes the pending draft before validation. The server returns the exact graph
 it stored, and the editor adopts it. Do not recreate separate pending-edit
-state in DAQ Graph code.
+state in Signal Graph code.
 
 ## Preview
 
@@ -34,6 +35,8 @@ state in DAQ Graph code.
 the current unsaved graph when it changes; the server continuously returns
 preview values while that graph is valid. LabJack settings arrive as read-only
 source context and are never written by this page. Simulation sources can
+preview without hardware. The page binds preview start/stop through the shared
+`../page-resource-lifecycle.js` helper so BFCache restores resume cleanly.
 preview without connected hardware.
 
 This bidirectional editor preview is intentionally separate from server-owned

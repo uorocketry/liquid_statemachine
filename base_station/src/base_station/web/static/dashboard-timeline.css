@@ -1,0 +1,45 @@
+.telemetry-time-control {
+  position: relative;
+  z-index: 20;
+  min-height: 78px;
+  display: block;
+  flex: none;
+  padding: 4px 0 6px;
+  border-radius: var(--radius-ui);
+  background: var(--color-canvas);
+}
+.telemetry-time-control[hidden] { display: none; }
+.telemetry-navigator-wrap { position: relative; width: 100%; min-width: 0; }
+#telemetry-tier-navigator {
+  width: 100%;
+  height: 68px;
+  border-radius: var(--radius-ui);
+  cursor: crosshair;
+  touch-action: none;
+}
+.telemetry-time-tooltip {
+  position: absolute;
+  z-index: 3;
+  padding: 3px 5px;
+  color: var(--color-canvas);
+  background: var(--color-text);
+  font: 8px ui-monospace, monospace;
+  pointer-events: none;
+  transform: translate(-50%, -115%);
+  white-space: nowrap;
+}
+.telemetry-return-tail {
+  position: absolute;
+  z-index: 4;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.telemetry-return-tail:hover { color: var(--color-text); }
+.telemetry-return-tail:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }

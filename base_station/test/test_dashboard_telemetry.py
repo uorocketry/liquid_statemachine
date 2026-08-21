@@ -36,6 +36,12 @@ class DashboardTelemetryTests(TestCase):
         history = self.service.snapshot()["histories"]["plot"]
         self.assertEqual([sample["value"] for sample in history], [20.0])
 
+    def test_gauge_history_is_retained_for_timeline_scrubbing(self) -> None:
+        with patch("base_station.web.dashboard_telemetry.monotonic", return_value=2.0):
+            self.service._ingest(payload(37))
+        snapshot = self.service.snapshot()
+        self.assertEqual(snapshot["histories"]["gauge"][0]["value"], 37.0)
+
     def test_reset_starts_new_session_without_touching_configuration(self) -> None:
         with patch("base_station.web.dashboard_telemetry.monotonic", return_value=5.0):
             self.service._ingest(payload(10))
@@ -92,14 +98,24 @@ def document(label: str) -> dict:
             "nodes": [
                 {"id": "sine", "nodeType": "sine-wave", "config": {"unit": "psi"}},
                 {"id": "plot", "nodeType": "time-plot", "config": {"label": label}},
+                {"id": "gauge", "nodeType": "gauge", "config": {"label": "Gauge"}},
             ],
-            "links": [{
-                "id": "link",
-                "fromNode": "sine",
-                "fromPin": "signal",
-                "toNode": "plot",
-                "toPin": "value",
-            }],
+            "links": [
+                {
+                    "id": "plot-link",
+                    "fromNode": "sine",
+                    "fromPin": "signal",
+                    "toNode": "plot",
+                    "toPin": "value",
+                },
+                {
+                    "id": "gauge-link",
+                    "fromNode": "sine",
+                    "fromPin": "signal",
+                    "toNode": "gauge",
+                    "toPin": "value",
+                },
+            ],
         },
         "sources": {"labjack": {}},
         "dashboard": {"layout": {"items": {}}},
@@ -108,7 +124,10 @@ def document(label: str) -> dict:
 
 def payload(value: float) -> dict:
     return {
-        "values": {"plot": {"value": value, "unit": "psi"}},
+        "values": {
+            "plot": {"value": value, "unit": "psi"},
+            "gauge": {"value": value, "unit": "psi"},
+        },
         "errors": [],
         "unresolved": [],
     }

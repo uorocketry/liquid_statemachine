@@ -20,16 +20,8 @@
   z-index: 30;
   left: 50%;
   bottom: 18px;
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 4px;
-  border: 1px solid var(--color-border);
-  border-radius: calc(var(--radius-ui) + 2px);
-  background: var(--color-surface-raised);
   transform: translateX(-50%);
 }
-.daq-floating-tools > button,
 .daq-floating-tools > .daq-tool-menu > summary,
 .daq-node-toolset > .daq-tool-menu > summary {
   display: inline-grid;
@@ -49,28 +41,19 @@
 .daq-node-toolset.awaiting-placement > .daq-tool-menu > summary { color: var(--color-text); background: var(--color-surface-hover); }
 .daq-floating-tools > .daq-tool-menu > summary::-webkit-details-marker,
 .daq-node-toolset > .daq-tool-menu > summary::-webkit-details-marker { display: none; }
-.daq-floating-tools > button:hover:not(:disabled),
 .daq-floating-tools > .daq-tool-menu > summary:hover,
 .daq-floating-tools > .daq-tool-menu[open] > summary,
 .daq-node-toolset > .daq-tool-menu > summary:hover,
 .daq-node-toolset > .daq-tool-menu[open] > summary { background: var(--color-surface-hover); color: var(--color-text); }
 #daq-save:not(:disabled) { color: var(--color-text); }
-.daq-floating-tools > button:focus-visible,
+#daq-save.error { color: var(--color-danger); }
 .daq-floating-tools > .daq-tool-menu > summary:focus-visible,
 .daq-node-toolset > .daq-tool-menu > summary:focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: 1px;
 }
-.daq-floating-tools > button:disabled { opacity: .28; cursor: default; }
-.daq-floating-tools > button .ui-icon,
 .daq-floating-tools > .daq-tool-menu > summary .ui-icon,
 .daq-node-toolset > .daq-tool-menu > summary .ui-icon { width: 20px; height: 20px; }
-.daq-tool-divider { align-self: stretch; margin: 6px 3px; border-left: 1px solid var(--color-border-soft); }
-.daq-save-state { align-self: center; margin: 0 6px 0 4px; font-size: 8px; white-space: nowrap; }
-.daq-save-state.saved { color: var(--color-text-subtle); }
-.daq-save-state.dirty { color: var(--color-warning); }
-.daq-save-state.error { max-width: 220px; color: var(--color-danger); overflow: hidden; text-overflow: ellipsis; }
-
 .daq-tool-popover {
   position: absolute;
   left: 50%;

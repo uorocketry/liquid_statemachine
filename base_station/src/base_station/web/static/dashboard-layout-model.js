@@ -2,8 +2,9 @@ export const DASHBOARD_REFERENCE_COLUMNS = 12;
 export const DASHBOARD_MAX_ITEM_WIDTH = 24;
 export const DASHBOARD_MAX_ITEM_HEIGHT = 12;
 export const DASHBOARD_WORLD_LIMIT = 10_000;
-export const DASHBOARD_MIN_SCALE = 0.5;
-export const DASHBOARD_MAX_SCALE = 1.5;
+// View rectangles snap to the visible engineering-canvas minor grid.
+export const DASHBOARD_VIEW_SNAP = 0.25;
+export const DASHBOARD_VIEW_MIN_SPAN = 0.25;
 
 const MIN_SIZES = {
   number: [2, 1],
@@ -12,7 +13,7 @@ const MIN_SIZES = {
 };
 
 export function cloneLayout(layout) {
-  return structuredClone(layout ?? { items: {}, cameraPresets: {} });
+  return structuredClone(layout ?? { items: {}, views: {} });
 }
 
 export function visibleWidgets(widgets, layout) {
@@ -42,6 +43,21 @@ export function itemWorldBounds(item, metrics) {
     y: item.y * metrics.rowStep,
     width,
     height,
+  };
+}
+
+export function dashboardGridMetrics(viewport) {
+  const style = getComputedStyle(viewport);
+  const gap = Number.parseFloat(style.getPropertyValue('--dashboard-gap')) || 8;
+  const rowHeight = Number.parseFloat(style.getPropertyValue('--dashboard-row-height')) || 48;
+  const width = Math.max(1, viewport.clientWidth);
+  const columnWidth = Math.max(40, (width - gap * (DASHBOARD_REFERENCE_COLUMNS - 1)) / DASHBOARD_REFERENCE_COLUMNS);
+  return {
+    gap,
+    rowHeight,
+    columnWidth,
+    columnStep: columnWidth + gap,
+    rowStep: rowHeight + gap,
   };
 }
 
@@ -100,15 +116,55 @@ export function clampResize(item, nodeType, dw, dh) {
   };
 }
 
-export function setCameraPreset(layout, slot, preset) {
+export function viewFor(layout, slot) {
+  return layout?.views?.[String(slot)] ?? null;
+}
+
+export function setView(layout, slot, view) {
   if (!['1', '2', '3'].includes(String(slot))) return false;
-  layout.cameraPresets ??= {};
-  layout.cameraPresets[String(slot)] = {
-    x: Number(preset.x),
-    y: Number(preset.y),
-    scale: Number(preset.scale),
+  layout.views ??= {};
+  layout.views[String(slot)] = {
+    x: snapView(Number(view.x)),
+    y: snapView(Number(view.y)),
+    w: Math.max(DASHBOARD_VIEW_MIN_SPAN, snapView(Number(view.w))),
+    h: Math.max(DASHBOARD_VIEW_MIN_SPAN, snapView(Number(view.h))),
   };
   return true;
+}
+
+export function deleteView(layout, slot) {
+  if (!layout?.views) return false;
+  return delete layout.views[String(slot)];
+}
+
+export function viewWorldBounds(view, metrics) {
+  if (!view || !metrics) return null;
+  return {
+    x: view.x * metrics.columnStep,
+    y: view.y * metrics.rowStep,
+    width: view.w * metrics.columnStep,
+    height: view.h * metrics.rowStep,
+  };
+}
+
+export function gridPointFromWorld(point, metrics) {
+  return {
+    x: snapView(point.x / metrics.columnStep),
+    y: snapView(point.y / metrics.rowStep),
+  };
+}
+
+export function viewFromGridPoints(first, second) {
+  const x = Math.min(first.x, second.x);
+  const y = Math.min(first.y, second.y);
+  const right = Math.max(first.x, second.x);
+  const bottom = Math.max(first.y, second.y);
+  return {
+    x,
+    y,
+    w: Math.max(DASHBOARD_VIEW_MIN_SPAN, snapView(right - x)),
+    h: Math.max(DASHBOARD_VIEW_MIN_SPAN, snapView(bottom - y)),
+  };
 }
 
 function numericZ(item) {
@@ -117,4 +173,9 @@ function numericZ(item) {
 
 function clamp(value, low, high) {
   return Math.max(low, Math.min(high, value));
+}
+
+function snapView(value) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.round(value / DASHBOARD_VIEW_SNAP) * DASHBOARD_VIEW_SNAP;
 }

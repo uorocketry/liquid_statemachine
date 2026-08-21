@@ -5,21 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#ffffff" />
     <link rel="icon" href="data:," />
-    <title>{% block title %}Liquid State Machine{% endblock %}</title>
+    <title>{% block title %}{{ page_title }}{% endblock %}</title>
     <script src="/static/theme.js"></script>
+    <script src="/static/sidebar-preferences.js"></script>
     <link rel="stylesheet" href="/static/design-tokens.css" />
     <link rel="stylesheet" href="/static/icons.css" />
     <link rel="stylesheet" href="/static/styles.css" />
     <link rel="stylesheet" href="/static/site-shell.css" />
     {% block styles %}{% endblock %}
-    <script src="/static/vendor/htmx-2.0.10.min.js" defer></script>
   </head>
   <body>
-    <div id="site-shell" class="site-shell" data-active-device="{{ active_device or '' }}" data-status-device="{{ status_device or active_device or '' }}">
+    <div id="site-shell" class="site-shell" data-active-page="{{ active_page or '' }}" data-active-device="{{ active_device or '' }}" data-status-device="{{ status_device or active_device or '' }}" data-config-version="{{ config_version }}">
       <aside id="site-sidebar" class="site-sidebar">
         <div class="site-sidebar-scroll">
           <div class="site-brand">
-            <strong>FillCart</strong>
+            <strong>{{ product_name }}</strong>
           </div>
           <nav class="site-sidebar-nav" aria-label="Sidebar navigation">
             <section class="site-sidebar-section site-status-section">
@@ -34,18 +34,16 @@
               </div>
             </section>
             <div class="site-sidebar-section site-nav">
-              <a class="{% if active_page == 'dashboard' %}active{% endif %}" href="/"><span class="site-nav-icon icon-dashboard" aria-hidden="true"></span><span>Dashboard</span></a>
-              <a class="{% if active_page == 'state' %}active{% endif %}" href="/state"><span class="site-nav-icon icon-state-machine" aria-hidden="true"></span><span>State Machine</span></a>
-              <a class="{% if active_page == 'configuration' %}active{% endif %}" href="/configuration"><span class="site-nav-icon icon-daq" aria-hidden="true"></span><span>DAQ Graph</span></a>
-              <a class="{% if active_page == 'runs' %}active{% endif %}" href="/runs"><span class="site-nav-icon icon-runs" aria-hidden="true"></span><span>Runs</span></a>
-              <a class="{% if active_page == 'logs' %}active{% endif %}" href="/logs"><span class="site-nav-icon icon-logs" aria-hidden="true"></span><span>Logs</span></a>
+              {% for page in navigation_pages %}
+              <a class="{% if active_page == page.id %}active{% endif %}" href="{{ page.path }}"><span class="site-nav-icon {{ page.icon_class }}" aria-hidden="true"></span><span>{{ page.label }}</span></a>
+              {% endfor %}
             </div>
           </nav>
         </div>
         <div class="site-sidebar-footer">
-          <a class="site-settings-link {% if active_page == 'settings' %}active{% endif %}" href="/settings" aria-label="Settings" title="Settings">
-            <span class="ui-icon icon-settings" aria-hidden="true"></span>
-            <span class="site-settings-label">Settings</span>
+          <a class="site-settings-link {% if active_page == settings_page.id %}active{% endif %}" href="{{ settings_page.path }}" aria-label="{{ settings_page.label }}" title="{{ settings_page.label }}">
+            <span class="ui-icon {{ settings_page.icon_class }}" aria-hidden="true"></span>
+            <span class="site-settings-label">{{ settings_page.label }}</span>
           </a>
         </div>
       </aside>
@@ -56,7 +54,7 @@
       <div class="site-content">{% block content %}{% endblock %}</div>
     </div>
     <script src="/static/graph-settings.js"></script>
-    <script src="/static/site-shell.js"></script>
+    <script type="module" src="/static/site-shell.js"></script>
     {% block scripts %}{% endblock %}
   </body>
 </html>

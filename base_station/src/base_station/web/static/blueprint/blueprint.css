@@ -33,7 +33,7 @@
   background: var(--blueprint-panel);
 }
 .blueprint-toolbar-actions { display: flex; gap: 6px; }
-.blueprint-toolbar button, .blueprint-zoom button, .blueprint-menu button {
+.blueprint-toolbar button, .blueprint-menu button {
   border: 1px solid var(--blueprint-border);
   border-radius: 5px;
   background: var(--blueprint-panel);
@@ -41,46 +41,21 @@
   font: inherit;
 }
 .blueprint-toolbar button { padding: 5px 9px; font-size: 11px; }
-.blueprint-toolbar button:hover:not(:disabled), .blueprint-zoom button:hover:not(:disabled), .blueprint-menu button:hover:not(:disabled) { background: var(--color-surface-hover); }
+.blueprint-toolbar button:hover:not(:disabled), .blueprint-menu button:hover:not(:disabled) { background: var(--color-surface-hover); }
 .blueprint-toolbar button:disabled, .blueprint-menu button:disabled { opacity: .4; }
 
 .blueprint-viewport {
-  --blueprint-major-grid: 64px;
-  --blueprint-minor-grid: 16px;
-  --blueprint-grid-x: 0px;
-  --blueprint-grid-y: 0px;
-  position: relative;
   height: min(72vh, 760px);
   min-height: 420px;
-  overflow: hidden;
   border: 1px solid var(--blueprint-border);
   border-radius: 0 0 8px 8px;
   outline: none;
   background: var(--blueprint-bg);
-  touch-action: none;
-  user-select: none;
 }
 .blueprint-viewport:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
-.blueprint-grid {
-  position: absolute;
-  inset: 0;
-  pointer-events: auto;
-  background-image:
-    linear-gradient(to right, var(--blueprint-grid-major) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--blueprint-grid-major) 1px, transparent 1px),
-    linear-gradient(to right, var(--blueprint-grid-minor) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--blueprint-grid-minor) 1px, transparent 1px);
-  background-size:
-    var(--blueprint-major-grid) var(--blueprint-major-grid),
-    var(--blueprint-major-grid) var(--blueprint-major-grid),
-    var(--blueprint-minor-grid) var(--blueprint-minor-grid),
-    var(--blueprint-minor-grid) var(--blueprint-minor-grid);
-  background-position:
-    var(--blueprint-grid-x) var(--blueprint-grid-y),
-    var(--blueprint-grid-x) var(--blueprint-grid-y),
-    var(--blueprint-grid-x) var(--blueprint-grid-y),
-    var(--blueprint-grid-x) var(--blueprint-grid-y);
-}
+.liquid-blueprint-editor[data-canvas-tool="hand"] .blueprint-viewport { cursor: grab; }
+.liquid-blueprint-editor[data-canvas-tool="hand"] liquid-blueprint-node,
+.liquid-blueprint-editor[data-canvas-tool="hand"] .blueprint-wire-hit { cursor: grab; }
 .blueprint-world {
   position: absolute;
   inset: 0 auto auto 0;
@@ -233,17 +208,7 @@ liquid-blueprint-node.connection-muted { opacity: .26; filter: grayscale(.7) sat
   position: absolute;
   right: 9px;
   bottom: 8px;
-  z-index: 20;
-  display: grid;
-  grid-template-columns: 26px 48px 26px;
-  align-items: center;
-  overflow: hidden;
-  border: 1px solid var(--blueprint-border);
-  border-radius: 5px;
-  background: color-mix(in srgb, var(--color-surface-raised) 92%, transparent);
 }
-.blueprint-zoom button { height: 26px; border: 0; border-radius: 0; }
-.blueprint-zoom span { text-align: center; color: var(--blueprint-muted); font-size: 9px; }
 
 .blueprint-menu {
   position: absolute;

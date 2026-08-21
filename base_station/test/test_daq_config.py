@@ -141,9 +141,9 @@ class DaqConfigTests(TestCase):
         })
         layout = normalize_dashboard_layout(graph, {
             "stale": True,
-            "cameraPresets": {
-                "1": {"x": -5.5, "y": 12.25, "scale": 1.2},
-                "4": {"x": 0, "y": 0, "scale": 1},
+            "views": {
+                "1": {"x": -5.39, "y": 12.36, "w": 8.62, "h": 5.14},
+                "4": {"x": 0, "y": 0, "w": 2, "h": 2},
             },
             "items": {
                 "number": {"x": 99, "y": -4, "w": 99, "h": 0, "z": 99, "visible": True, "stale": 1},
@@ -152,7 +152,7 @@ class DaqConfigTests(TestCase):
                 "deleted": {"x": 0, "y": 0, "w": 1, "h": 1, "z": 0, "visible": True},
             },
         })
-        self.assertEqual(set(layout), {"items", "cameraPresets"})
+        self.assertEqual(set(layout), {"items", "views"})
         self.assertEqual(set(layout["items"]), {"number", "gauge", "plot"})
         for item in layout["items"].values():
             self.assertGreaterEqual(item["w"], 2)
@@ -167,8 +167,8 @@ class DaqConfigTests(TestCase):
         self.assertEqual(layout["items"]["gauge"]["y"], 0)
         self.assertEqual(layout["items"]["plot"]["y"], 0)
         self.assertEqual(sorted(item["z"] for item in layout["items"].values()), [0, 1, 2])
-        self.assertEqual(layout["cameraPresets"], {
-            "1": {"x": -5.5, "y": 12.25, "scale": 1.2},
+        self.assertEqual(layout["views"], {
+            "1": {"x": -5.5, "y": 12.25, "w": 8.5, "h": 5.25},
         })
 
     def test_unsupported_node_type_is_rejected(self) -> None:
@@ -236,6 +236,7 @@ class DaqConfigTests(TestCase):
                 "dashboard": {"layout": {"items": {}}},
             })
             repository.save(document)
+            version_before_settings = repository.version
             original_graph = repository.load()["graph"]
             original_layout = repository.load()["dashboard"]["layout"]
             repository.save_labjack_settings({
@@ -248,6 +249,29 @@ class DaqConfigTests(TestCase):
             self.assertEqual(current["graph"], original_graph)
             self.assertEqual(current["dashboard"]["layout"], original_layout)
             self.assertEqual(current["sources"]["labjack"]["scanRate"], 2000)
+            self.assertNotEqual(repository.version, version_before_settings)
+
+    def test_dashboard_items_and_views_writes_are_isolated(self) -> None:
+        with TemporaryDirectory() as directory:
+            repository = DaqConfigRepository(Path(directory) / "daq.json")
+            repository.save({
+                "graph": {
+                    "nodes": [{"id": "number", "nodeType": "number", "config": {"label": "Value"}}],
+                    "links": [],
+                },
+                "dashboard": {"layout": {
+                    "items": {"number": {"x": 1, "y": 2, "w": 3, "h": 1, "z": 0, "visible": True}},
+                    "views": {"1": {"x": 0.5, "y": 1, "w": 4, "h": 3}},
+                }},
+            })
+            views = repository.load()["dashboard"]["layout"]["views"]
+            repository.save_dashboard_items({
+                "number": {"x": 7, "y": 4, "w": 3, "h": 1, "z": 0, "visible": True},
+            })
+            self.assertEqual(repository.load()["dashboard"]["layout"]["views"], views)
+            items = repository.load()["dashboard"]["layout"]["items"]
+            repository.save_dashboard_views({"2": {"x": 2, "y": 3, "w": 5, "h": 4}})
+            self.assertEqual(repository.load()["dashboard"]["layout"]["items"], items)
 
     def test_spec_defaults_are_detached_from_authoritative_defaults(self) -> None:
         defaults = spec_defaults()

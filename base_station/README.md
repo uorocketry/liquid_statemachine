@@ -54,9 +54,11 @@ The macOS `BaseStation.command` and Windows `Base Station.bat` launchers run
 
 ## Web interface
 
-- `/` — blueprint-published live telemetry.
+- `/dashboard` — read-only Live Dashboard and telemetry navigator.
+- `/dashboard/layout` — Dashboard widget placement and visibility.
+- `/dashboard/views` — Dashboard presentation-view authoring.
 - `/state` — Fill Cart state transitions and controller health.
-- `/configuration` — DAQ Graph editor and low-rate preview.
+- `/signals` — Signal Graph editor and low-rate preview.
 - `/runs` — Record/Stop, run archive, CSV export, and database backup.
 - `/devices/p1am` — P1AM health, P1 rack initialization, and restart.
 - `/devices/labjack` — LabJack connection and device health.
@@ -65,7 +67,7 @@ The macOS `BaseStation.command` and Windows `Base Station.bat` launchers run
 
 DAQ configuration is saved to `data/daq-config.json` with independently owned
 `graph`, `sources`, and `dashboard` sections. LabJack acquisition settings live
-on `/devices/labjack`; DAQ Graph saves topology only. Draft graph preview uses
+on `/devices/labjack`; Signal Graph saves topology only. Draft graph preview uses
 one WebSocket connection. Engineering transforms are server-side NumPy-compatible
 functions.
 
@@ -74,9 +76,17 @@ Recorded sources cross the shared `SignalDescriptor` / `SampleBatch` boundary,
 so run storage, CSV export, decimation, and history rendering are not tied to a
 fixed LabJack channel count.
 
-There is no frontend build step. Jinja/HTMX handles ordinary controls; native
-custom elements use vendored Lit for blueprint DOM updates. All browser
-dependencies are served locally from `static/vendor/`.
+There is no frontend build step. Jinja renders complete documents; native ES
+modules use JSON `fetch` for commands/data and SSE/WebSocket for live updates.
+Vendored Lit is used only for blueprint DOM updates. Browser dependencies are
+served locally from `static/vendor/`. Because first-party ES
+modules are intentionally unversioned, static assets use ETag revalidation
+(`Cache-Control: no-cache`) rather than immutable caching; repeat navigation can
+reuse cached bodies while an application restart cannot silently mix module generations.
+
+Top-level page metadata (canonical route, sidebar label/icon, and browser title)
+lives in `web/navigation.py`. Browser-owned SSE/WebSocket resources share the
+small `static/page-resource-lifecycle.js` page/BFCache lifecycle helper.
 
 The persistent sidebar is global-only and collapses from 260 px to a 52 px icon
 rail. Page-specific actions stay in page content. Shared app chrome uses semantic
@@ -97,8 +107,8 @@ belong on the actual interactive control.
 
 FastAPI polls the P1AM once per process through a serialized, validated client,
 so opening more browsers does not multiply controller traffic or race operator
-commands. Browser status/state updates use SSE rather than periodic fragment
-polling. Dashboard telemetry and Logs are SSE streams; unsaved DAQ Graph preview
+commands. Browser status/state updates use SSE rather than periodic HTML
+polling. Dashboard telemetry and Logs are SSE streams; unsaved Signal Graph preview
 uses WebSocket because graph revisions also travel from browser to server.
 
 Live Dashboard sampling is process-owned rather than browser-owned. The server
@@ -107,15 +117,20 @@ switching tabs or reloading restores recent context instead of starting at zero.
 Both the server and browser prune outside that window, so a Dashboard left open
 for hours has constant memory/data bounds. **New live session** clears only this
 ephemeral Dashboard history; it does not delete saved recordings. Saving a
-changed DAQ graph/source configuration also starts a new live session so
+changed signal graph/source configuration also starts a new live session so
 differently configured signals are never mixed in one history.
 
-Dashboard panels live on a large world-space snap grid inside a clipped
-viewport rather than extending the page. Empty-space drag pans, the wheel
-zooms, and Frame returns to the authored panels. Camera slots 1–3 can be
-recalled with the number keys; Shift+1/2/3 stores the current view in the
-Dashboard layout draft so Save/Cancel remains the only persistence transaction.
-The Dashboard and DAQ Graph share the same camera transform math.
+Dashboard authoring is split into dedicated pages. `/dashboard/layout` owns
+widget visibility, position, size, and stacking on the canonical snap-grid
+world. `/dashboard/views` owns three optional source rectangles drawn over that
+same canonical 100%-zoom world. Both authoring pages may pan/zoom for editing,
+but their saved coordinates are camera-independent.
+
+`/dashboard` is the read-only Live Dashboard. It contains no layout toolbar or canvas
+zoom controls; the telemetry navigator remains on the bottom row. Number keys
+1–3 select saved views. Presentation projects the selected source rectangle to
+the full Dashboard viewport by changing each widget's responsive
+left/top/width/height box; widget contents are never CSS-scaled or distorted.
 
 The LabJack source settings own acquisition scan rate, resolution, settling,
 and MUX80 configuration. Runs displays and uses that saved source rate.

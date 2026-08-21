@@ -1,12 +1,21 @@
 {% extends "base.html" %}
-{% set active_page = "state" %}
-{% block title %}State Machine · Liquid State Machine{% endblock %}
 {% block styles %}<link rel="stylesheet" href="/static/state.css" />{% endblock %}
 {% block content %}
 <main class="page state-page">
-  <section class="state-control-surface">
-    {% include "fragments/cart.html" %}
+  <section class="state-control-surface" data-p1am-state>
+    <div class="current-state">
+      <strong aria-label="Current state" data-p1am-current>{{ state_names[cart.state] if cart.connected and cart.state is not none else "Disconnected" }}</strong>
+      <p data-p1am-operation class="operation-status {% if cart.pending_state is not none %}pending{% endif %}"{% if not cart.transition_message %} hidden{% endif %}>{{ cart.transition_message or "" }}</p>
+    </div>
+    <div class="state-grid" aria-label="State controls">
+      {% for state in state_definitions %}
+      <button type="button"
+              class="state-button{% if state.dangerous %} danger{% endif %}{% if state.id == cart.state %} current{% endif %}"
+              data-state-id="{{ state.id }}"{% if state.confirmation %} data-confirm="{{ state.confirmation }}"{% endif %}
+              {% if not cart.connected or state.id not in cart.transitions or cart.pending_state is not none %}disabled{% endif %}>{{ state.label }}</button>
+      {% endfor %}
+    </div>
   </section>
 </main>
 {% endblock %}
-{% block scripts %}<script src="/static/p1am-state.js"></script>{% endblock %}
+{% block scripts %}<script type="module" src="/static/p1am-state.js"></script>{% endblock %}

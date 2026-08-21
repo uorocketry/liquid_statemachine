@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block styles %}
+<link rel="stylesheet" href="/static/engineering-canvas.css" />
+<link rel="stylesheet" href="/static/dashboard-base.css" />
+<link rel="stylesheet" href="/static/dashboard-gauge.css" />
+<link rel="stylesheet" href="/static/dashboard-authoring.css" />
+{% endblock %}
+{% block content %}
+<main class="page dashboard-page">
+  <div id="dashboard-layout-viewport" class="dashboard-viewport engineering-canvas-viewport dashboard-authoring-viewport" role="region" aria-label="Dashboard layout editor. Drag widget headers to move, resize from the lower-right corner, middle- or right-drag empty space to pan, and scroll to zoom.">
+    <div class="dashboard-grid engineering-canvas-grid" aria-hidden="true"></div>
+    <div id="dashboard-layout-grid" class="dashboard-widget-groups"></div>
+    <div id="dashboard-layout-selection-layer" class="dashboard-selection-layer"></div>
+    <div class="dashboard-authoring-controls engineering-canvas-tools" role="toolbar" aria-label="Dashboard layout controls">
+      <button class="engineering-canvas-tool" type="button" data-canvas-tool="select" aria-label="Select tool" aria-keyshortcuts="V" title="Select (V)" aria-pressed="true"><span class="ui-icon icon-select-tool" aria-hidden="true"></span></button>
+      <button class="engineering-canvas-tool" type="button" data-canvas-tool="hand" aria-label="Hand tool" aria-keyshortcuts="H" title="Hand (H)" aria-pressed="false"><span class="ui-icon icon-hand-tool" aria-hidden="true"></span></button>
+      <span class="engineering-canvas-divider" aria-hidden="true"></span>
+      <details class="dashboard-widget-picker"><summary aria-label="Dashboard elements" title="Dashboard elements"><span class="ui-icon icon-add" aria-hidden="true"></span></summary><div id="dashboard-widget-options" class="dashboard-widget-options"></div></details>
+      <button id="dashboard-layout-cancel" type="button" aria-label="Discard layout changes" title="Discard layout changes" disabled><span class="ui-icon icon-undo" aria-hidden="true"></span></button>
+      <button id="dashboard-layout-save" type="button" aria-label="Save dashboard layout" title="Save dashboard layout" disabled><span class="ui-icon icon-save" aria-hidden="true"></span></button>
+    </div>
+    <engineering-canvas-zoom id="dashboard-layout-zoom" class="dashboard-zoom" aria-label="Dashboard layout zoom"></engineering-canvas-zoom>
+  </div>
+</main>
+{% endblock %}
+{% block scripts %}<script type="module" src="/static/dashboard-layout-page.js"></script>{% endblock %}

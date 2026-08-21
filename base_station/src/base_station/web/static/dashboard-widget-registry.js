@@ -3,9 +3,9 @@ import { createNumberWidget, updateNumberWidget } from './dashboard-number.js';
 import { createTimePlotWidget } from './dashboard-time-plot.js';
 
 const WIDGETS = {
-  number: { create: createNumberWidget, update: updateNumberWidget, timeline: false },
-  gauge: { create: createGaugeWidget, update: updateGaugeWidget, timeline: false },
-  'time-plot': { create: createTimePlotWidget, update: () => {}, timeline: true },
+  number: { create: createNumberWidget, update: updateNumberWidget, timeline: false, history: false },
+  gauge: { create: createGaugeWidget, update: updateGaugeWidget, timeline: false, history: true },
+  'time-plot': { create: createTimePlotWidget, update: () => {}, timeline: true, history: true },
 };
 
 export const DASHBOARD_NODE_TYPES = new Set(Object.keys(WIDGETS));
@@ -22,4 +22,8 @@ export function updateDashboardWidget(card, node, reading) {
 
 export function usesTimeline(node) {
   return Boolean(WIDGETS[node.nodeType]?.timeline);
+}
+
+export function usesHistory(node) {
+  return Boolean(WIDGETS[node.nodeType]?.history);
 }

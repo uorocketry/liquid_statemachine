@@ -1,8 +1,43 @@
 import { cloneGraph, normalizeGraph } from './model.js';
 import { compatibleConnection } from './graph.js';
+import { NODE_FALLBACK_HEIGHT, NODE_FALLBACK_WIDTH } from './editor-constants.js';
 import { cssEscape } from './editor-utils.js';
 
 export const supportMethods = {
+  _boundsForNodeIds(nodeIds) {
+    const ids = new Set(nodeIds);
+    const nodes = this._graph.nodes.filter((node) => ids.has(node.id));
+    if (!nodes.length) return null;
+    const boxes = nodes.map((node) => {
+      const element = this._nodeElement(node.id);
+      return {
+        x: node.x,
+        y: node.y,
+        width: element?.offsetWidth || node.width || NODE_FALLBACK_WIDTH,
+        height: element?.offsetHeight || NODE_FALLBACK_HEIGHT,
+      };
+    });
+    const minX = Math.min(...boxes.map((box) => box.x));
+    const minY = Math.min(...boxes.map((box) => box.y));
+    const maxX = Math.max(...boxes.map((box) => box.x + box.width));
+    const maxY = Math.max(...boxes.map((box) => box.y + box.height));
+    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+  },
+
+  _contentBounds() {
+    return this._boundsForNodeIds(this._graph.nodes.map((node) => node.id));
+  },
+
+  _selectionBounds() {
+    const nodeIds = new Set(this._selectedNodes);
+    for (const link of this._graph.links) {
+      if (!this._selectedLinks.has(link.id)) continue;
+      nodeIds.add(link.fromNode);
+      nodeIds.add(link.toNode);
+    }
+    return this._boundsForNodeIds(nodeIds);
+  },
+
   _candidatePinKeys() {
     if (!this._linkDrag) return new Set();
     const origin = this._nodeById(this._linkDrag.nodeId);
@@ -150,7 +185,7 @@ export const supportMethods = {
         .map((node) => this._nodeElement(node.id)?.updateComplete)
         .filter(Boolean);
       if (pending.length) await Promise.all(pending);
-      this.fitGraph();
+      this.fitGraph(false);
     });
   },
 

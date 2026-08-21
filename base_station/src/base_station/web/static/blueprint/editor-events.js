@@ -1,5 +1,9 @@
-import { MAX_SCALE, MIN_SCALE } from './editor-constants.js';
-import { clampScale, zoomCameraAt } from '../viewport-camera.js';
+import {
+  ENGINEERING_CANVAS_ABSOLUTE_MIN_SCALE,
+  ENGINEERING_CANVAS_MAX_SCALE,
+  clampScale,
+  zoomCameraAt,
+} from '../viewport-camera.js';
 
 export const eventMethods = {
   _bindEvents() {
@@ -10,6 +14,11 @@ export const eventMethods = {
     this.addEventListener('input', (event) => this._onInlineInput(event));
     this.addEventListener('change', (event) => this._onInlineChange(event));
     this._viewport.addEventListener('wheel', (event) => this._onWheel(event), { passive: false });
+    this._zoomElement?.addEventListener('engineering-canvas-zoom-request', (event) => {
+      if (event.detail?.kind === 'fit') this.fitGraph();
+      else if (event.detail?.kind === 'selection') this.frameSelection();
+      else if (event.detail?.kind === 'scale') this._zoomToScale(event.detail.scale);
+    });
     this._viewport.addEventListener('keydown', (event) => this._onKeyDown(event));
     window.addEventListener('pointermove', this._boundPointerMove);
     window.addEventListener('pointerup', this._boundPointerUp);
@@ -90,8 +99,6 @@ export const eventMethods = {
       if (action === 'undo') this.undo();
       else if (action === 'redo') this.redo();
       else if (action === 'fit') this.fitGraph();
-      else if (action === 'zoom-in') this._zoomAroundCenter(0.1);
-      else if (action === 'zoom-out') this._zoomAroundCenter(-0.1);
       return;
     }
     const menuButton = event.target.closest('[data-menu-action]');
@@ -152,12 +159,13 @@ export const eventMethods = {
 
   _onWheel(event) {
     event.preventDefault();
+    this._stopCameraAnimation();
     this._closeMenus();
     const rect = this._viewport.getBoundingClientRect();
     const scale = clampScale(
       this._camera.scale * Math.exp(-event.deltaY * 0.0012),
-      MIN_SCALE,
-      MAX_SCALE,
+      ENGINEERING_CANVAS_ABSOLUTE_MIN_SCALE,
+      ENGINEERING_CANVAS_MAX_SCALE,
     );
     this._camera = zoomCameraAt(this._camera, rect, event.clientX, event.clientY, scale);
     this._applyCamera();

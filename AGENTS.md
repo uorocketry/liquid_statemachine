@@ -21,6 +21,7 @@ These notes capture the current project state and UI decisions that should be pr
 - Prefer modules under roughly 300 LOC because responsibilities should split before files become catch-alls. Declarative registries may approach that size when keeping one change surface is clearer than artificial fragmentation.
 - P1AM integration is split under `web/p1am/`: `client.py` owns serialized HTTP/protocol validation, `service.py` owns lifecycle/health/transition supervision, and `states.py` owns operator state semantics.
 - Device identity/navigation metadata is declared once in `web/devices.py`; device-specific services/pages remain explicitly composed.
+- Top-level operator route/label/icon/title metadata is declared once in `web/navigation.py`; templates and route decorators consume that registry instead of duplicating navigation strings.
 - Acquisition sources meet the generic `SignalDescriptor` / `SampleBatch` boundary. Run storage/history/CSV must remain source-agnostic.
 
 ## Current web shell
@@ -29,8 +30,9 @@ These notes capture the current project state and UI decisions that should be pr
 - Expanded width: 260 px. Collapsed mini-rail: 52 px.
 - Do not add route/page-specific actions back into the global sidebar.
 - Device rows link to `/devices/p1am` and `/devices/labjack`; route selection and device health are separate states.
-- Main routes: `/`, `/state`, `/configuration`, `/runs`, `/logs`, `/settings`.
+- Main routes: `/dashboard`, `/dashboard/layout`, `/dashboard/views`, `/signals`, `/state`, `/runs`, `/logs`, `/settings`. `/` and `/configuration` are compatibility redirects only.
 - Content pages are full-width. Do not reintroduce arbitrary page max-width wrappers or a second page-background layer.
+- Page templates render complete documents. Do not reintroduce HTML fragment-response routes, template swap targets, or HTMX. Browser commands/data use JSON `fetch`; long-lived state uses the shared SSE/WebSocket lifecycle contract.
 
 ## UI design rules
 
@@ -56,6 +58,8 @@ These notes capture the current project state and UI decisions that should be pr
 - LabJack acquisition settings (scan rate, resolution, settling, MUX80) belong to the LabJack device page, not graph topology.
 - Persisted DAQ configuration is section-owned: `graph`, `sources.labjack`, and `dashboard.layout` have independent atomic save APIs.
 - Low-rate draft preview uses one WebSocket because the browser owns unsaved graph state and readings flow back from the server.
+- Browser-owned SSE/WebSocket resources use `static/page-resource-lifecycle.js`: start on page load, stop on `pagehide`, resume on persisted `pageshow`, and opt into visibility pausing only when the resource is intentionally idle in background tabs.
+- Sidebar links remain ordinary document navigations. Native browser Back/Forward may use BFCache; `site-shell.js` checks the repository config-version token on persisted restore and reloads only when configuration changed while the page was away. Do not replace sidebar links with history manipulation.
 - Engineering transforms use server-side NumPy-compatible signal math.
 - The LabJack adapter compiles the saved graph into a generic stream plan; run storage must not contain fixed LabJack channel columns.
 
@@ -69,6 +73,9 @@ These notes capture the current project state and UI decisions that should be pr
 - Global/device health uses one SSE status connection and patches stable DOM. The State Machine page also consumes the P1AM detail payload from that stream; do not reintroduce periodic browser polling for cart state.
 - Saved Dashboard telemetry and the Logs page use SSE. Operator commands and persistence remain normal request/response transactions.
 - Dashboard live history is process-owned and bounded to 10 minutes; reload/tab changes restore that recent window. Starting a new live session clears only ephemeral Dashboard history, never durable Runs.
-- Dashboard `+` manages visibility/layout only for existing Number/Gauge/Time Plot outputs from the DAQ Graph. Do not let Dashboard mutate graph topology.
-- Dashboard layout uses world-space snap-grid coordinates inside a clipped viewport; panel coordinates must never grow the document or create page scrolling. Empty-space drag pans and wheel zooms the view. View slots `1`/`2`/`3` recall saved cameras; `Shift+1`/`Shift+2`/`Shift+3` save them through the normal Dashboard Save/Cancel transaction.
-- DAQ Graph and Dashboard share pure camera/world-coordinate math from `static/viewport-camera.js`; do not duplicate pan/zoom/frame transform formulas in route-specific modules.
+- `/dashboard/layout` manages visibility/position/size/stacking only for existing Number/Gauge/Time Plot outputs from the Signal Graph. Do not let Dashboard pages mutate graph topology.
+- Dashboard authoring is split by responsibility: `/dashboard/layout` edits canonical snap-grid `items`; `/dashboard/views` edits three source rectangles over that canonical 100%-zoom world; `/dashboard` is read-only Live Dashboard presentation plus the telemetry navigator. Layout and view writes are section-scoped so one page cannot overwrite the other's newer state.
+- Signal Graph and Dashboard authoring share the engineering-canvas contract: camera/world-coordinate math from `static/viewport-camera.js`, major/minor grid styling/control chrome from `static/engineering-canvas.css`, and `static/engineering-canvas-zoom.js`. Do not duplicate pan/zoom/fit/grid formulas in route-specific authoring modules.
+- Engineering authoring canvases use the same interaction tools: `V` = Select and `H` = Hand. Hand makes left-drag pan; middle/right-drag remain pan shortcuts. Select owns domain editing (Signal Graph marquee/node movement, Dashboard Layout marquee/group movement, Dashboard Views view selection/draw/move/resize).
+- The read-only Dashboard has no editor toolbar or zoom control. A saved view is projected edge-to-edge onto the viewport by remapping responsive widget `left/top/width/height` boxes from canonical 100%-zoom world geometry; never CSS-scale/distort rendered widget contents.
+- Static browser modules are intentionally unbundled/unversioned. Serve them with `Cache-Control: no-cache` so ETags can produce cheap `304` revalidation without risking stale mixed module generations after an app restart. Do not add immutable caching without first adding real asset versioning.

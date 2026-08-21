@@ -10,7 +10,7 @@ from pathlib import Path
 from threading import Timer
 
 import uvicorn
-from fastapi import Body, FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -22,7 +22,9 @@ from base_station.web.daq_config.repository import DaqConfigRepository
 from base_station.web.devices import DEVICE_BY_ID
 from base_station.web.labjack_service import LabJackService
 from base_station.web.models import DashboardState
+from base_station.web.navigation import PRODUCT_NAME, page_path
 from base_station.web.p1am import P1amService, STATE_NAMES
+from base_station.web.run_api import build_run_router
 from base_station.web.run_repository import RunRepository
 from base_station.web.ui_routes import build_ui_router
 
@@ -30,6 +32,7 @@ STATIC_DIR = Path(__file__).with_name("static")
 TEMPLATE_DIR = Path(__file__).with_name("templates")
 DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 DAQ_CONFIG_PATH = DATA_DIR / "daq-config.json"
+STATIC_ASSET_CACHE_CONTROL = "no-cache"
 
 templates = Jinja2Templates(directory=TEMPLATE_DIR)
 dashboard = DashboardState()
@@ -70,20 +73,19 @@ async def lifespan(_: FastAPI):
     labjack.disconnect()
 
 
-app = FastAPI(title="Liquid State Machine", lifespan=lifespan)
+app = FastAPI(title=PRODUCT_NAME, lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-app.include_router(build_ui_router(templates, dashboard, cart, labjack, runs, daq_config))
+app.include_router(build_ui_router(templates, dashboard, runs, daq_config))
 app.include_router(build_daq_router(dashboard, labjack, daq_config, dashboard_telemetry))
+app.include_router(build_run_router(dashboard, runs))
 
 
 @app.middleware("http")
 async def revalidate_local_assets(request, call_next):
-    """Prevent mixed generations of local assets after a GUI restart."""
+    """Revalidate unversioned local assets; this frontend intentionally has no build hashes."""
     response = await call_next(request)
     if request.url.path.startswith("/static/"):
-        response.headers["Cache-Control"] = (
-            "no-store" if request.url.path.endswith(".js") else "no-cache"
-        )
+        response.headers["Cache-Control"] = STATIC_ASSET_CACHE_CONTROL
     return response
 
 
@@ -167,60 +169,6 @@ def logs(
     return {"logs": dashboard.log_snapshot(level, component, limit)}
 
 
-@app.get("/api/runs/{run_id}/samples")
-def run_samples(
-    run_id: int,
-    start: int = Query(default=0, ge=0),
-    end: int | None = Query(default=None, ge=0),
-    points: int = Query(default=800, ge=20, le=2_000),
-) -> dict:
-    run_record = runs.get_run(run_id)
-    if not run_record:
-        raise HTTPException(status_code=404, detail="Run not found")
-    resolved_end = min(end or run_record["sample_count"], run_record["sample_count"])
-    if resolved_end <= start:
-        return {"run": run_record, "start": start, "end": resolved_end, "samples": []}
-    return {
-        "run": run_record,
-        "start": start,
-        "end": resolved_end,
-        "samples": runs.sample_window(run_id, start, resolved_end, points),
-    }
-
-
-@app.post("/api/runs/{run_id}/view")
-def run_view(run_id: int, request: dict = Body(...)) -> dict:
-    """Return all three timeline tiers in one request for an interactive run view."""
-    run_record = runs.get_run(run_id)
-    if not run_record:
-        raise HTTPException(status_code=404, detail="Run not found")
-    ranges = request.get("ranges")
-    if not isinstance(ranges, list) or not 1 <= len(ranges) <= 3:
-        raise HTTPException(status_code=422, detail="Timeline ranges are required")
-    tiers = []
-    for index, item in enumerate(ranges):
-        if not isinstance(item, list) or len(item) != 2:
-            raise HTTPException(status_code=422, detail="Invalid timeline range")
-        try:
-            start = _timeline_bound(item[0])
-            end = _timeline_bound(item[1])
-        except (TypeError, ValueError) as error:
-            raise HTTPException(status_code=422, detail="Invalid timeline range") from error
-        start = min(max(0, start), run_record["sample_count"])
-        end = min(max(start, end), run_record["sample_count"])
-        points = 900 if index == len(ranges) - 1 else 500
-        tiers.append(runs.sample_window(run_id, start, end, points))
-    return {"run": run_record, "tiers": tiers}
-
-
-def _timeline_bound(value: object) -> int:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise TypeError("Timeline bounds must be numbers")
-    if value != value or value in {float("inf"), float("-inf")}:
-        raise ValueError("Timeline bounds must be finite")
-    return int(value)
-
-
 @app.post("/api/cart/state")
 def set_cart_state(request: StateRequest) -> dict[str, bool]:
     try:
@@ -282,6 +230,12 @@ def stop_stream() -> dict[str, bool]:
 
 def run() -> None:
     """Open the operator UI and serve it on localhost."""
-    url = "http://127.0.0.1:8000"
+    url = f"http://127.0.0.1:8000{page_path('dashboard')}"
     Timer(0.8, webbrowser.open, args=(url,)).start()
-    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")
+    uvicorn.run(
+        app,
+        host="127.0.0.1",
+        port=8000,
+        log_level="warning",
+        timeout_graceful_shutdown=2,
+    )
