@@ -235,7 +235,12 @@
   align-items: center;
 }
 .telemetry-navigator-wrap { position: relative; min-width: 0; }
-#telemetry-tier-navigator { height: 68px; cursor: crosshair; touch-action: none; }
+#telemetry-tier-navigator {
+  height: 68px;
+  border-radius: var(--radius-ui);
+  cursor: crosshair;
+  touch-action: none;
+}
 .telemetry-time-tooltip {
   position: absolute;
   z-index: 3;
