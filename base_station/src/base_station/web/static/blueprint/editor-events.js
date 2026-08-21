@@ -7,6 +7,7 @@ export const eventMethods = {
     this.addEventListener('contextmenu', (event) => this._onContextMenu(event));
     this.addEventListener('dblclick', (event) => this._onDoubleClick(event));
     this.addEventListener('click', (event) => this._onClick(event));
+    this.addEventListener('input', (event) => this._onInlineInput(event));
     this.addEventListener('change', (event) => this._onInlineChange(event));
     this._viewport.addEventListener('wheel', (event) => this._onWheel(event), { passive: false });
     this._viewport.addEventListener('keydown', (event) => this._onKeyDown(event));
@@ -15,18 +16,53 @@ export const eventMethods = {
     window.addEventListener('pointercancel', this._boundPointerCancel);
   },
 
+  _onInlineInput(event) {
+    const input = event.target.closest('[data-blueprint-config-key]');
+    if (!input || !input.matches('input[type="text"], input[type="number"]')) return;
+    const nodeElement = input.closest('liquid-blueprint-node');
+    const node = nodeElement ? this._nodeById(nodeElement.dataset.nodeId) : null;
+    if (!node) return;
+    const key = input.dataset.blueprintConfigKey;
+    const value = this._inlineElementValue(input);
+    this.dispatchEvent(new CustomEvent('blueprint-inline-input', {
+      bubbles: true,
+      detail: { nodeId: node.id, key, pending: !Object.is(node.config?.[key], value) },
+    }));
+    event.stopPropagation();
+  },
+
   _onInlineChange(event) {
     const input = event.target.closest('[data-blueprint-config-key]');
-    const nodeElement = input?.closest('liquid-blueprint-node');
-    if (!input || !nodeElement) return;
-    const node = this._nodeById(nodeElement.dataset.nodeId);
-    if (!node) return;
-    const value = input.dataset.valueType === 'number'
-      ? (input.value === '' ? null : Number(input.value))
-      : input.dataset.valueType === 'boolean' ? input.value === 'true' : input.value;
-    const patch = this.inlineEditPolicy(node, input.dataset.blueprintConfigKey, value, this.graph);
-    if (patch) this.updateNode(node.id, patch);
+    if (!input) return;
+    this._applyInlineElement(input);
     event.stopPropagation();
+  },
+
+  /** Commit the focused node control before a keyboard-triggered save. */
+  flushInlineEdit() {
+    const input = document.activeElement?.closest?.('[data-blueprint-config-key]');
+    if (!input || !this.contains(input)) return false;
+    return this._applyInlineElement(input);
+  },
+
+  _applyInlineElement(input) {
+    const nodeElement = input?.closest('liquid-blueprint-node');
+    if (!input || !nodeElement) return false;
+    const node = this._nodeById(nodeElement.dataset.nodeId);
+    if (!node) return false;
+    const key = input.dataset.blueprintConfigKey;
+    const value = this._inlineElementValue(input);
+    if (Object.is(node.config?.[key], value)) return false;
+    const patch = this.inlineEditPolicy(node, key, value, this.graph);
+    if (!patch) return false;
+    this.updateNode(node.id, patch);
+    return true;
+  },
+
+  _inlineElementValue(input) {
+    if (input.dataset.valueType === 'number') return input.value === '' ? null : Number(input.value);
+    if (input.dataset.valueType === 'boolean') return input.value === 'true';
+    return input.value;
   },
 
   _onClick(event) {

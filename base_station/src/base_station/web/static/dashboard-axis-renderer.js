@@ -73,7 +73,7 @@ export function drawPlotAxes(context, axis, colors) {
   if (axis.xTitle) {
     context.textAlign = 'center';
     context.textBaseline = 'bottom';
-    context.fillText(axis.xTitle, frame.left + frame.width / 2, frame.canvasHeight - 2);
+    context.fillText(fitText(context, axis.xTitle, frame.width), frame.left + frame.width / 2, frame.canvasHeight - 2);
   }
   if (axis.yTitle) {
     context.save();
@@ -81,7 +81,7 @@ export function drawPlotAxes(context, axis, colors) {
     context.rotate(-Math.PI / 2);
     context.textAlign = 'center';
     context.textBaseline = 'top';
-    context.fillText(axis.yTitle, 0, 0);
+    context.fillText(fitText(context, axis.yTitle, frame.height), 0, 0);
     context.restore();
   }
   context.restore();
@@ -153,4 +153,18 @@ function nonOverlappingYLabels(ticks, mapper, frame) {
 
 function inside(value, low, high) {
   return value >= low - 1e-6 && value <= high + 1e-6;
+}
+
+function fitText(context, value, maximumWidth) {
+  const text = String(value ?? '');
+  if (!text || context.measureText(text).width <= maximumWidth) return text;
+  const ellipsis = '…';
+  let low = 0;
+  let high = text.length;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    if (context.measureText(`${text.slice(0, middle)}${ellipsis}`).width <= maximumWidth) low = middle;
+    else high = middle - 1;
+  }
+  return `${text.slice(0, low)}${ellipsis}`;
 }

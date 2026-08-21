@@ -133,9 +133,15 @@ export class DashboardTimeRenderer {
   }
 
   showChartTooltip(card, history, hoverTime, x, axis) {
-    const sample = closestByTime(history, hoverTime);
     const tooltip = card.querySelector('[data-chart-tooltip]');
     if (!tooltip) return;
+    const firstTime = Number(history[0]?.time);
+    const lastTime = Number(history.at(-1)?.time);
+    if (!Number.isFinite(firstTime) || !Number.isFinite(lastTime) || hoverTime < firstTime || hoverTime > lastTime) {
+      tooltip.hidden = true;
+      return;
+    }
+    const sample = closestByTime(history, hoverTime);
     if (!sample) {
       tooltip.hidden = true;
       return;

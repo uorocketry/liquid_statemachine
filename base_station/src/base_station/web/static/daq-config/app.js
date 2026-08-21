@@ -30,6 +30,7 @@ const signalQuality = document.querySelector('#daq-signal-quality');
 let capabilities = null;
 let insertionPoint = null;
 let dirty = false;
+let pendingInlineEdit = false;
 let issues = [];
 let preview = null;
 
@@ -75,9 +76,14 @@ function bindEvents() {
   });
   editor.addEventListener('blueprint-change', () => {
     dirty = true;
+    pendingInlineEdit = false;
     refreshUi();
     syncPreviewState();
     preview?.refreshSoon();
+  });
+  editor.addEventListener('blueprint-inline-input', (event) => {
+    pendingInlineEdit = Boolean(event.detail?.pending);
+    refreshSaveState();
   });
   saveButton.addEventListener('click', save);
   reloadButton.addEventListener('click', reload);
@@ -105,6 +111,11 @@ function bindEvents() {
       save();
     }
   });
+  window.addEventListener('beforeunload', (event) => {
+    if (!dirty && !pendingInlineEdit) return;
+    event.preventDefault();
+    event.returnValue = '';
+  });
 }
 
 function addNodeFromPalette(nodeType) {
@@ -129,14 +140,22 @@ function refreshUi() {
   issues = validateGraph(editor.graph);
   editor.refreshPresentation();
   renderIssues();
-  const errors = blockingIssues(issues);
-  saveButton.disabled = errors.length > 0 || !dirty;
+  refreshSaveState();
   undoButton.disabled = !editor.canUndo;
   redoButton.disabled = !editor.canRedo;
-  saveState.textContent = errors.length
+}
+
+function refreshSaveState() {
+  const errors = blockingIssues(issues);
+  const unsaved = dirty || pendingInlineEdit;
+  // A pending text/number edit may be correcting the currently reported
+  // validation error. Let it commit on blur; save() validates the graph again.
+  saveButton.disabled = !unsaved || (errors.length > 0 && !pendingInlineEdit);
+  const showError = errors.length > 0 && !pendingInlineEdit;
+  saveState.textContent = showError
     ? `Error · ${errors[0].message}`
-    : dirty ? 'Unsaved changes' : 'Saved';
-  saveState.className = `daq-save-state ${errors.length ? 'error' : dirty ? 'dirty' : 'saved'}`;
+    : unsaved ? 'Unsaved changes' : 'Saved';
+  saveState.className = `daq-save-state ${showError ? 'error' : unsaved ? 'dirty' : 'saved'}`;
 }
 
 function renderIssues() {
@@ -184,6 +203,7 @@ function focusIssue(issue) {
 }
 
 async function save() {
+  editor.flushInlineEdit();
   const errors = blockingIssues(validateGraph(editor.graph));
   if (errors.length) return refreshUi();
   saveButton.disabled = true;
@@ -191,6 +211,7 @@ async function save() {
   try {
     await saveConfiguration(editor.graph);
     dirty = false;
+    pendingInlineEdit = false;
     refreshUi();
   } catch (error) {
     saveState.textContent = error.detail?.issues?.[0]?.message ?? error.message;
@@ -199,11 +220,12 @@ async function save() {
 }
 
 async function reload() {
-  if (dirty && !window.confirm('Discard unsaved DAQ configuration changes?')) return;
+  if ((dirty || pendingInlineEdit) && !window.confirm('Discard unsaved DAQ configuration changes?')) return;
   const payload = await loadConfiguration();
   editor.graph = payload.graph;
   syncAcquisitionControls();
   dirty = false;
+  pendingInlineEdit = false;
   refreshUi();
   syncPreviewState();
   preview?.refreshSoon();
