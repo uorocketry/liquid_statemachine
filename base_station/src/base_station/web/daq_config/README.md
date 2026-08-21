@@ -50,3 +50,12 @@ dedicated renderers. Only `time-plot` nodes allocate history or enter the
 timeline navigator. New visualization types should get their own node type,
 schema, renderer, and tests rather than adding another mode to an existing
 node.
+
+Dashboard placement is separate from widget configuration. Canonical frame
+geometry lives under `metadata.dashboardLayout.items` as integer `x`, `y`,
+`w`, `h`, and `visible` fields on a 12-column grid. `dashboard_layout.py`
+sanitizes that metadata and prevents overlapping visible frames.
+`dashboard-layout-model.js` mirrors the small geometry contract in the browser,
+while `dashboard-layout-editor.js` owns drag/resize/edit-session behavior.
+Layout saves use the dedicated `/api/daq/dashboard-layout` endpoint so a stale
+Dashboard tab never writes an old copy of the node graph back to disk.

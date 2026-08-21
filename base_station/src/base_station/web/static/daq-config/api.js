@@ -13,6 +13,11 @@ export async function saveConfiguration(graph) {
   return request('/api/daq/configuration', { method: 'PUT', body: JSON.stringify(graph) });
 }
 
+/** Persist only dashboard frame geometry/visibility, never a stale DAQ graph. */
+export async function saveDashboardLayout(layout) {
+  return request('/api/daq/dashboard-layout', { method: 'PUT', body: JSON.stringify(layout) });
+}
+
 /** @param {Object} graph */
 export async function previewConfiguration(graph) {
   return request('/api/daq/preview', { method: 'POST', body: JSON.stringify(graph) });

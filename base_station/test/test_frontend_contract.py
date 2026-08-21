@@ -252,6 +252,8 @@ class FrontendContractTests(TestCase):
         number = read("static/dashboard-number.js")
         plot = read("static/dashboard-time-plot.js")
         gauge = read("static/dashboard-gauge.js")
+        layout_editor = read("static/dashboard-layout-editor.js")
+        layout_model = read("static/dashboard-layout-model.js")
         specs = read("static/daq-config/node-specs.js")
         controller = read("static/dashboard-time-controller.js")
         renderer = read("static/dashboard-time-renderer.js")
@@ -260,6 +262,9 @@ class FrontendContractTests(TestCase):
         self.assertIn('id="dashboard-widget-options"', dashboard)
         self.assertIn('id="telemetry-tier-navigator"', dashboard)
         self.assertIn('id="telemetry-return-tail"', dashboard)
+        self.assertIn('id="dashboard-layout-edit"', dashboard)
+        self.assertIn('id="dashboard-layout-save"', dashboard)
+        self.assertIn('id="dashboard-layout-cancel"', dashboard)
         self.assertIn('src="/static/dashboard-telemetry.js"', dashboard)
         self.assertIn("DASHBOARD_NODE_TYPES.has(node.nodeType)", telemetry)
         self.assertIn("number:", registry)
@@ -295,7 +300,13 @@ class FrontendContractTests(TestCase):
         self.assertIn("renderPlot", renderer)
         self.assertIn("renderNavigator", renderer)
         self.assertNotIn("PLACEHOLDER_LABELS", telemetry)
-        self.assertIn("pickerDetails.hidden = widgets.length === 0", telemetry)
+        self.assertIn("new DashboardLayoutEditor", telemetry)
+        self.assertIn("saveDashboardLayout(layout)", telemetry)
+        self.assertIn("grid-template-columns: repeat(12", read("static/dashboard-telemetry.css"))
+        self.assertIn("canPlace(this.draft", layout_editor)
+        self.assertIn("clampResize", layout_editor)
+        self.assertIn("DASHBOARD_COLUMNS = 12", layout_model)
+        self.assertIn("other?.visible !== false && overlaps", layout_model)
         self.assertNotIn("dashboard-toolbar", dashboard)
         self.assertNotIn('telemetry-live-state', dashboard)
         self.assertNotIn("'Live'", telemetry)
@@ -312,12 +323,13 @@ class FrontendContractTests(TestCase):
         self.assertIn("setDialThreshold", gauge)
         self.assertIn("gaugeState", gauge)
         self.assertIn("usesTimeline(widget)", telemetry)
-        self.assertIn("navigatorWrap.hidden = timelinePlots.length === 0", telemetry)
+        self.assertIn("navigatorWrap.hidden = layoutEditor.editing || timelinePlots.length === 0", telemetry)
         self.assertIn("timeControl.hidden = widgets.length === 0", telemetry)
         self.assertIn("plot.config?.yScale === 'fixed'", renderer)
         self.assertIn("Number", specs)
         self.assertIn("Gauge", specs)
         self.assertIn("Time plot", specs)
+        self.assertNotIn("Group", specs)
 
     def test_dashboard_has_no_generic_display_node_or_compatibility_layer(self) -> None:
         paths = [
@@ -419,7 +431,7 @@ class FrontendContractTests(TestCase):
 
     def test_daq_api_routes_exist(self) -> None:
         routes = read("daq_config/routes.py")
-        for route in ('/capabilities', '/configuration', '/preview'):
+        for route in ('/capabilities', '/configuration', '/dashboard-layout', '/preview'):
             self.assertIn(f'("{route}")', routes)
 
     def test_development_demo_is_not_part_of_production_ui(self) -> None:

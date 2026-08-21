@@ -7,6 +7,7 @@ from pathlib import Path
 from fastapi import APIRouter, Body, HTTPException
 
 from base_station.web.daq_config.capabilities import labjack_capabilities
+from base_station.web.daq_config.dashboard_layout import copy_layout
 from base_station.web.daq_config.preview import preview_graph
 from base_station.web.daq_config.repository import DaqConfigRepository
 from base_station.web.daq_config.schema import normalize_graph
@@ -44,6 +45,15 @@ def build_daq_router(
             raise HTTPException(status_code=422, detail={"issues": issues})
         repository.save(graph)
         return {"saved": True, "issues": issues}
+
+    @router.put("/dashboard-layout")
+    def save_dashboard_layout(layout: dict = Body(...)) -> dict:
+        graph = repository.load()
+        metadata = graph.setdefault("metadata", {})
+        metadata["dashboardLayout"] = layout
+        graph = normalize_graph(graph)
+        repository.save(graph)
+        return {"saved": True, "layout": copy_layout(graph)}
 
     @router.post("/preview")
     def preview(graph: dict = Body(...)) -> dict:

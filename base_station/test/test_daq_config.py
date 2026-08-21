@@ -112,11 +112,53 @@ class DaqConfigTests(TestCase):
         self.assertEqual(nodes["gain"]["config"], {"gain": 1})
         self.assertEqual(nodes["average"]["config"], {"windowS": 0.5})
         self.assertEqual(nodes["number"]["config"]["showUnits"], True)
+        self.assertNotIn("group", nodes["number"]["config"])
         self.assertEqual(nodes["gauge"]["config"]["type"], "dial-filled")
         self.assertEqual(nodes["gauge"]["config"]["max"], 100)
         self.assertNotIn("gauge", nodes["gauge"]["config"])
+        self.assertNotIn("group", nodes["gauge"]["config"])
         self.assertEqual(nodes["plot"]["config"]["yScale"], "auto")
+        self.assertNotIn("group", nodes["plot"]["config"])
         self.assertEqual(nodes["ain"]["config"], {"rangeV": 1})
+        self.assertEqual(set(normalized["metadata"]["dashboardLayout"]["items"]), {"number", "gauge", "plot"})
+
+    def test_dashboard_layout_is_bounded_non_overlapping_and_current(self) -> None:
+        normalized = normalize_graph({
+            "nodes": [
+                {"id": "number", "nodeType": "number", "config": {"label": "Value"}},
+                {"id": "gauge", "nodeType": "gauge", "config": {"label": "Gauge"}},
+                {"id": "plot", "nodeType": "time-plot", "config": {"label": "Plot"}},
+            ],
+            "links": [],
+            "metadata": {
+                "dashboardLayout": {
+                    "stale": True,
+                    "items": {
+                        "number": {"x": 99, "y": -4, "w": 99, "h": 0, "visible": True, "stale": 1},
+                        "gauge": {"x": 0, "y": 0, "w": 4, "h": 4, "visible": True},
+                        "plot": {"x": 0, "y": 0, "w": 6, "h": 4, "visible": True},
+                        "deleted": {"x": 0, "y": 0, "w": 1, "h": 1, "visible": True},
+                    },
+                },
+            },
+        })
+        layout = normalized["metadata"]["dashboardLayout"]
+        self.assertEqual(set(layout), {"items"})
+        self.assertEqual(set(layout["items"]), {"number", "gauge", "plot"})
+        for item in layout["items"].values():
+            self.assertGreaterEqual(item["x"], 0)
+            self.assertGreaterEqual(item["y"], 0)
+            self.assertLessEqual(item["x"] + item["w"], 12)
+            self.assertEqual(set(item), {"x", "y", "w", "h", "visible"})
+        visible = list(layout["items"].values())
+        for index, first in enumerate(visible):
+            for second in visible[index + 1:]:
+                self.assertTrue(
+                    first["x"] + first["w"] <= second["x"]
+                    or second["x"] + second["w"] <= first["x"]
+                    or first["y"] + first["h"] <= second["y"]
+                    or second["y"] + second["h"] <= first["y"]
+                )
 
     def test_unsupported_node_type_is_rejected(self) -> None:
         graph = {
@@ -136,7 +178,7 @@ class DaqConfigTests(TestCase):
                 {
                     "id": "number",
                     "nodeType": "number",
-                    "config": {"label": "Pressure", "group": "Engine", "precision": 1, "showUnits": True},
+                    "config": {"label": "Pressure", "precision": 1, "showUnits": True},
                     "pins": [{
                         "id": "value",
                         "direction": "input",
@@ -220,13 +262,12 @@ class DaqConfigTests(TestCase):
                 "id": "number",
                 "nodeType": "number",
                 "pins": [],
-                "config": {"label": "", "group": "System", "precision": 9, "showUnits": "yes"},
+                "config": {"label": "", "precision": 9, "showUnits": "yes"},
             }],
             "links": [],
         }
         messages = [issue["message"] for issue in validate_graph(graph)]
         self.assertIn("Dashboard widget requires a label", messages)
-        self.assertIn("Dashboard group must be Fuel, LOX, or Engine", messages)
         self.assertIn("Dashboard decimal places must be 0 through 6", messages)
         self.assertIn("Number showUnits must be on or off", messages)
 
@@ -238,7 +279,6 @@ class DaqConfigTests(TestCase):
                 "pins": [],
                 "config": {
                     "label": "Tank pressure",
-                    "group": "Fuel",
                     "precision": 1,
                     "type": "dial-filled",
                     "showValue": True,
@@ -263,7 +303,7 @@ class DaqConfigTests(TestCase):
                 "id": "plot",
                 "nodeType": "time-plot",
                 "pins": [],
-                "config": {"label": "Pressure", "group": "Fuel", "yScale": "fixed", "yMin": 10, "yMax": 5},
+                "config": {"label": "Pressure", "yScale": "fixed", "yMin": 10, "yMax": 5},
             }],
             "links": [],
         }

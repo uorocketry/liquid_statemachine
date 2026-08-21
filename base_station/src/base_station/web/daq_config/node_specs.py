@@ -6,7 +6,6 @@ from copy import deepcopy
 from math import isfinite
 
 
-DASHBOARD_GROUPS = {"Fuel", "LOX", "Engine"}
 DASHBOARD_NODE_TYPES = frozenset({"number", "gauge", "time-plot"})
 GAUGE_TYPES = {
     "dial-filled",
@@ -33,13 +32,11 @@ DEFAULT_CONFIGS = {
     "rate-of-change": {"windowS": 0.5},
     "number": {
         "label": "",
-        "group": "Engine",
         "precision": 1,
         "showUnits": True,
     },
     "gauge": {
         "label": "",
-        "group": "Engine",
         "precision": 1,
         "type": "dial-filled",
         "showValue": True,
@@ -52,7 +49,6 @@ DEFAULT_CONFIGS = {
     },
     "time-plot": {
         "label": "",
-        "group": "Engine",
         "yScale": "auto",
         "yMin": 0,
         "yMax": 100,
@@ -151,8 +147,6 @@ def _validate_dashboard_identity(config: dict) -> list[str]:
     issues: list[str] = []
     if not str(config.get("label", "")).strip():
         issues.append("Dashboard widget requires a label")
-    if config.get("group") not in DASHBOARD_GROUPS:
-        issues.append("Dashboard group must be Fuel, LOX, or Engine")
     return issues
 
 

@@ -15,7 +15,10 @@
         <output id="telemetry-time-tooltip" class="telemetry-time-tooltip" hidden></output>
       </div>
       <div class="telemetry-time-actions">
-        <details class="dashboard-widget-picker"><summary class="icon-button" aria-label="Choose dashboard widgets" title="Widgets"><span class="ui-icon icon-signals" aria-hidden="true"></span></summary><div id="dashboard-widget-options" class="dashboard-widget-options"></div></details>
+        <button id="dashboard-layout-edit" class="dashboard-layout-action" type="button">Edit</button>
+        <details class="dashboard-widget-picker" hidden><summary class="icon-button" aria-label="Choose dashboard widgets" title="Widgets"><span class="ui-icon icon-signals" aria-hidden="true"></span></summary><div id="dashboard-widget-options" class="dashboard-widget-options"></div></details>
+        <button id="dashboard-layout-cancel" class="dashboard-layout-action" type="button" hidden>Cancel</button>
+        <button id="dashboard-layout-save" class="dashboard-layout-action dashboard-layout-save" type="button" hidden>Save</button>
         <button id="telemetry-return-tail" class="icon-button telemetry-return-tail" type="button" hidden aria-label="Follow newest samples" title="Follow newest samples"><span class="ui-icon icon-end" aria-hidden="true"></span></button>
       </div>
     </footer>

@@ -9,7 +9,6 @@ const GAUGE_TYPES = [
   ['meter-vertical-inverted', 'Vertical meter inverted'],
 ];
 
-const DASHBOARD_GROUPS = ['Fuel', 'LOX', 'Engine'];
 
 const SPECS = {
   'sine-wave': {
@@ -94,7 +93,7 @@ const SPECS = {
     icon: 'icon-node-number',
     tone: 'result',
     description: 'Show one live engineering value on the operator dashboard.',
-    defaults: { label: '', group: 'Engine', precision: 1, showUnits: true },
+    defaults: { label: '', precision: 1, showUnits: true },
     pins: dashboardPins,
     controls: (config) => [
       ...dashboardIdentityControls(config),
@@ -115,7 +114,7 @@ const SPECS = {
     tone: 'result',
     description: 'Show one live value against configured engineering limits.',
     defaults: {
-      label: '', group: 'Engine', precision: 1,
+      label: '', precision: 1,
       type: 'dial-filled', showValue: true, showUnits: true, showRange: true,
       min: 0, low: 10, high: 90, max: 100,
     },
@@ -130,7 +129,7 @@ const SPECS = {
     icon: 'icon-node-time-plot',
     tone: 'result',
     description: 'Plot one engineering value against the shared dashboard time axis.',
-    defaults: { label: '', group: 'Engine', yScale: 'auto', yMin: 0, yMax: 100 },
+    defaults: { label: '', yScale: 'auto', yMin: 0, yMax: 100 },
     pins: dashboardPins,
     controls: timePlotControls,
     decorate: decorateDashboardInput,
@@ -236,10 +235,7 @@ function inferredUnarySpec(title, icon, description, outputLabel) {
 }
 
 function dashboardIdentityControls(config) {
-  return [
-    textControl('label', 'Label', config.label),
-    selectControl('group', 'Group', config.group, DASHBOARD_GROUPS.map(option)),
-  ];
+  return [textControl('label', 'Label', config.label)];
 }
 
 function gaugeControls(config) {
@@ -306,7 +302,6 @@ function validateSine(config) {
 function validateDashboardIdentity(config) {
   const issues = [];
   if (!String(config.label ?? '').trim()) issues.push('Dashboard widget requires a label');
-  if (!DASHBOARD_GROUPS.includes(config.group)) issues.push('Dashboard group must be Fuel, LOX, or Engine');
   return issues;
 }
 

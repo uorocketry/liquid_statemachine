@@ -1,4 +1,6 @@
-import { loadConfiguration, previewConfiguration } from './daq-config/api.js';
+import { loadConfiguration, previewConfiguration, saveDashboardLayout } from './daq-config/api.js';
+import { DashboardLayoutEditor } from './dashboard-layout-editor.js';
+import { visibleWidgets } from './dashboard-layout-model.js';
 import {
   DASHBOARD_NODE_TYPES,
   createDashboardWidget,
@@ -8,7 +10,6 @@ import {
 import { DashboardTimeController } from './dashboard-time-controller.js';
 import { compactHistory } from './dashboard-time-utils.js';
 
-const GROUPS = ['Fuel', 'LOX', 'Engine'];
 const POLL_MS = 250;
 const MAX_HISTORY_POINTS = 100_000;
 
@@ -22,27 +23,54 @@ const navigatorWrap = document.querySelector('.telemetry-navigator-wrap');
 const navigator = document.querySelector('#telemetry-tier-navigator');
 const timeTooltip = document.querySelector('#telemetry-time-tooltip');
 const returnTail = document.querySelector('#telemetry-return-tail');
+const editButton = document.querySelector('#dashboard-layout-edit');
+const cancelButton = document.querySelector('#dashboard-layout-cancel');
+const saveButton = document.querySelector('#dashboard-layout-save');
 
 const histories = new Map();
-let graph = { nodes: [], links: [] };
+let graph = { nodes: [], links: [], metadata: {} };
 let widgets = [];
-let selected = new Set();
 let timer = null;
 let inFlight = false;
 let sessionStart = null;
-let timeline = null;
 let sampleSegment = 0;
+
+const timeline = new DashboardTimeController({
+  histories,
+  grid,
+  navigator,
+  tooltip: timeTooltip,
+  returnTail,
+  cardFor: (widgetId) => grid.querySelector(`[data-widget-id="${cssEscape(widgetId)}"]`),
+  loadTier,
+  onTierChange: () => localStorage.setItem('liquid-dashboard-tier', timeline.selectedTier),
+});
+
+const layoutEditor = new DashboardLayoutEditor({
+  grid,
+  picker,
+  pickerDetails,
+  timeControl,
+  editButton,
+  cancelButton,
+  saveButton,
+  onLayoutChange: (layout) => renderCards(layout),
+  onGeometryChange: () => timeline.render(),
+  onSave: async (layout) => {
+    const result = await saveDashboardLayout(layout);
+    graph.metadata.dashboardLayout = result.layout;
+    return result.layout;
+  },
+  onError: () => { page.dataset.telemetryState = 'error'; },
+});
 
 async function start() {
   graph = (await loadConfiguration()).graph;
   widgets = graph.nodes
     .filter((node) => DASHBOARD_NODE_TYPES.has(node.nodeType))
     .filter(hasOperatorLabel);
-  pickerDetails.hidden = widgets.length === 0;
-  selected = loadSelection(widgets);
-  renderPicker();
-  renderCards();
-  picker.addEventListener('change', onSelectionChange);
+  layoutEditor.configure(widgets, graph.metadata?.dashboardLayout ?? { items: {} });
+  renderCards(layoutEditor.currentLayout());
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       stopPolling();
@@ -59,51 +87,19 @@ function hasOperatorLabel(widget) {
   return Boolean(String(widget.config?.label ?? '').trim());
 }
 
-function renderPicker() {
-  picker.replaceChildren();
-  for (const group of GROUPS) {
-    const groupWidgets = widgets.filter((node) => node.config?.group === group);
-    if (!groupWidgets.length) continue;
-    const section = document.createElement('div');
-    section.className = 'telemetry-picker-group';
-    section.innerHTML = `<strong>${escapeHtml(group)}</strong>`;
-    for (const widget of groupWidgets) {
-      const label = document.createElement('label');
-      label.innerHTML = `<input type="checkbox" value="${escapeAttribute(widget.id)}" ${selected.has(widget.id) ? 'checked' : ''} />
-        <span>${escapeHtml(widget.config.label)}</span>`;
-      section.append(label);
-    }
-    picker.append(section);
-  }
-}
-
-function onSelectionChange() {
-  selected = new Set([...picker.querySelectorAll('input:checked')].map((input) => input.value));
-  localStorage.setItem('liquid-dashboard-widgets', JSON.stringify([...selected]));
-  renderCards();
-  schedule(0);
-}
-
-function renderCards() {
+function renderCards(layout) {
   grid.replaceChildren();
-  const visible = widgets.filter((widget) => selected.has(widget.id));
+  const visible = visibleWidgets(widgets, layout);
   const timelinePlots = visible.filter(usesTimeline);
   empty.hidden = widgets.length > 0;
   timeControl.hidden = widgets.length === 0;
-  navigatorWrap.hidden = timelinePlots.length === 0;
+  timeControl.classList.toggle('telemetry-no-timeline', timelinePlots.length === 0);
+  navigatorWrap.hidden = layoutEditor.editing || timelinePlots.length === 0;
 
-  for (const group of GROUPS) {
-    const groupWidgets = visible.filter((widget) => widget.config?.group === group);
-    if (!groupWidgets.length) continue;
-    const section = document.createElement('section');
-    section.className = 'dashboard-widget-group';
-    const heading = document.createElement('h2');
-    heading.textContent = group;
-    const cards = document.createElement('div');
-    cards.className = 'dashboard-group-grid';
-    for (const widget of groupWidgets) cards.append(createDashboardWidget(widget));
-    section.append(heading, cards);
-    grid.append(section);
+  for (const widget of visible) {
+    const card = createDashboardWidget(widget);
+    layoutEditor.decorateCard(card, widget);
+    grid.append(card);
   }
   timeline.setPlots(timelinePlots);
 }
@@ -120,13 +116,8 @@ async function poll() {
       if (usesTimeline(widget) && reading && Number.isFinite(Number(reading.value))) {
         appendReading(widget, reading, timestamp);
       }
-      if (selected.has(widget.id)) {
-        updateDashboardWidget(
-          grid.querySelector(`[data-widget-id="${cssEscape(widget.id)}"]`),
-          widget,
-          reading,
-        );
-      }
+      const card = grid.querySelector(`[data-widget-id="${cssEscape(widget.id)}"]`);
+      if (card) updateDashboardWidget(card, widget, reading);
     }
     page.dataset.telemetryState = payload.errors?.length ? 'unavailable' : 'ready';
     timeline.ingest(timestamp);
@@ -161,23 +152,9 @@ function appendReading(widget, reading, timestamp) {
 
 function clearCurrentValues() {
   for (const widget of widgets) {
-    if (selected.has(widget.id)) {
-      updateDashboardWidget(
-        grid.querySelector(`[data-widget-id="${cssEscape(widget.id)}"]`),
-        widget,
-        null,
-      );
-    }
+    const card = grid.querySelector(`[data-widget-id="${cssEscape(widget.id)}"]`);
+    if (card) updateDashboardWidget(card, widget, null);
   }
-}
-
-function loadSelection(available) {
-  const ids = new Set(available.map((node) => node.id));
-  try {
-    const stored = JSON.parse(localStorage.getItem('liquid-dashboard-widgets') ?? 'null');
-    if (Array.isArray(stored)) return new Set(stored.filter((id) => ids.has(id)));
-  } catch { /* use all configured dashboard widgets */ }
-  return ids;
 }
 
 function schedule(delay) {
@@ -190,17 +167,6 @@ function stopPolling() {
   timer = null;
 }
 
-timeline = new DashboardTimeController({
-  histories,
-  grid,
-  navigator,
-  tooltip: timeTooltip,
-  returnTail,
-  cardFor: (widgetId) => grid.querySelector(`[data-widget-id="${cssEscape(widgetId)}"]`),
-  loadTier,
-  onTierChange: () => localStorage.setItem('liquid-dashboard-tier', timeline.selectedTier),
-});
-
 start().catch(() => {
   page.dataset.telemetryState = 'error';
 });
@@ -210,5 +176,3 @@ function loadTier() {
   return ['full', 'context', 'detail'].includes(saved) ? saved : 'detail';
 }
 function cssEscape(value) { return globalThis.CSS?.escape ? CSS.escape(value) : value; }
-function escapeHtml(value) { return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;'); }
-function escapeAttribute(value) { return escapeHtml(value).replaceAll('`', '&#96;'); }

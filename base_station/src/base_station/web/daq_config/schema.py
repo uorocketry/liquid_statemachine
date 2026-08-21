@@ -5,6 +5,7 @@ from __future__ import annotations
 from copy import deepcopy
 
 from base_station.web.daq_config.acquisition import normalize_acquisition_metadata
+from base_station.web.daq_config.dashboard_layout import normalize_dashboard_layout
 from base_station.web.daq_config.node_specs import normalize_spec_node
 
 CURRENT_SCHEMA_VERSION = 1
@@ -22,6 +23,7 @@ def normalize_graph(graph: dict) -> dict:
         if normalize_spec_node(node):
             continue
         _normalize_hardware_node(node)
+    normalize_dashboard_layout(normalized)
     normalized["metadata"]["schemaVersion"] = CURRENT_SCHEMA_VERSION
     return normalized
 
