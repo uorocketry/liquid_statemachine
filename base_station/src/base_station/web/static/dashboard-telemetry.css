@@ -20,6 +20,7 @@
   gap: 8px;
   flex: 1 0 auto;
   position: relative;
+  isolation: isolate;
   padding: 1px 0 10px;
 }
 
@@ -76,6 +77,7 @@
   cursor: crosshair;
   touch-action: none;
 }
+.dashboard-widget[data-widget-type="time-plot"] canvas { border-radius: var(--radius-ui); }
 .dashboard-widget canvas:focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: -2px;
@@ -226,6 +228,7 @@
   align-items: stretch;
   flex: none;
   padding: 4px 0 6px;
+  border-radius: var(--radius-ui);
   background: var(--color-canvas);
 }
 .telemetry-time-control[hidden] { display: none; }

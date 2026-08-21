@@ -22,6 +22,7 @@ export function applyWidgetGeometry(card, item) {
   if (!card || !item) return;
   card.style.gridColumn = `${item.x + 1} / span ${item.w}`;
   card.style.gridRow = `${item.y + 1} / span ${item.h}`;
+  card.style.zIndex = String(item.z ?? 0);
 }
 
 export function minSize(nodeType) {
@@ -33,18 +34,20 @@ export function setVisible(layout, widgetId, visible) {
   const item = layout.items?.[widgetId];
   if (!item) return false;
   item.visible = Boolean(visible);
-  if (item.visible && collides(item, layout, widgetId)) {
-    const position = firstOpenPosition(item.w, item.h, layout, widgetId);
-    item.x = position.x;
-    item.y = position.y;
-  }
+  if (item.visible) bringToFront(layout, widgetId);
   return true;
 }
 
-export function canPlace(layout, widgetId, candidate) {
-  if (!candidate || candidate.x < 0 || candidate.y < 0) return false;
-  if (candidate.w < 1 || candidate.h < 1 || candidate.x + candidate.w > DASHBOARD_COLUMNS) return false;
-  return !collides(candidate, layout, widgetId);
+export function bringToFront(layout, widgetId) {
+  const entries = Object.entries(layout?.items ?? {});
+  const target = layout?.items?.[widgetId];
+  if (!target) return false;
+  const ordered = entries
+    .filter(([id]) => id !== widgetId)
+    .sort(([, first], [, second]) => numericZ(first) - numericZ(second));
+  ordered.push([widgetId, target]);
+  ordered.forEach(([, item], index) => { item.z = index; });
+  return true;
 }
 
 export function clampMove(item, dx, dy) {
@@ -64,29 +67,8 @@ export function clampResize(item, nodeType, dw, dh) {
   };
 }
 
-export function firstOpenPosition(width, height, layout, ignoredId = null) {
-  for (let y = 0; y <= 10_000; y += 1) {
-    for (let x = 0; x <= DASHBOARD_COLUMNS - width; x += 1) {
-      const candidate = { x, y, w: width, h: height, visible: true };
-      if (!collides(candidate, layout, ignoredId)) return { x, y };
-    }
-  }
-  return { x: 0, y: 0 };
-}
-
-function collides(candidate, layout, ignoredId) {
-  return Object.entries(layout?.items ?? {}).some(([id, other]) => (
-    id !== ignoredId && other?.visible !== false && overlaps(candidate, other)
-  ));
-}
-
-function overlaps(first, second) {
-  return !(
-    first.x + first.w <= second.x
-    || second.x + second.w <= first.x
-    || first.y + first.h <= second.y
-    || second.y + second.h <= first.y
-  );
+function numericZ(item) {
+  return Number.isInteger(item?.z) ? item.z : 0;
 }
 
 function clamp(value, low, high) {

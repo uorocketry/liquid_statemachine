@@ -57,10 +57,12 @@ node.
 
 Dashboard placement is separate from widget configuration. Canonical frame
 geometry lives under `metadata.dashboardLayout.items` as integer `x`, `y`,
-`w`, `h`, and `visible` fields on a 12-column grid. `dashboard_layout.py`
-sanitizes that metadata and prevents overlapping visible frames.
-`dashboard-layout-model.js` mirrors the small geometry contract in the browser,
-while `dashboard-layout-editor.js` owns drag/resize/edit-session behavior.
+`w`, `h`, `z`, and `visible` fields on a 12-column grid. Frames may overlap;
+`z` is normalized to a compact deterministic stack, and grabbing a frame for
+move/resize brings it to the front. `dashboard_layout.py` sanitizes persisted
+metadata while `dashboard-layout-model.js` mirrors the geometry/stacking
+contract in the browser. `dashboard-layout-editor.js` owns drag/resize/edit
+session behavior.
 Layout saves use the dedicated `/api/daq/dashboard-layout` endpoint so a stale
 Dashboard tab never writes an old copy of the node graph back to disk.
 

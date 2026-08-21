@@ -1,7 +1,7 @@
 import {
   DASHBOARD_COLUMNS,
   applyWidgetGeometry,
-  canPlace,
+  bringToFront,
   clampMove,
   clampResize,
   cloneLayout,
@@ -109,9 +109,12 @@ export class DashboardLayoutEditor {
     const move = event.target.closest('[data-dashboard-drag-handle]');
     if (!resize && !move) return;
 
-    const widget = this.widgets.find((candidate) => candidate.id === card.dataset.widgetId);
-    const item = itemFor(this.draft, card.dataset.widgetId);
+    const widgetId = card.dataset.widgetId;
+    const widget = this.widgets.find((candidate) => candidate.id === widgetId);
+    const item = itemFor(this.draft, widgetId);
     if (!widget || !item) return;
+    bringToFront(this.draft, widgetId);
+    this.syncFrameStack();
     const metrics = this.gridMetrics();
     this.drag = {
       pointerId: event.pointerId,
@@ -135,7 +138,6 @@ export class DashboardLayoutEditor {
     const candidate = drag.mode === 'resize'
       ? clampResize(drag.startItem, drag.widget.nodeType, dx, dy)
       : clampMove(drag.startItem, dx, dy);
-    if (!canPlace(this.draft, drag.widget.id, candidate)) return;
     Object.assign(this.draft.items[drag.widget.id], candidate);
     applyWidgetGeometry(drag.card, candidate);
     this.onGeometryChange?.();
@@ -147,6 +149,12 @@ export class DashboardLayoutEditor {
     drag.card.classList.remove('dashboard-frame-active');
     this.drag = null;
     this.onGeometryChange?.();
+  }
+
+  syncFrameStack() {
+    for (const card of this.grid.querySelectorAll('[data-dashboard-frame]')) {
+      applyWidgetGeometry(card, itemFor(this.draft, card.dataset.widgetId));
+    }
   }
 
   gridMetrics() {

@@ -128,7 +128,7 @@ class DaqConfigTests(TestCase):
         self.assertEqual(nodes["ain"]["config"], {"rangeV": 1})
         self.assertEqual(set(normalized["metadata"]["dashboardLayout"]["items"]), {"number", "gauge", "plot"})
 
-    def test_dashboard_layout_is_bounded_non_overlapping_and_current(self) -> None:
+    def test_dashboard_layout_is_bounded_overlap_preserving_and_current(self) -> None:
         normalized = normalize_graph({
             "nodes": [
                 {"id": "number", "nodeType": "number", "config": {"label": "Value"}},
@@ -140,10 +140,10 @@ class DaqConfigTests(TestCase):
                 "dashboardLayout": {
                     "stale": True,
                     "items": {
-                        "number": {"x": 99, "y": -4, "w": 99, "h": 0, "visible": True, "stale": 1},
-                        "gauge": {"x": 0, "y": 0, "w": 4, "h": 4, "visible": True},
-                        "plot": {"x": 0, "y": 0, "w": 6, "h": 4, "visible": True},
-                        "deleted": {"x": 0, "y": 0, "w": 1, "h": 1, "visible": True},
+                        "number": {"x": 99, "y": -4, "w": 99, "h": 0, "z": 99, "visible": True, "stale": 1},
+                        "gauge": {"x": 0, "y": 0, "w": 4, "h": 4, "z": 2, "visible": True},
+                        "plot": {"x": 0, "y": 0, "w": 6, "h": 4, "z": 2, "visible": True},
+                        "deleted": {"x": 0, "y": 0, "w": 1, "h": 1, "z": 0, "visible": True},
                     },
                 },
             },
@@ -155,16 +155,12 @@ class DaqConfigTests(TestCase):
             self.assertGreaterEqual(item["x"], 0)
             self.assertGreaterEqual(item["y"], 0)
             self.assertLessEqual(item["x"] + item["w"], 12)
-            self.assertEqual(set(item), {"x", "y", "w", "h", "visible"})
-        visible = list(layout["items"].values())
-        for index, first in enumerate(visible):
-            for second in visible[index + 1:]:
-                self.assertTrue(
-                    first["x"] + first["w"] <= second["x"]
-                    or second["x"] + second["w"] <= first["x"]
-                    or first["y"] + first["h"] <= second["y"]
-                    or second["y"] + second["h"] <= first["y"]
-                )
+            self.assertEqual(set(item), {"x", "y", "w", "h", "z", "visible"})
+        self.assertEqual(layout["items"]["gauge"]["x"], 0)
+        self.assertEqual(layout["items"]["plot"]["x"], 0)
+        self.assertEqual(layout["items"]["gauge"]["y"], 0)
+        self.assertEqual(layout["items"]["plot"]["y"], 0)
+        self.assertEqual(sorted(item["z"] for item in layout["items"].values()), [0, 1, 2])
 
     def test_unsupported_node_type_is_rejected(self) -> None:
         graph = {
