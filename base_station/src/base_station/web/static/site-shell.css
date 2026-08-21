@@ -44,7 +44,7 @@
 }
 .icon-dashboard { --site-icon: url('/static/icons/sf/chart.xyaxis.line.svg'); }
 .icon-state-machine { --site-icon: url('/static/icons/sf/point.3.filled.connected.trianglepath.dotted.svg'); }
-.icon-daq { --site-icon: url('/static/icons/sf/waveform.svg'); }
+.icon-daq { --site-icon: url('/static/icons/sf/daq-blueprint.svg'); }
 .icon-runs { --site-icon: url('/static/icons/sf/play.fill.svg'); }
 .icon-logs { --site-icon: url('/static/icons/sf/doc.on.doc.svg'); }
 .site-sidebar-toggle {

@@ -5,5 +5,5 @@
     <div><dt>Acquisition</dt><dd>{{ labjack.acquisition_state|capitalize }}</dd></div>
     <div><dt>Active rate</dt><dd>{{ labjack.scan_rate ~ " samples/s" if labjack.streaming else "—" }}</dd></div><div><dt>Samples</dt><dd>{{ "{:,}".format(labjack.sample_count) }}</dd></div>
   </dl>
-  <p class="device-note">Acquisition rate and signal quality are configured in <a class="detail-link" href="/configuration">DAQ Setup</a>.</p>
+  <p class="device-note">Acquisition rate and signal quality are configured in <a class="detail-link" href="/configuration">DAQ Graph</a>.</p>
 </section>
