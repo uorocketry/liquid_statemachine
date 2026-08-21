@@ -60,6 +60,7 @@ class FrontendContractTests(TestCase):
         self.assertNotIn("liquid-sidebar-open", shell)
         self.assertIn("--site-sidebar-collapsed-width: 52px", shell_styles)
         self.assertIn("grid-template-columns: var(--site-sidebar-collapsed-width)", shell_styles)
+        self.assertIn("background: var(--color-canvas);", shell_styles)
         self.assertNotIn("translateX(-100%)", shell_styles)
         self.assertIn('href="/settings"', base)
         self.assertIn("site-settings-link", shell_styles)
@@ -333,7 +334,10 @@ class FrontendContractTests(TestCase):
         self.assertIn("isolation: isolate", dashboard_css)
         self.assertIn(".dashboard-widget[data-widget-type=\"time-plot\"] canvas { border-radius: var(--radius-ui); }", dashboard_css)
         self.assertIn("border-radius: var(--radius-ui);", dashboard_css)
+        self.assertIn("this.viewLayout = cloneLayout(this.committed)", layout_editor)
+        self.assertIn("bringToFront(this.viewLayout, widgetId)", layout_editor)
         self.assertIn("bringToFront(this.draft, widgetId)", layout_editor)
+        self.assertIn("this.syncFrameStack(this.viewLayout)", layout_editor)
         self.assertIn("clampResize", layout_editor)
         self.assertIn("DASHBOARD_COLUMNS = 12", layout_model)
         self.assertIn("card.style.zIndex", layout_model)
@@ -497,11 +501,15 @@ class FrontendContractTests(TestCase):
 
     def test_daq_api_routes_exist(self) -> None:
         routes = read("daq_config/routes.py")
+        app = read("static/daq-config/app.js")
         for route in ('/capabilities', '/configuration', '/dashboard-layout', '/preview'):
             self.assertIn(f'("{route}")', routes)
         self.assertIn("persist_configuration(repository, graph)", routes)
         self.assertIn("\"graph\": canonical", routes)
         self.assertIn("\"specDefaults\": spec_defaults()", routes)
+        self.assertIn("\"editorContract\": EDITOR_CONTRACT_VERSION", routes)
+        self.assertIn("DAQ editor/server versions do not match. Restart the base station.", app)
+        self.assertIn("loadCapabilities().catch(() => null)", app)
 
     def test_development_demo_is_not_part_of_production_ui(self) -> None:
         self.assertNotIn("blueprint-demo", read("server.py"))

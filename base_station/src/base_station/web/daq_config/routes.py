@@ -16,6 +16,8 @@ from base_station.web.daq_config.validation import blocking_issues, validate_gra
 from base_station.web.labjack_service import LabJackService
 from base_station.web.models import DashboardState
 
+EDITOR_CONTRACT_VERSION = 1
+
 
 def build_daq_router(
     dashboard: DashboardState,
@@ -35,7 +37,12 @@ def build_daq_router(
         graph = normalize_graph(stored)
         if graph != stored:
             repository.save(graph)
-        return {"graph": graph, "issues": validate_graph(graph), "specDefaults": spec_defaults()}
+        return {
+            "editorContract": EDITOR_CONTRACT_VERSION,
+            "graph": graph,
+            "issues": validate_graph(graph),
+            "specDefaults": spec_defaults(),
+        }
 
     @router.put("/configuration")
     def save_configuration(graph: dict = Body(...)) -> dict:

@@ -14,6 +14,7 @@ export class DashboardLayoutEditor {
     Object.assign(this, options);
     this.widgets = [];
     this.committed = { items: {} };
+    this.viewLayout = { items: {} };
     this.draft = null;
     this.editing = false;
     this.drag = null;
@@ -35,17 +36,18 @@ export class DashboardLayoutEditor {
   configure(widgets, layout) {
     this.widgets = widgets;
     this.committed = cloneLayout(layout);
+    if (!this.editing) this.viewLayout = cloneLayout(this.committed);
     if (!this.editing) this.renderPicker();
   }
 
   currentLayout() {
-    return this.draft ?? this.committed;
+    return this.draft ?? this.viewLayout;
   }
 
   start() {
     if (this.editing || !this.widgets.length) return;
     this.editing = true;
-    this.draft = cloneLayout(this.committed);
+    this.draft = cloneLayout(this.viewLayout);
     this.syncChrome();
     this.renderPicker();
     this.onLayoutChange(this.draft);
@@ -58,7 +60,7 @@ export class DashboardLayoutEditor {
     this.draft = null;
     this.syncChrome();
     this.renderPicker();
-    this.onLayoutChange(this.committed);
+    this.onLayoutChange(this.viewLayout);
   }
 
   async save() {
@@ -68,6 +70,7 @@ export class DashboardLayoutEditor {
     try {
       const saved = await this.onSave(cloneLayout(this.draft));
       this.committed = cloneLayout(saved ?? this.draft);
+      this.viewLayout = cloneLayout(this.committed);
       this.editing = false;
       this.draft = null;
       this.syncChrome();
@@ -102,19 +105,29 @@ export class DashboardLayoutEditor {
   }
 
   onPointerDown(event) {
-    if (!this.editing || !this.draft || event.button !== 0) return;
+    if (event.button !== 0) return;
     const card = event.target.closest('[data-dashboard-frame]');
     if (!card) return;
+
+    const widgetId = card.dataset.widgetId;
+    if (!this.editing) {
+      if (bringToFront(this.viewLayout, widgetId)) this.syncFrameStack(this.viewLayout);
+      return;
+    }
+    if (!this.draft) return;
+
+    // Raising is independent from dragging/resizing. Clicking any visible part
+    // of an overlapping frame should make it immediately usable.
+    bringToFront(this.draft, widgetId);
+    this.syncFrameStack(this.draft);
+
     const resize = event.target.closest('[data-dashboard-resize-handle]');
     const move = event.target.closest('[data-dashboard-drag-handle]');
     if (!resize && !move) return;
 
-    const widgetId = card.dataset.widgetId;
     const widget = this.widgets.find((candidate) => candidate.id === widgetId);
     const item = itemFor(this.draft, widgetId);
     if (!widget || !item) return;
-    bringToFront(this.draft, widgetId);
-    this.syncFrameStack();
     const metrics = this.gridMetrics();
     this.drag = {
       pointerId: event.pointerId,
@@ -151,9 +164,9 @@ export class DashboardLayoutEditor {
     this.onGeometryChange?.();
   }
 
-  syncFrameStack() {
+  syncFrameStack(layout = this.currentLayout()) {
     for (const card of this.grid.querySelectorAll('[data-dashboard-frame]')) {
-      applyWidgetGeometry(card, itemFor(this.draft, card.dataset.widgetId));
+      applyWidgetGeometry(card, itemFor(layout, card.dataset.widgetId));
     }
   }
 

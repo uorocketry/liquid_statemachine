@@ -10,6 +10,8 @@ import { daqConnectionAllowed } from './connection-policy.js';
 import { configureSpecDefaults, isPreviewSourceNode } from './node-specs.js';
 import { MetadataControls } from './metadata-controls.js';
 
+const EDITOR_CONTRACT_VERSION = 1;
+
 const editor = document.querySelector('#daq-blueprint');
 const palette = document.querySelector('#daq-palette');
 const issueSummary = document.querySelector('#daq-issue-summary');
@@ -38,15 +40,21 @@ let metadataControls = null;
 bootstrap().catch((error) => {
   saveState.textContent = `Failed to load: ${error.message}`;
   saveState.className = 'daq-save-state error';
+  palette.replaceChildren();
+  const message = document.createElement('p');
+  message.className = 'daq-setting-note';
+  message.textContent = error.message;
+  palette.append(message);
 });
 
 async function bootstrap() {
-  const [capabilityPayload, configuration] = await Promise.all([
-    loadCapabilities(),
+  const [configuration, capabilityPayload] = await Promise.all([
     loadConfiguration(),
+    loadCapabilities().catch(() => null),
   ]);
-  capabilities = capabilityPayload;
+  assertEditorContract(configuration);
   configureSpecDefaults(configuration.specDefaults);
+  capabilities = capabilityPayload;
   editor.nodeDecorator = (node, graph) => {
     const displayNode = decorateNode(node, graph, capabilities);
     displayNode.diagnostics = issues
@@ -70,6 +78,12 @@ async function bootstrap() {
   bindEvents();
   refreshUi();
   syncPreviewState();
+}
+
+function assertEditorContract(configuration) {
+  if (configuration?.editorContract !== EDITOR_CONTRACT_VERSION || !configuration?.specDefaults) {
+    throw new Error('DAQ editor/server versions do not match. Restart the base station.');
+  }
 }
 
 function bindEvents() {
