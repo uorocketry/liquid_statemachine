@@ -1,5 +1,11 @@
 const page = document.querySelector(".run-detail");
 const runId = Number(page.dataset.runId);
+const signalCards = [...document.querySelectorAll("[data-run-signal]")];
+const signals = signalCards.map((card) => ({
+  id: card.dataset.runSignal,
+  label: card.dataset.signalLabel ?? card.dataset.runSignal,
+  unit: card.dataset.signalUnit ?? "",
+}));
 
 class RunTimelineSource {
   async metadata() {
@@ -23,8 +29,9 @@ class RunTimelineSource {
 
 const runTimeline = new TimelineView({
   source: new RunTimelineSource(),
-  canvases: [document.querySelector("#history-chart-a"), document.querySelector("#history-chart-b")],
-  rangeLabels: [document.querySelector("#range-a"), document.querySelector("#range-b")],
+  signals,
+  canvases: signalCards.map((card) => card.querySelector("[data-run-signal-canvas]")),
+  rangeLabels: signalCards.map((card) => card.querySelector("[data-run-signal-range]")),
   navigator: document.querySelector("#tier-navigator"),
   label: document.querySelector("#window-label"),
   playButton: document.querySelector("#playback-toggle"),

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import asdict, dataclass, field
-from threading import Lock
 from datetime import datetime
+from threading import Lock
 from typing import Any
 
 
@@ -53,7 +53,6 @@ class DashboardState:
         self.labjack = LabJackStatus()
         self.logs: deque[dict[str, str | int]] = deque(maxlen=500)
         self._log_sequence = 0
-        self.channels = [deque(maxlen=30_000), deque(maxlen=30_000)]
         self.log("Base station ready")
 
     def log(self, message: str, level: str = "info", component: str = "system") -> None:
@@ -71,26 +70,11 @@ class DashboardState:
                 }
             )
 
-    def add_samples(self, channel_1: list[float], channel_2: list[float]) -> None:
-        with self.lock:
-            self.channels[0].extend(channel_1)
-            self.channels[1].extend(channel_2)
-            self.labjack.sample_count += min(len(channel_1), len(channel_2))
-
-    @staticmethod
-    def _downsample(values: deque[float], limit: int = 700) -> list[float]:
-        data = list(values)
-        if len(data) <= limit:
-            return data
-        stride = max(1, len(data) // limit)
-        return data[::stride][-limit:]
-
     def snapshot(self) -> dict[str, Any]:
         with self.lock:
             return {
                 "cart": asdict(self.cart),
                 "labjack": asdict(self.labjack),
-                "channels": [self._downsample(channel) for channel in self.channels],
                 "logs": list(self.logs),
             }
 

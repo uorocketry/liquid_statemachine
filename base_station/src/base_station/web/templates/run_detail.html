@@ -17,8 +17,12 @@
   <section class="history-view">
     <div class="history-heading"><div><span class="eyebrow">Window detail</span><h2 id="window-label">Loading samples…</h2></div><div class="timeline-controls"><button id="playback-toggle" class="secondary-button" type="button">▶ Play</button><button id="return-tail" class="secondary-button" type="button">{{ "Return to live" if run.status == "recording" else "Go to end" }}</button></div>{% include "fragments/graph_settings.html" %}</div>
     <div class="channel-plots">
-      <article class="timeline-chart"><div class="timeline-chart-header"><div><span class="channel-key cyan"></span><strong>AIN0 − AIN1</strong></div><output id="range-a">—</output></div><canvas id="history-chart-a" aria-label="AIN0 minus AIN1 selected data window"></canvas></article>
-      <article class="timeline-chart"><div class="timeline-chart-header"><div><span class="channel-key lime"></span><strong>AIN2 − AIN3</strong></div><output id="range-b">—</output></div><canvas id="history-chart-b" aria-label="AIN2 minus AIN3 selected data window"></canvas></article>
+      {% for signal in run.signals %}
+      <article class="timeline-chart" data-run-signal="{{ signal.id }}" data-signal-label="{{ signal.label }}" data-signal-unit="{{ signal.unit }}">
+        <div class="timeline-chart-header"><strong>{{ signal.label }}</strong><output data-run-signal-range>—</output></div>
+        <canvas data-run-signal-canvas aria-label="{{ signal.label }} selected data window"></canvas>
+      </article>
+      {% endfor %}
     </div>
     <div class="timeline-navigator"><canvas id="tier-navigator" aria-label="Drag to navigate recorded acquisition history"></canvas></div>
   </section>

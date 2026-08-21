@@ -1,5 +1,6 @@
 import { previewConfiguration } from './api.js';
 import { isPreviewSourceNode } from './node-specs.js';
+import { blockingIssues, validateGraph } from './validation.js';
 
 /** Low-rate configuration preview driver backed by the real LJM API endpoint. */
 export class DaqLivePreview {
@@ -36,7 +37,13 @@ export class DaqLivePreview {
     if (!this.enabled || this.inFlight) return;
     this.inFlight = true;
     try {
-      const payload = await previewConfiguration(this.editor.graph);
+      const graph = this.editor.graph;
+      if (blockingIssues(validateGraph(graph)).length) {
+        this.editor.clearNodePreview();
+        this.onStatus?.('warning', 'Fix configuration errors to preview');
+        return;
+      }
+      const payload = await previewConfiguration(graph);
       const previews = {};
       for (const [nodeId, reading] of Object.entries(payload.values ?? {})) {
         const history = this.histories.get(nodeId) ?? [];
@@ -52,9 +59,9 @@ export class DaqLivePreview {
         };
       }
       for (const nodeId of payload.unresolved ?? []) {
-        const node = this.editor.graph.nodes.find((candidate) => candidate.id === nodeId);
+        const node = graph.nodes.find((candidate) => candidate.id === nodeId);
         if (node?.nodeType === 'rate-of-change') {
-          const unit = rateUnit(node, this.editor.graph);
+          const unit = rateUnit(node, graph);
           previews[nodeId] = {
             label: 'Stream only', value: '—', unit,
             detail: 'Requires acquisition history',

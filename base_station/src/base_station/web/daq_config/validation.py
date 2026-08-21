@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from math import isfinite
 
+from base_station.web.daq_config.labjack_source import THERMOCOUPLE_TYPES
 from base_station.web.daq_config.link_validation import validate_link_types
 from base_station.web.daq_config.node_specs import SPEC_NODE_TYPES, validate_spec_node
 
@@ -19,7 +20,6 @@ HARDWARE_NODE_TYPES = {
 }
 SUPPORTED_NODE_TYPES = SPEC_NODE_TYPES | HARDWARE_NODE_TYPES
 VALID_RANGES = {10.0, 1.0, 0.1, 0.01}
-THERMOCOUPLE_TYPES = {"B", "E", "J", "K", "N", "R", "S", "T", "C"}
 
 
 def validate_graph(graph: object) -> list[dict[str, str]]:
@@ -34,13 +34,13 @@ def validate_graph(graph: object) -> list[dict[str, str]]:
         issues.append(_issue("graph", "Configuration is larger than the supported editor limit"))
     metadata = graph.get("metadata") if isinstance(graph.get("metadata"), dict) else {}
     scan_rate = metadata.get("scanRate", 1000)
-    if not isinstance(scan_rate, (int, float)) or not 1 <= scan_rate <= 100_000:
+    if not _integer_number(scan_rate) or not 1 <= int(scan_rate) <= 100_000:
         issues.append(_issue("graph", "Scan rate must be between 1 and 100,000 samples/s"))
     resolution = metadata.get("streamResolutionIndex", 0)
-    if not isinstance(resolution, (int, float)) or int(resolution) not in range(9):
+    if not _integer_number(resolution) or int(resolution) not in range(9):
         issues.append(_issue("graph", "Stream resolution must be Auto or index 1 through 8"))
     settling = metadata.get("streamSettlingUs", 0)
-    if not isinstance(settling, (int, float)) or settling < 0:
+    if not _finite_number(settling) or float(settling) < 0:
         issues.append(_issue("graph", "Stream settling time cannot be negative"))
 
     node_map: dict[str, dict] = {}
@@ -271,7 +271,15 @@ def _issue(subject: str, message: str, severity: str = "error") -> dict[str, str
 
 
 def _finite_number(value: object) -> bool:
-    return isinstance(value, (int, float)) and isfinite(float(value))
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and isfinite(float(value))
+    )
+
+
+def _integer_number(value: object) -> bool:
+    return _finite_number(value) and float(value).is_integer()
 
 
 def _positive_number(value: object) -> bool:

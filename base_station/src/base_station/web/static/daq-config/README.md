@@ -16,7 +16,7 @@ in the graph's bottom toolbar/popovers.
 - load cell;
 - simulation sine wave;
 - constant, add, subtract, gain, moving average, rate-of-change;
-- dashboard signal.
+- dashboard Number, Gauge, and Time plot sinks.
 
 Linkable settings use literal-or-link inputs: type a value on the node or wire a
 compatible output into the pin. Units propagate through derived nodes where
@@ -29,6 +29,7 @@ possible.
 - `presentation.js` — inline controls and inferred units.
 - `validation.js` — browser validation.
 - `live-preview.js` — low-rate preview/path highlighting.
+- `metadata-controls.js` — shared draft/commit handling for acquisition settings.
 - `api.js` — FastAPI client.
 
 The reusable DOM/editor code lives in `static/blueprint/`.

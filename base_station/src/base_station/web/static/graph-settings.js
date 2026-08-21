@@ -12,7 +12,6 @@ function readGraphSettings() {
     contextSeconds: Number(graphSettingsForm.elements.context_seconds.value),
     detailSeconds: Number(graphSettingsForm.elements.detail_seconds.value),
     displayTier: new FormData(graphSettingsForm).get("display_tier"),
-    navigatorChannels: new FormData(graphSettingsForm).get("navigator_channels"),
   };
 }
 
@@ -34,8 +33,6 @@ try {
     if (saved.detailSeconds) graphSettingsForm.elements.detail_seconds.value = saved.detailSeconds;
     const displayTier = graphSettingsForm.querySelector(`[name="display_tier"][value="${saved.displayTier}"]`);
     if (displayTier) displayTier.checked = true;
-    const navigatorChannels = graphSettingsForm.querySelector(`[name="navigator_channels"][value="${saved.navigatorChannels}"]`);
-    if (navigatorChannels) navigatorChannels.checked = true;
   }
 } catch (_) { /* Invalid browser storage falls back to safe defaults. */ }
 

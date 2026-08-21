@@ -1,11 +1,12 @@
 """Tests for LabJack SDK-backed DAQ previews and host transforms."""
 
+from copy import deepcopy
 from unittest import TestCase
 from threading import Lock
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from base_station.web.daq_config import hardware, preview
+from base_station.web.daq_config import labjack_source as hardware, preview
 from base_station.web.models import DashboardState
 
 
@@ -178,6 +179,74 @@ class DaqHardwareTests(TestCase):
         self.assertAlmostEqual(result["values"]["smooth"]["value"], 7.0)
         self.assertAlmostEqual(result["values"]["display"]["value"], 7.0)
         self.assertEqual(result["values"]["display"]["unit"], "psi")
+
+    def test_stream_plan_and_batches_are_graph_driven(self) -> None:
+        graph = {
+            "metadata": {"scanRate": 2000, "streamResolutionIndex": 4, "streamSettlingUs": 12},
+            "nodes": [
+                {"id": "pair", "nodeType": "labjack-channel-pair", "config": {"channel": "AIN0"}},
+                {"id": "voltage", "nodeType": "labjack-ain", "config": {"rangeV": 0.1}},
+                {"id": "channel", "nodeType": "labjack-channel", "config": {"channel": "AIN2"}},
+                {"id": "shunt", "nodeType": "constant", "config": {"value": 250, "unit": "Ω"}},
+                {"id": "current", "nodeType": "labjack-current", "config": {"rangeV": 10}},
+            ],
+            "links": [
+                {"fromNode": "pair", "toNode": "voltage", "toPin": "channel"},
+                {"fromNode": "channel", "toNode": "current", "toPin": "channel"},
+                {"fromNode": "shunt", "toNode": "current", "toPin": "shunt"},
+            ],
+        }
+        plan = hardware.compile_stream_plan(graph)
+        self.assertEqual(plan.scan_rate, 2000)
+        self.assertEqual([signal.id for signal in plan.signals], ["voltage", "current"])
+        self.assertEqual([channel.name for channel in plan.channels], ["AIN0", "AIN2"])
+        self.assertEqual(plan.channels[0].negative, 1)
+
+        self.sdk.namesToAddresses.return_value = ([0, 2], None)
+        self.sdk.eStreamRead.return_value = ([0.01, 5.0, 0.02, 2.5], 0, 0)
+        stop_event = __import__("threading").Event()
+        with patch.object(hardware, "_sdk", return_value=(self.sdk, self.constants)):
+            batches = hardware.stream_batches(self.service, plan, stop_event)
+            batch = next(batches)
+            stop_event.set()
+            with self.assertRaises(StopIteration):
+                next(batches)
+
+        self.assertEqual(batch.start_index, 0)
+        self.assertEqual(batch.samples["voltage"], [0.01, 0.02])
+        self.assertAlmostEqual(batch.samples["current"][0], 0.02)
+        self.assertAlmostEqual(batch.samples["current"][1], 0.01)
+        self.sdk.eStreamStart.assert_called_once_with(42, 1000, 2, [0, 2], 2000)
+        self.sdk.eStreamStop.assert_called_once_with(42)
+
+    def test_stream_plan_rejects_invalid_source_parameters(self) -> None:
+        current_graph = {
+            "metadata": {"scanRate": 1000, "streamResolutionIndex": 0, "streamSettlingUs": 0},
+            "nodes": [
+                {"id": "channel", "nodeType": "labjack-channel", "config": {"channel": "AIN0"}},
+                {"id": "current", "nodeType": "labjack-current", "config": {"rangeV": 10, "shuntOhms": None}},
+            ],
+            "links": [{"fromNode": "channel", "toNode": "current", "toPin": "channel"}],
+        }
+        with self.assertRaisesRegex(ValueError, "Shunt resistance"):
+            hardware.compile_stream_plan(current_graph)
+
+        thermocouple_graph = {
+            "metadata": {"scanRate": 1000, "streamResolutionIndex": 0, "streamSettlingUs": 0},
+            "nodes": [
+                {"id": "pair", "nodeType": "labjack-channel-pair", "config": {"channel": "AIN0"}},
+                {"id": "tc", "nodeType": "labjack-thermocouple", "config": {"rangeV": 0.01, "thermocoupleType": ""}},
+            ],
+            "links": [{"fromNode": "pair", "toNode": "tc", "toPin": "pair"}],
+        }
+        with self.assertRaisesRegex(ValueError, "thermocouple type"):
+            hardware.compile_stream_plan(thermocouple_graph)
+
+        invalid_rate = deepcopy(current_graph)
+        invalid_rate["nodes"][1]["config"]["shuntOhms"] = 250
+        invalid_rate["metadata"]["scanRate"] = 1000.5
+        with self.assertRaisesRegex(ValueError, "Scan rate must be an integer"):
+            hardware.compile_stream_plan(invalid_rate)
 
 
 if __name__ == "__main__":

@@ -6,20 +6,9 @@ const DIAL_RADIUS = 43;
 const DIAL_CENTER_X = 60;
 const DIAL_CENTER_Y = 53;
 
-const DEFAULT_GAUGE = {
-  type: 'dial-filled',
-  showValue: true,
-  showUnits: true,
-  showRange: true,
-  min: 0,
-  low: 10,
-  high: 90,
-  max: 100,
-};
-
 /** Create one dashboard Gauge widget. */
 export function createGaugeWidget(node) {
-  const gauge = normalizeGauge(node.config);
+  const gauge = node.config;
   const { card } = createWidgetCard(node);
   const root = document.createElement('div');
   root.className = 'dashboard-gauge';
@@ -57,7 +46,7 @@ export function createGaugeWidget(node) {
 
   root.append(visual, range);
   applyGaugeVisibility(root, gauge);
-  updateRangeLabels(root, gauge, node.config?.precision ?? 1);
+  updateRangeLabels(root, gauge, node.config.precision);
   card.append(root);
   return card;
 }
@@ -66,8 +55,8 @@ export function createGaugeWidget(node) {
 export function updateGaugeWidget(card, node, reading) {
   const root = card?.querySelector('.dashboard-gauge');
   if (!root) return;
-  const gauge = normalizeGauge(node.config);
-  const precision = clampInteger(node.config?.precision, 0, 6, 1);
+  const gauge = node.config;
+  const precision = node.config.precision;
   const value = Number(reading?.value);
   const finite = Number.isFinite(value);
   const ratio = finite ? valueRatio(value, gauge.min, gauge.max) : 0;
@@ -204,13 +193,9 @@ function applyGaugeVisibility(root, gauge) {
 function updateRangeLabels(root, gauge, precision) {
   const minimum = root.querySelector('[data-gauge-min]');
   const maximum = root.querySelector('[data-gauge-max]');
-  const digits = clampInteger(precision, 0, 6, 1);
+  const digits = precision;
   if (minimum) minimum.textContent = Number(gauge.min).toFixed(digits);
   if (maximum) maximum.textContent = Number(gauge.max).toFixed(digits);
-}
-
-function normalizeGauge(config) {
-  return { ...DEFAULT_GAUGE, ...(config ?? {}) };
 }
 
 function valueRatio(value, minimum, maximum) {
@@ -286,7 +271,3 @@ function svgElement(tag, attributes) {
 }
 
 function percent(value) { return `${Math.max(0, Math.min(1, value)) * 100}%`; }
-function clampInteger(value, low, high, fallback) {
-  const number = Number(value);
-  return Number.isInteger(number) ? Math.max(low, Math.min(high, number)) : fallback;
-}

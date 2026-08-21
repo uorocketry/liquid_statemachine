@@ -5,6 +5,8 @@ from tempfile import TemporaryDirectory
 from unittest import TestCase
 
 from base_station.web.daq_config.repository import DaqConfigRepository
+from base_station.web.daq_config.routes import persist_configuration
+from base_station.web.daq_config.node_specs import DEFAULT_CONFIGS, spec_defaults
 from base_station.web.daq_config.schema import normalize_graph
 from base_station.web.daq_config.validation import blocking_issues, validate_graph
 
@@ -207,6 +209,17 @@ class DaqConfigTests(TestCase):
         self.assertIn("Stream resolution must be Auto or index 1 through 8", messages)
         self.assertIn("Stream settling time cannot be negative", messages)
 
+    def test_empty_and_wrong_type_acquisition_settings_are_rejected(self) -> None:
+        graph = {
+            "nodes": [],
+            "links": [],
+            "metadata": {"scanRate": 1000.5, "streamResolutionIndex": 1.5, "streamSettlingUs": True},
+        }
+        messages = [issue["message"] for issue in validate_graph(graph)]
+        self.assertIn("Scan rate must be between 1 and 100,000 samples/s", messages)
+        self.assertIn("Stream resolution must be Auto or index 1 through 8", messages)
+        self.assertIn("Stream settling time cannot be negative", messages)
+
     def test_repository_round_trip(self) -> None:
         with TemporaryDirectory() as directory:
             path = Path(directory) / "daq.json"
@@ -214,6 +227,36 @@ class DaqConfigTests(TestCase):
             graph = {"nodes": [channel("input", "AIN0")], "links": [], "metadata": {"scanRate": 500}}
             repository.save(graph)
             self.assertEqual(repository.load(), graph)
+
+    def test_spec_defaults_are_detached_from_authoritative_defaults(self) -> None:
+        defaults = spec_defaults()
+        self.assertEqual(defaults, DEFAULT_CONFIGS)
+        defaults["time-plot"]["xWindowS"] = 999
+        self.assertEqual(DEFAULT_CONFIGS["time-plot"]["xWindowS"], 10)
+
+    def test_configuration_save_returns_exact_canonical_graph(self) -> None:
+        with TemporaryDirectory() as directory:
+            repository = DaqConfigRepository(Path(directory) / "daq.json")
+            graph = {
+                "nodes": [{
+                    "id": "plot",
+                    "nodeType": "time-plot",
+                    "config": {
+                        "label": "Plot",
+                        "xRangeMode": "window",
+                        "xWindowS": 7.5,
+                        "stale": "discard me",
+                    },
+                }],
+                "links": [],
+                "metadata": {},
+            }
+            result = persist_configuration(repository, graph)
+            self.assertEqual(result["graph"], repository.load())
+            config = result["graph"]["nodes"][0]["config"]
+            self.assertEqual(config["xRangeMode"], "window")
+            self.assertEqual(config["xWindowS"], 7.5)
+            self.assertNotIn("stale", config)
 
     def test_unknown_sensor_calibration_is_rejected(self) -> None:
         graph = {

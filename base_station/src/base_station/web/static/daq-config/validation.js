@@ -70,15 +70,16 @@ export function validateGraph(graph) {
       if (!(Number(excitation) > 0)) issues.push(issue('error', node.id, 'Load cell excitation must be positive'));
     }
   }
-  const scanRate = Number(graph?.metadata?.scanRate ?? 1000);
-  if (!(scanRate >= 1 && scanRate <= 100000)) {
+  const metadata = graph?.metadata ?? {};
+  const scanRate = numericMetadata(metadata, 'scanRate', 1000);
+  if (!Number.isInteger(scanRate) || scanRate < 1 || scanRate > 100000) {
     issues.push(issue('error', 'graph', 'Scan rate must be between 1 and 100,000 samples/s'));
   }
-  const resolution = Number(graph?.metadata?.streamResolutionIndex ?? 0);
+  const resolution = numericMetadata(metadata, 'streamResolutionIndex', 0);
   if (!Number.isInteger(resolution) || resolution < 0 || resolution > 8) {
     issues.push(issue('error', 'graph', 'Stream resolution must be Auto or index 1 through 8'));
   }
-  const settling = Number(graph?.metadata?.streamSettlingUs ?? 0);
+  const settling = numericMetadata(metadata, 'streamSettlingUs', 0);
   if (!Number.isFinite(settling) || settling < 0) {
     issues.push(issue('error', 'graph', 'Stream settling time cannot be negative'));
   }
@@ -185,6 +186,13 @@ function issue(severity, subject, message) {
 
 export function blockingIssues(issues) {
   return issues.filter((item) => item.severity === 'error');
+}
+
+function numericMetadata(metadata, key, fallback) {
+  const value = metadata?.[key];
+  if (value === undefined) return fallback;
+  if (value === null || value === '' || typeof value === 'boolean') return Number.NaN;
+  return Number(value);
 }
 
 function requiredNumber(value) {

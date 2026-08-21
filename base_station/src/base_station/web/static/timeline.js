@@ -9,7 +9,8 @@ class TimelineView {
     this.previousFrameTime = 0;
     this.previousRefreshTime = 0;
     this.ranges = [];
-    this.colors = ["#007c69", "#5c7f18"];
+    this.signals = this.signals ?? [];
+    this.colors = ["#007c69", "#5c7f18", "#6b5c9a", "#8a5d16", "#1f6f8b", "#8b4f6f"];
     this.channelGeometry = [];
     this.hover = document.createElement("output"); this.hover.className = "timeline-hover"; this.hover.hidden = true;
     this.hoverSample = null; this.navigator.parentElement.append(this.hover);
@@ -61,39 +62,51 @@ class TimelineView {
   }
 
   values(rows, channel) {
-    const low = channel === 0 ? "aMin" : "bMin"; const high = channel === 0 ? "aMax" : "bMax";
-    return rows.flatMap((row) => [row[low], row[high]]);
+    const signalId = this.signals[channel]?.id;
+    if (!signalId) return [];
+    return rows.flatMap((row) => {
+      const value = row.values?.[signalId];
+      return value ? [value.min, value.max].filter(Number.isFinite) : [];
+    });
   }
 
   filterRows(rows, settings, rate) {
     if (settings.filterMode === "raw" || !rows.length) return rows;
-    const result = rows.map((row) => ({ ...row }));
+    const result = rows.map((row) => ({
+      ...row,
+      values: Object.fromEntries(Object.entries(row.values ?? {}).map(([id, value]) => [id, { ...value }])),
+    }));
+    this.signals.forEach((signal) => this.filterSignal(result, signal.id, settings, rate));
+    return result;
+  }
+
+  filterSignal(rows, signalId, settings, rate) {
+    const validRows = rows.filter((row) => Number.isFinite(row.values?.[signalId]?.mean));
+    if (!validRows.length) return;
     if (settings.filterMode === "moving_average") {
       const target = Math.max(1, settings.movingAverageMs * rate / 1000);
-      const queue = []; let count = 0; let sumA = 0; let sumB = 0;
-      result.forEach((row) => {
+      const queue = []; let count = 0; let sum = 0;
+      validRows.forEach((row) => {
         const weight = row.count || Math.max(1, row.sampleEnd - row.x);
-        queue.push({ weight, a: row.aMean, b: row.bMean }); count += weight;
-        sumA += row.aMean * weight; sumB += row.bMean * weight;
+        const mean = row.values[signalId].mean;
+        queue.push({ weight, mean }); count += weight; sum += mean * weight;
         while (queue.length > 1 && count - queue[0].weight >= target) {
-          const removed = queue.shift(); count -= removed.weight;
-          sumA -= removed.a * removed.weight; sumB -= removed.b * removed.weight;
+          const removed = queue.shift(); count -= removed.weight; sum -= removed.mean * removed.weight;
         }
-        row.aMean = sumA / count; row.bMean = sumB / count;
+        row.values[signalId].mean = sum / count;
       });
-    } else {
-      const tau = Math.max(.001, settings.emaTimeConstantMs / 1000);
-      let a = result[0].aMean; let b = result[0].bMean;
-      result.forEach((row, index) => {
-        if (index) {
-          const duration = (row.count || Math.max(1, row.sampleEnd - row.x)) / rate;
-          const alpha = 1 - Math.exp(-duration / tau);
-          a += alpha * (row.aMean - a); b += alpha * (row.bMean - b);
-        }
-        row.aMean = a; row.bMean = b;
-      });
+      return;
     }
-    return result;
+    const tau = Math.max(.001, settings.emaTimeConstantMs / 1000);
+    let mean = validRows[0].values[signalId].mean;
+    validRows.forEach((row, index) => {
+      if (index) {
+        const duration = (row.count || Math.max(1, row.sampleEnd - row.x)) / rate;
+        const alpha = 1 - Math.exp(-duration / tau);
+        mean += alpha * (row.values[signalId].mean - mean);
+      }
+      row.values[signalId].mean = mean;
+    });
   }
 
   drawChannel(canvas, rows, channel, range, rate) {
@@ -119,36 +132,49 @@ class TimelineView {
       context.fillText(`${seconds.toFixed((range[1] - range[0]) / rate < 10 ? 3 : 1)} s`, x, padding.top + plotHeight + 8);
     }
     if (!rows.length) return;
-    const low = channel === 0 ? "aMin" : "bMin"; const high = channel === 0 ? "aMax" : "bMax";
+    const signal = this.signals[channel];
+    if (!signal) return;
+    const signalId = signal.id;
     const xAt = (row) => padding.left + plotWidth * (row.x - range[0]) / Math.max(1, range[1] - range[0]);
     const yAt = (value) => padding.top + plotHeight * (maximum - value) / (maximum - minimum);
     this.channelGeometry[channel] = { xAt, yAt, padding };
-    context.strokeStyle = this.colors[channel]; context.globalAlpha = .3; context.beginPath();
-    rows.forEach((row) => { context.moveTo(xAt(row), yAt(row[low])); context.lineTo(xAt(row), yAt(row[high])); });
+    context.strokeStyle = this.colors[channel % this.colors.length]; context.globalAlpha = .3; context.beginPath();
+    rows.forEach((row) => {
+      const value = row.values?.[signalId];
+      if (!value || !Number.isFinite(value.min) || !Number.isFinite(value.max)) return;
+      context.moveTo(xAt(row), yAt(value.min)); context.lineTo(xAt(row), yAt(value.max));
+    });
     context.stroke(); context.globalAlpha = 1; context.lineWidth = 1.5; context.beginPath();
-    const mean = channel === 0 ? "aMean" : "bMean";
-    rows.forEach((row, index) => { const y = yAt(row[mean]); if (!index) context.moveTo(xAt(row), y); else context.lineTo(xAt(row), y); });
+    let started = false;
+    rows.forEach((row) => {
+      const mean = row.values?.[signalId]?.mean;
+      if (!Number.isFinite(mean)) { started = false; return; }
+      const y = yAt(mean); if (!started) context.moveTo(xAt(row), y); else context.lineTo(xAt(row), y); started = true;
+    });
     context.stroke();
-    if (this.rangeLabels?.[channel]) this.rangeLabels[channel].textContent = `${minimum.toFixed(5)} to ${maximum.toFixed(5)} V`;
+    const unit = signal.unit ? ` ${signal.unit}` : "";
+    if (this.rangeLabels?.[channel]) this.rangeLabels[channel].textContent = `${minimum.toFixed(5)} to ${maximum.toFixed(5)}${unit}`;
   }
 
   drawBand(context, width, height, rows) {
-    const selection = window.graphSettings.read().navigatorChannels;
-    const channelIndices = selection === "a" ? [0] : selection === "b" ? [1] : [0, 1];
-    const values = channelIndices.flatMap((channel) => rows.map((row) => channel === 0 ? row.aMean : row.bMean)); if (!values.length) return;
-    const sorted = [...values].sort((a, b) => a - b);
-    const robust = sorted.length >= 50;
-    const minimum = robust ? sorted[Math.floor((sorted.length - 1) * .01)] : sorted[0];
-    const maximum = robust ? sorted[Math.ceil((sorted.length - 1) * .99)] : sorted.at(-1);
-    const span = Math.max(maximum - minimum, Math.abs(maximum) * 1e-6, 1e-9);
+    const channelIndices = this.signals.map((_, index) => index);
     channelIndices.forEach((channel) => {
-      const color = this.colors[channel];
-      const mean = channel === 0 ? "aMean" : "bMean";
+      const color = this.colors[channel % this.colors.length];
+      const signalId = this.signals[channel].id;
+      const values = rows.map((row) => row.values?.[signalId]?.mean).filter(Number.isFinite);
+      if (!values.length) return;
+      const sorted = [...values].sort((a, b) => a - b);
+      const robust = sorted.length >= 50;
+      const minimum = robust ? sorted[Math.floor((sorted.length - 1) * .01)] : sorted[0];
+      const maximum = robust ? sorted[Math.ceil((sorted.length - 1) * .99)] : sorted.at(-1);
+      const span = Math.max(maximum - minimum, Math.abs(maximum) * 1e-6, 1e-9);
       context.strokeStyle = color; context.lineWidth = 1; context.beginPath();
+      let started = false;
       rows.forEach((row, index) => {
-        const x = width * index / Math.max(1, rows.length - 1); const value = row[mean];
+        const x = width * index / Math.max(1, rows.length - 1); const value = row.values?.[signalId]?.mean;
+        if (!Number.isFinite(value)) { started = false; return; }
         const y = this.clamp(height - (value - minimum) / span * height, 0, height);
-        if (!index) context.moveTo(x, y); else context.lineTo(x, y);
+        if (!started) context.moveTo(x, y); else context.lineTo(x, y); started = true;
       }); context.stroke();
     });
   }
@@ -315,8 +341,7 @@ async function loadRunTimelineSamples(runId, ranges) {
     if (!response.ok) throw new Error("Unable to load recorded samples");
     return (await response.json()).samples.map((row) => ({
       x: row.sample_index, sampleEnd: row.sample_end, count: row.sample_count,
-      aMin: row.a_min, aMax: row.a_max, aMean: row.a_mean,
-      bMin: row.b_min, bMax: row.b_max, bMean: row.b_mean,
+      values: row.values,
     }));
   }));
 }

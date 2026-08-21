@@ -5,8 +5,11 @@ from __future__ import annotations
 import sqlite3
 from threading import Event, Lock, Thread, current_thread
 
-from labjack import ljm
-
+from base_station.web.daq_config.labjack_source import (
+    LabJackStreamPlan,
+    compile_stream_plan,
+    stream_batches,
+)
 from base_station.web.models import DashboardState
 from base_station.web.run_repository import RunRepository
 
@@ -22,6 +25,7 @@ class LabJackService:
         self.stream_thread: Thread | None = None
 
     def connect(self, ip: str) -> None:
+        ljm = _ljm()
         with self.device_lock:
             if self.handle is not None:
                 self._close()
@@ -55,34 +59,31 @@ class LabJackService:
 
     def _close(self) -> None:
         if self.handle is not None:
+            ljm = _ljm()
             ljm.close(self.handle)
             self.handle = None
 
-    def start_stream(
-        self,
-        scan_rate: int,
-    ) -> None:
-        if not 1 <= scan_rate <= 100_000:
-            raise ValueError("Scan rate must be between 1 and 100,000 Hz")
+    def start_stream(self, graph: dict) -> None:
         with self.operation_lock:
             if self.handle is None:
                 raise RuntimeError("Connect the LabJack before starting acquisition")
             if self.stream_thread and self.stream_thread.is_alive():
                 raise RuntimeError("Acquisition is already active")
+            plan = compile_stream_plan(graph)
+            if not 1 <= plan.scan_rate <= 100_000:
+                raise ValueError("Scan rate must be between 1 and 100,000 Hz")
             with self.dashboard.lock:
                 status = self.dashboard.labjack
-                status.scan_rate = scan_rate
+                status.scan_rate = plan.scan_rate
                 status.sample_count = 0
                 status.current_run_id = None
                 status.error = None
                 status.acquisition_state = "starting"
                 status.operation_message = "Starting acquisition…"
-                for channel in self.dashboard.channels:
-                    channel.clear()
             self.stop_event.clear()
             self.stream_thread = Thread(
                 target=self._stream,
-                args=(scan_rate,),
+                args=(plan,),
                 name="labjack-stream",
                 daemon=True,
             )
@@ -111,39 +112,38 @@ class LabJackService:
         if thread.is_alive():
             raise RuntimeError("LabJack is still stopping; wait and retry")
 
-    def _stream(self, scan_rate: int) -> None:
+    def _stream(self, plan: LabJackStreamPlan) -> None:
+        ljm = _ljm()
         started = False
         failed = False
         failure_message = None
         run_id = None
         sample_index = 0
         try:
-            run_id = self.runs.start_run(scan_rate)
+            run_id = self.runs.start_run(
+                plan.scan_rate,
+                plan.signals,
+                source_id=plan.source_id,
+            )
             with self.dashboard.lock:
                 self.dashboard.labjack.current_run_id = run_id
-            handle = self.handle
-            if handle is None:
-                raise RuntimeError("LabJack disconnected")
-            ljm.eWriteName(handle, "AIN0_NEGATIVE_CH", 1)
-            ljm.eWriteName(handle, "AIN0_RANGE", 0.1)
-            ljm.eWriteName(handle, "AIN2_NEGATIVE_CH", 3)
-            ljm.eWriteName(handle, "AIN2_RANGE", 0.1)
-            addresses = ljm.namesToAddresses(2, ["AIN0", "AIN2"])[0]
-            ljm.eStreamStart(handle, max(1, scan_rate // 2), 2, addresses, scan_rate)
             started = True
             with self.dashboard.lock:
                 self.dashboard.labjack.streaming = True
                 self.dashboard.labjack.acquisition_state = "running"
-                self.dashboard.labjack.operation_message = f"Recording at {scan_rate:,} Hz"
-            self.dashboard.log(f"Run {run_id} started at {scan_rate:,} Hz", "success", "labjack")
+                self.dashboard.labjack.operation_message = f"Recording at {plan.scan_rate:,} Hz"
+            self.dashboard.log(
+                f"Run {run_id} started at {plan.scan_rate:,} Hz · {len(plan.signals)} signals",
+                "success",
+                "labjack",
+            )
 
-            while not self.stop_event.is_set():
-                chunk = ljm.eStreamRead(handle)[0]
-                channels = [chunk[0::2], chunk[1::2]]
-                self.dashboard.add_samples(channels[0], channels[1])
-                self.runs.add_samples(run_id, sample_index, channels[0], channels[1])
-                sample_index += len(channels[0])
-        except (ljm.LJMError, RuntimeError, OSError) as error:
+            for batch in stream_batches(self, plan, self.stop_event):
+                self.runs.add_batch(run_id, batch)
+                sample_index = batch.start_index + batch.sample_count
+                with self.dashboard.lock:
+                    self.dashboard.labjack.sample_count = sample_index
+        except (ljm.LJMError, RuntimeError, OSError, ValueError, sqlite3.Error) as error:
             failed = True
             failure_message = str(error)
             with self.dashboard.lock:
@@ -152,13 +152,6 @@ class LabJackService:
                 self.dashboard.labjack.operation_message = "Acquisition failed. See Logs."
             self.dashboard.log(f"Acquisition error: {error}", "error", "labjack")
         finally:
-            if started and self.handle is not None:
-                try:
-                    ljm.eStreamStop(self.handle)
-                    ljm.eWriteName(self.handle, "AIN0_NEGATIVE_CH", 199)
-                    ljm.eWriteName(self.handle, "AIN2_NEGATIVE_CH", 199)
-                except ljm.LJMError:
-                    pass
             if run_id is not None:
                 try:
                     self.runs.finish_run(
@@ -187,3 +180,10 @@ class LabJackService:
                     self.stream_thread = None
             if started and run_id is not None:
                 self.dashboard.log(f"Run {run_id} stopped", component="labjack")
+
+
+def _ljm():
+    """Load the vendor SDK only at the hardware boundary."""
+    from labjack import ljm
+
+    return ljm

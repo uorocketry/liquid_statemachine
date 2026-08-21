@@ -44,17 +44,18 @@ class TimelineInspector {
     return Math.abs(before.x - sample) <= Math.abs(after.x - sample) ? before : after;
   }
 
-  fields(channel) { return channel === 0 ? ["aMin", "aMax", "aMean"] : ["bMin", "bMax", "bMean"]; }
-
   move(event, channel) {
     if (!this.rows || this.drag && this.drag.channel !== channel) return;
     const canvas = this.view.canvases[channel]; const pixel = this.plotX(event, canvas);
     if (this.drag) { this.drag.current = pixel; this.showSelection(channel, this.drag.start, pixel); return; }
     const row = this.closest(this.sampleAt(pixel, canvas)); if (!row) return;
-    const [low, high, mean] = this.fields(channel);
-    const overlay = this.overlays[channel]; const rangeText = row[low] === row[high] ? "" : ` · ${row[low].toFixed(6)}–${row[high].toFixed(6)} V`;
+    const signal = this.view.signals[channel]; const value = row.values?.[signal?.id];
+    if (!signal || !value || !Number.isFinite(value.mean)) return;
+    const overlay = this.overlays[channel];
     const snappedX = this.view.channelGeometry[channel].xAt(row);
-    overlay.point.textContent = `${(row.x / this.metadata.rate).toFixed(3)} s · ${row[mean].toFixed(6)} V${rangeText}`;
+    const unit = signal.unit ? ` ${signal.unit}` : "";
+    const rangeText = value.min === value.max ? "" : ` · ${value.min.toFixed(6)}–${value.max.toFixed(6)}${unit}`;
+    overlay.point.textContent = `${(row.x / this.metadata.rate).toFixed(3)} s · ${value.mean.toFixed(6)}${unit}${rangeText}`;
     overlay.point.style.left = `${canvas.offsetLeft + snappedX}px`;
     overlay.point.style.top = `${canvas.offsetTop + 12}px`; overlay.point.hidden = false;
     overlay.hoverLine.style.left = `${canvas.offsetLeft + snappedX}px`; overlay.hoverLine.style.top = `${canvas.offsetTop + 12}px`;
@@ -76,26 +77,34 @@ class TimelineInspector {
     const left = Math.min(first, last); const right = Math.max(first, last);
     overlay.selection.style.left = `${canvas.offsetLeft + left}px`; overlay.selection.style.width = `${Math.max(1, right - left)}px`;
     overlay.selection.style.top = `${canvas.offsetTop + 12}px`; overlay.selection.style.height = `${canvas.clientHeight - 40}px`; overlay.selection.hidden = false;
-    const start = this.sampleAt(left, canvas); const end = this.sampleAt(right, canvas); const [low, high, meanField] = this.fields(channel);
+    const start = this.sampleAt(left, canvas); const end = this.sampleAt(right, canvas); const signal = this.view.signals[channel];
+    if (!signal) { this.stats.hidden = true; return; }
     const selected = this.rows.filter((row) => row.x >= start && row.x <= end);
     if (this.drag?.zoom) {
       this.stats.innerHTML = `<b>ZOOM TO CONTEXT · ${(start / this.metadata.rate).toFixed(3)}–${(end / this.metadata.rate).toFixed(3)} s</b><span>Release Shift-drag to inspect this interval.</span>`;
       this.stats.hidden = false; return;
     }
-    const values = selected.map((row) => row[meanField]);
+    const values = selected.map((row) => row.values?.[signal.id]?.mean).filter(Number.isFinite);
     if (!values.length) { this.stats.hidden = true; return; }
     const minimum = Math.min(...values); const maximum = Math.max(...values);
     const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
     const variance = values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length;
     const sorted = [...values].sort((a, b) => a - b); const q1 = this.percentile(sorted, .25); const q3 = this.percentile(sorted, .75);
     const lowerFence = q1 - 1.5 * (q3 - q1); const upperFence = q3 + 1.5 * (q3 - q1);
-    const anomalies = selected.filter((row) => row[meanField] < lowerFence || row[meanField] > upperFence);
+    const anomalies = selected.filter((row) => {
+      const mean = row.values?.[signal.id]?.mean;
+      return Number.isFinite(mean) && (mean < lowerFence || mean > upperFence);
+    });
     this.view.drawChannel(canvas, this.rows, channel, this.range, this.metadata.rate);
     const context = canvas.getContext("2d"); const geometry = this.view.channelGeometry[channel];
     context.fillStyle = "#a52218";
-    anomalies.forEach((row) => { context.beginPath(); context.arc(geometry.xAt(row), geometry.yAt(row[meanField]), 2.5, 0, Math.PI * 2); context.fill(); });
-    const channelName = channel === 0 ? "AIN0 − AIN1" : "AIN2 − AIN3";
-    this.stats.innerHTML = `<b>${channelName} · ${(start / this.metadata.rate).toFixed(3)}–${(end / this.metadata.rate).toFixed(3)} s</b><span>n ${values.length} · min ${minimum.toPrecision(5)} · max ${maximum.toPrecision(5)} V</span><span>mean ${mean.toPrecision(5)} V · variance ${variance.toExponential(3)} V² · Tukey anomalies ${anomalies.length}</span>`;
+    anomalies.forEach((row) => {
+      const meanValue = row.values[signal.id].mean;
+      context.beginPath(); context.arc(geometry.xAt(row), geometry.yAt(meanValue), 2.5, 0, Math.PI * 2); context.fill();
+    });
+    const unit = signal.unit ? ` ${signal.unit}` : "";
+    const varianceUnit = signal.unit ? ` ${signal.unit}²` : "";
+    this.stats.innerHTML = `<b>${signal.label} · ${(start / this.metadata.rate).toFixed(3)}–${(end / this.metadata.rate).toFixed(3)} s</b><span>n ${values.length} · min ${minimum.toPrecision(5)}${unit} · max ${maximum.toPrecision(5)}${unit}</span><span>mean ${mean.toPrecision(5)}${unit} · variance ${variance.toExponential(3)}${varianceUnit} · Tukey anomalies ${anomalies.length}</span>`;
     this.stats.hidden = false;
   }
 

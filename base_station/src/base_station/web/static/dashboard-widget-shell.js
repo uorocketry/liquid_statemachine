@@ -12,10 +12,9 @@ export function createWidgetCard(node) {
   return { card, header };
 }
 
-export function formatReading(reading, precision = 1, showUnits = true) {
+export function formatReading(reading, precision, showUnits) {
   const value = Number(reading?.value);
   if (!Number.isFinite(value)) return '—';
-  const digits = Number.isInteger(Number(precision)) ? Number(precision) : 1;
   const unit = showUnits && reading?.unit ? ` ${reading.unit}` : '';
-  return `${value.toFixed(digits)}${unit}`;
+  return `${value.toFixed(precision)}${unit}`;
 }

@@ -18,7 +18,6 @@ const SPECS = {
     tone: 'source',
     description: 'Generate a configurable test signal without DAQ hardware.',
     previewSource: true,
-    defaults: { amplitude: 1, periodS: 4, offset: 0, phaseRad: 0, randomness: 0, unit: 'V' },
     pins: (config) => [output('signal', 'Signal', config.unit)],
     controls: (config) => [
       numberControl('amplitude', 'Amplitude', config.amplitude, config.unit),
@@ -39,7 +38,6 @@ const SPECS = {
     icon: 'icon-node-constant',
     tone: 'transform',
     description: 'Named engineering constant such as tank dry mass.',
-    defaults: { value: 0, unit: 'kg' },
     pins: (config) => [output('value', 'Value', config.unit)],
     controls: (config) => [
       numberControl('value', 'Value', config.value, config.unit),
@@ -54,13 +52,11 @@ const SPECS = {
   subtract: inferredMathSpec('Subtract', 'icon-node-subtract', 'Subtract one engineering signal from another.', 'A − B'),
   gain: {
     ...inferredUnarySpec('Gain', 'icon-node-gain', 'Scale an engineering signal by a dimensionless gain.', 'Scaled'),
-    defaults: { gain: 1 },
     controls: (config) => [numberControl('gain', 'Gain', config.gain)],
     validate: (config) => finite(config.gain) ? [] : ['Gain must be finite'],
   },
   'moving-average': {
     ...inferredUnarySpec('Moving average', 'icon-node-average', 'Smooth a signal over a configurable time window.', 'Average'),
-    defaults: { windowS: 0.5 },
     controls: (config) => [numberControl('windowS', 'Window', config.windowS, 's', { min: 0.001, step: 0.05 })],
     validate: (config) => positive(config.windowS) ? [] : ['Moving-average window must be positive'],
   },
@@ -70,7 +66,6 @@ const SPECS = {
     icon: 'icon-node-rate',
     tone: 'transform',
     description: 'Time derivative for mass-flow and similar derived signals.',
-    defaults: { windowS: 0.5 },
     pins: () => [input('input', 'Signal', 'infer', '*'), output('rate', 'Rate', 'infer')],
     controls: (config) => [numberControl('windowS', 'Window', config.windowS, 's', { min: 0.01, step: 0.05 })],
     decorate(next, graph, helpers) {
@@ -93,7 +88,6 @@ const SPECS = {
     icon: 'icon-node-number',
     tone: 'result',
     description: 'Show one live engineering value on the operator dashboard.',
-    defaults: { label: '', precision: 1, showUnits: true },
     pins: dashboardPins,
     controls: (config) => [
       ...dashboardIdentityControls(config),
@@ -113,11 +107,6 @@ const SPECS = {
     icon: 'icon-node-gauge',
     tone: 'result',
     description: 'Show one live value against configured engineering limits.',
-    defaults: {
-      label: '', precision: 1,
-      type: 'dial-filled', showValue: true, showUnits: true, showRange: true,
-      min: 0, low: 10, high: 90, max: 100,
-    },
     pins: dashboardPins,
     controls: gaugeControls,
     decorate: decorateDashboardInput,
@@ -129,33 +118,29 @@ const SPECS = {
     icon: 'icon-node-time-plot',
     tone: 'result',
     description: 'Plot one engineering value with configurable time and value axes.',
-    defaults: {
-      label: '',
-      xRangeMode: 'shared',
-      xWindowS: 10,
-      xMinS: 0,
-      xMaxS: 100,
-      xTickMode: 'auto',
-      xMajorStepS: 10,
-      xLabel: 'Elapsed time',
-      yAxisScale: 'linear',
-      yRangeMode: 'auto',
-      yMin: 0,
-      yMax: 100,
-      ySoftMin: null,
-      ySoftMax: null,
-      yTickMode: 'auto',
-      yMajorStep: 10,
-      yLabel: '',
-      showGrid: true,
-      showMinorGrid: false,
-    },
     pins: dashboardPins,
     controls: timePlotControls,
     decorate: decorateDashboardInput,
     validate: validateTimePlot,
   },
 };
+
+let defaultsConfigured = false;
+
+/** Configure declarative-node defaults from the authoritative server contract. */
+export function configureSpecDefaults(defaults) {
+  if (!defaults || typeof defaults !== 'object') throw new TypeError('DAQ node defaults are required');
+  for (const [nodeType, spec] of Object.entries(SPECS)) {
+    const nodeDefaults = defaults[nodeType];
+    if (!nodeDefaults || typeof nodeDefaults !== 'object' || Array.isArray(nodeDefaults)) {
+      throw new Error(`Missing DAQ defaults for ${nodeType}`);
+    }
+    spec.defaults = structuredClone(nodeDefaults);
+  }
+  const extras = Object.keys(defaults).filter((nodeType) => !SPECS[nodeType]);
+  if (extras.length) throw new Error(`Unknown DAQ defaults: ${extras.join(', ')}`);
+  defaultsConfigured = true;
+}
 
 export const SPEC_NODE_CATALOG = Object.entries(SPECS).map(([type, spec]) => ({
   type,
@@ -176,7 +161,7 @@ export function isPreviewSourceNode(node) {
 export function createSpecNode(nodeType, common) {
   const spec = SPECS[nodeType];
   if (!spec) return null;
-  const config = structuredClone(spec.defaults ?? {});
+  const config = structuredClone(defaultsFor(nodeType, spec));
   return { ...common, tone: spec.tone, config, pins: spec.pins(config) };
 }
 
@@ -184,7 +169,7 @@ export function decorateSpecNode(node, graph, helpers) {
   const spec = SPECS[node.nodeType];
   if (!spec) return null;
   const next = structuredClone(node);
-  const config = currentConfig(spec.defaults ?? {}, next.config ?? {});
+  const config = currentConfig(defaultsFor(node.nodeType, spec), next.config ?? {});
   next.config = config;
   next.icon = spec.icon;
   next.controls = spec.controls?.(config) ?? [];
@@ -197,7 +182,7 @@ export function decorateSpecNode(node, graph, helpers) {
 export function validateSpecNode(node) {
   const spec = SPECS[node?.nodeType];
   return spec
-    ? (spec.validate?.(currentConfig(spec.defaults ?? {}, node.config ?? {})) ?? [])
+    ? (spec.validate?.(currentConfig(defaultsFor(node.nodeType, spec), node.config ?? {})) ?? [])
     : null;
 }
 
@@ -235,7 +220,6 @@ export function booleanControl(key, label, value) {
 function inferredMathSpec(title, icon, description, outputLabel) {
   return {
     category: 'Math', title, icon, tone: 'transform', description,
-    defaults: {},
     pins: () => [input('a', 'A', 'infer', '*'), input('b', 'B', 'infer', '*'), output('result', outputLabel, 'infer')],
     infer: { inputs: ['a', 'b'], output: 'result' },
     outputUnit: (_node, pinId, resolveInput) => pinId === 'result'
@@ -247,7 +231,6 @@ function inferredMathSpec(title, icon, description, outputLabel) {
 function inferredUnarySpec(title, icon, description, outputLabel) {
   return {
     category: 'Math', title, icon, tone: 'transform', description,
-    defaults: {},
     pins: () => [input('input', 'Signal', 'infer', '*'), output('result', outputLabel, 'infer')],
     infer: { inputs: ['input'], output: 'result' },
     outputUnit: (_node, pinId, resolveInput) => pinId === 'result' ? resolveInput('input') : undefined,
@@ -440,6 +423,13 @@ function validateTimePlot(config) {
   if (typeof config.showGrid !== 'boolean') issues.push('Time-plot major grid must be on or off');
   if (typeof config.showMinorGrid !== 'boolean') issues.push('Time-plot minor grid must be on or off');
   return issues;
+}
+
+function defaultsFor(nodeType, spec) {
+  if (!defaultsConfigured || !spec?.defaults) {
+    throw new Error(`DAQ defaults not configured before using ${nodeType}`);
+  }
+  return spec.defaults;
 }
 
 function currentConfig(defaults, config) {

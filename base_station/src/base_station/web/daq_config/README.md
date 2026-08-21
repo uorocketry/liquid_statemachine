@@ -25,12 +25,57 @@ Their node-type names and config keys are a contract. Update both registries
 and their contract tests together. Runtime computation belongs in
 `node_runtime.py`; vectorized math belongs in `signal_math.py`.
 
-## Hardware-specific nodes
+### Configuration persistence contract
 
-LabJack sources and calibrated sensor nodes remain explicit in the hardware
-catalog, presentation, validation, and preview modules. Their channel and
-device semantics are different enough that forcing them through the generic
-registry would hide useful behavior.
+All inline node controls use the Blueprint editor's shared draft/commit lifecycle.
+Text and number inputs may remain as one pending draft while the user types;
+selects and radios commit immediately. Save first flushes any pending draft, then
+the server normalizes and validates the graph, atomically writes it, and returns
+the exact canonical graph that was persisted. The editor adopts that returned
+graph without resetting camera, selection, or undo history. Do not add page-level
+shadow state for individual controls or assume that the submitted graph is the
+same graph the server stored.
+
+Inactive conditional settings remain persisted intentionally (for example a
+Time Plot's previous trailing-window length while Fixed bounds are selected), so
+switching modes restores the previous setup. Validation and rendering must only
+apply the fields active for the selected mode. Live preview pauses while client
+validation has blocking errors instead of sending known-invalid preview requests.
+Graph-wide acquisition inputs use the same pattern through
+`metadata-controls.js`: number fields keep a draft while typing, selects commit
+immediately, and Save flushes metadata drafts before validation. This avoids
+separate one-off save behavior for scan rate, resolution, or settling time.
+
+## Acquisition sources
+
+Hardware-specific node semantics stay explicit instead of being forced through
+the declarative-node registry. The reusable boundary is the acquisition batch,
+not a plugin framework:
+
+- `acquisition.py` defines `SignalDescriptor` and `SampleBatch`.
+- A source adapter compiles its hardware nodes from the current graph and
+  yields aligned batches keyed by stable signal ids.
+- `RunRepository` persists those descriptors/batches without importing or
+  branching on the source type.
+- Runs API/CSV/history render from persisted signal metadata, so adding a new
+  source does not require new storage columns or run-history templates.
+
+`labjack_source.py` is the T7 adapter. It owns both low-rate preview reads and
+high-rate stream compilation/conversion. `LabJackService` owns only T7
+connection/thread/status lifecycle and hands generic batches to the run store.
+Do not put fixed AIN channel names in `LabJackService` or `RunRepository`.
+
+To add a new acquisition source, implement its graph nodes/validation and a
+source adapter that produces `SignalDescriptor` + `SampleBatch`. Source-specific
+connect/disconnect/status UI can remain source-specific. A dynamic plugin loader
+is intentionally not part of the architecture; explicit application wiring is
+preferable while the source count is small.
+
+The run database supports only its current pre-release schema. Recorded values
+are stored in aligned binary chunks with per-chunk statistics, which keeps
+high-rate writes compact while allowing bounded min/max/mean decimation for
+history views. Changing that schema may reset local pre-release run history
+rather than carrying compatibility code unless migration is explicitly needed.
 
 ## Dashboard nodes
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from time import monotonic
 from typing import TYPE_CHECKING
 
-from base_station.web.daq_config.hardware import read_physical_sources
+from base_station.web.daq_config.labjack_source import read_physical_sources
 from base_station.web.daq_config.node_runtime import evaluate_spec_node
 from base_station.web.daq_config.node_specs import SPEC_NODE_TYPES
 from base_station.web.daq_config.signal_math import (

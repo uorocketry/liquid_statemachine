@@ -14,7 +14,7 @@ export function updateNumberWidget(card, node, reading) {
   if (!output) return;
   output.textContent = formatReading(
     reading,
-    node.config?.precision,
-    node.config?.showUnits !== false,
+    node.config.precision,
+    node.config.showUnits,
   );
 }

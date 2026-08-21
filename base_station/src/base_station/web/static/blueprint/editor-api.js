@@ -11,16 +11,30 @@ export const editorApi = {
   /** @param {BlueprintGraph} value */
   set graph(value) {
     this._graph = normalizeGraph(value);
+    this._inlineDraft = null;
     this._history.clear();
     this._selectedNodes.clear();
     this._selectedLinks.clear();
     this._renderGraph();
     this._emitSelection();
+    this._emitInlineDraftChange();
     this._fitGraphAfterRender();
   },
 
   /** @returns {BlueprintGraph} */
   get graph() { return cloneGraph(this._graph); },
+
+  get hasPendingInlineEdit() { return Boolean(this._inlineDraft); },
+
+  /** Adopt a server-canonical graph without clearing camera, selection, or undo history. */
+  adoptGraph(value) {
+    this._graph = normalizeGraph(value);
+    this._inlineDraft = null;
+    this._pruneSelection();
+    this._renderGraph();
+    this._emitSelection();
+    this._emitInlineDraftChange();
+  },
 
   get selection() {
     return { nodeIds: [...this._selectedNodes], linkIds: [...this._selectedLinks] };

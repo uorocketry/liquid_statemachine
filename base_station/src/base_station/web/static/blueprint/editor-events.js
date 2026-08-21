@@ -24,39 +24,57 @@ export const eventMethods = {
     if (!node) return;
     const key = input.dataset.blueprintConfigKey;
     const value = this._inlineElementValue(input);
-    this.dispatchEvent(new CustomEvent('blueprint-inline-input', {
-      bubbles: true,
-      detail: { nodeId: node.id, key, pending: !Object.is(node.config?.[key], value) },
-    }));
+    this._inlineDraft = Object.is(node.config?.[key], value)
+      ? null
+      : { nodeId: node.id, key, value };
+    this._emitInlineDraftChange();
     event.stopPropagation();
   },
 
   _onInlineChange(event) {
     const input = event.target.closest('[data-blueprint-config-key]');
     if (!input) return;
-    this._applyInlineElement(input);
+    const nodeElement = input.closest('liquid-blueprint-node');
+    const node = nodeElement ? this._nodeById(nodeElement.dataset.nodeId) : null;
+    if (!node) return;
+    const key = input.dataset.blueprintConfigKey;
+    const value = this._inlineElementValue(input);
+    if (this._inlineDraft && (this._inlineDraft.nodeId !== node.id || this._inlineDraft.key !== key)) {
+      this.flushInlineEdit();
+    }
+    this._commitInlineValue(node.id, key, value);
     event.stopPropagation();
   },
 
-  /** Commit the focused node control before a keyboard-triggered save. */
+  /** Commit any typed control draft, even if its DOM element was re-rendered. */
   flushInlineEdit() {
-    const input = document.activeElement?.closest?.('[data-blueprint-config-key]');
-    if (!input || !this.contains(input)) return false;
-    return this._applyInlineElement(input);
+    const draft = this._inlineDraft;
+    if (!draft) return false;
+    return this._commitInlineValue(draft.nodeId, draft.key, draft.value);
   },
 
-  _applyInlineElement(input) {
-    const nodeElement = input?.closest('liquid-blueprint-node');
-    if (!input || !nodeElement) return false;
-    const node = this._nodeById(nodeElement.dataset.nodeId);
-    if (!node) return false;
-    const key = input.dataset.blueprintConfigKey;
-    const value = this._inlineElementValue(input);
-    if (Object.is(node.config?.[key], value)) return false;
+  _commitInlineValue(nodeId, key, value) {
+    const node = this._nodeById(nodeId);
+    this._inlineDraft = null;
+    if (!node || Object.is(node.config?.[key], value)) {
+      this._emitInlineDraftChange();
+      return false;
+    }
     const patch = this.inlineEditPolicy(node, key, value, this.graph);
-    if (!patch) return false;
+    if (!patch) {
+      this._emitInlineDraftChange();
+      return false;
+    }
     this.updateNode(node.id, patch);
+    this._emitInlineDraftChange();
     return true;
+  },
+
+  _emitInlineDraftChange() {
+    this.dispatchEvent(new CustomEvent('blueprint-inline-draft-change', {
+      bubbles: true,
+      detail: { pending: Boolean(this._inlineDraft) },
+    }));
   },
 
   _inlineElementValue(input) {

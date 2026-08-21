@@ -7,7 +7,8 @@ import { DaqLivePreview, highlightPathToSelection } from './live-preview.js';
 import { decorateNode } from './presentation.js';
 import { patchInlineNode } from './node-editing.js';
 import { daqConnectionAllowed } from './connection-policy.js';
-import { isPreviewSourceNode } from './node-specs.js';
+import { configureSpecDefaults, isPreviewSourceNode } from './node-specs.js';
+import { MetadataControls } from './metadata-controls.js';
 
 const editor = document.querySelector('#daq-blueprint');
 const palette = document.querySelector('#daq-palette');
@@ -30,9 +31,9 @@ const signalQuality = document.querySelector('#daq-signal-quality');
 let capabilities = null;
 let insertionPoint = null;
 let dirty = false;
-let pendingInlineEdit = false;
 let issues = [];
 let preview = null;
+let metadataControls = null;
 
 bootstrap().catch((error) => {
   saveState.textContent = `Failed to load: ${error.message}`;
@@ -45,6 +46,7 @@ async function bootstrap() {
     loadConfiguration(),
   ]);
   capabilities = capabilityPayload;
+  configureSpecDefaults(configuration.specDefaults);
   editor.nodeDecorator = (node, graph) => {
     const displayNode = decorateNode(node, graph, capabilities);
     displayNode.diagnostics = issues
@@ -57,6 +59,11 @@ async function bootstrap() {
     daqConnectionAllowed(source, target, sourceNode, targetNode, editor.graph)
   );
   editor.graph = configuration.graph;
+  metadataControls = new MetadataControls(editor, [
+    { element: scanRate, key: 'scanRate', valueType: 'number' },
+    { element: streamResolution, key: 'streamResolutionIndex', valueType: 'number' },
+    { element: streamSettling, key: 'streamSettlingUs', valueType: 'number' },
+  ], refreshSaveState);
   syncAcquisitionControls();
   createPalette(palette, addNodeFromPalette);
   preview = new DaqLivePreview(editor);
@@ -76,27 +83,16 @@ function bindEvents() {
   });
   editor.addEventListener('blueprint-change', () => {
     dirty = true;
-    pendingInlineEdit = false;
     refreshUi();
     syncPreviewState();
     preview?.refreshSoon();
   });
-  editor.addEventListener('blueprint-inline-input', (event) => {
-    pendingInlineEdit = Boolean(event.detail?.pending);
-    refreshSaveState();
-  });
+  editor.addEventListener('blueprint-inline-draft-change', () => refreshSaveState());
   saveButton.addEventListener('click', save);
   reloadButton.addEventListener('click', reload);
   undoButton.addEventListener('click', () => editor.undo());
   redoButton.addEventListener('click', () => editor.redo());
   frameButton.addEventListener('click', () => editor.fitGraph());
-  scanRate.addEventListener('change', () => editor.updateMetadata({ scanRate: Number(scanRate.value) }));
-  streamResolution.addEventListener('change', () => editor.updateMetadata({
-    streamResolutionIndex: Number(streamResolution.value),
-  }));
-  streamSettling.addEventListener('change', () => editor.updateMetadata({
-    streamSettlingUs: Number(streamSettling.value),
-  }));
   for (const menu of [nodeTools, acquisitionTools, issueTools]) {
     menu.addEventListener('toggle', () => {
       if (!menu.open) return;
@@ -112,7 +108,7 @@ function bindEvents() {
     }
   });
   window.addEventListener('beforeunload', (event) => {
-    if (!dirty && !pendingInlineEdit) return;
+    if (!dirty && !hasPendingUiEdits()) return;
     event.preventDefault();
     event.returnValue = '';
   });
@@ -147,11 +143,11 @@ function refreshUi() {
 
 function refreshSaveState() {
   const errors = blockingIssues(issues);
-  const unsaved = dirty || pendingInlineEdit;
+  const unsaved = dirty || hasPendingUiEdits();
   // A pending text/number edit may be correcting the currently reported
   // validation error. Let it commit on blur; save() validates the graph again.
-  saveButton.disabled = !unsaved || (errors.length > 0 && !pendingInlineEdit);
-  const showError = errors.length > 0 && !pendingInlineEdit;
+  saveButton.disabled = !unsaved || (errors.length > 0 && !hasPendingUiEdits());
+  const showError = errors.length > 0 && !hasPendingUiEdits();
   saveState.textContent = showError
     ? `Error · ${errors[0].message}`
     : unsaved ? 'Unsaved changes' : 'Saved';
@@ -204,14 +200,17 @@ function focusIssue(issue) {
 
 async function save() {
   editor.flushInlineEdit();
+  metadataControls?.flush();
   const errors = blockingIssues(validateGraph(editor.graph));
   if (errors.length) return refreshUi();
   saveButton.disabled = true;
   saveState.textContent = 'Saving…';
   try {
-    await saveConfiguration(editor.graph);
+    const result = await saveConfiguration(editor.graph);
     dirty = false;
-    pendingInlineEdit = false;
+    issues = result.issues ?? [];
+    editor.adoptGraph(result.graph);
+    syncAcquisitionControls();
     refreshUi();
   } catch (error) {
     saveState.textContent = error.detail?.issues?.[0]?.message ?? error.message;
@@ -220,12 +219,12 @@ async function save() {
 }
 
 async function reload() {
-  if ((dirty || pendingInlineEdit) && !window.confirm('Discard unsaved DAQ configuration changes?')) return;
+  if ((dirty || hasPendingUiEdits()) && !window.confirm('Discard unsaved DAQ configuration changes?')) return;
   const payload = await loadConfiguration();
+  configureSpecDefaults(payload.specDefaults);
   editor.graph = payload.graph;
   syncAcquisitionControls();
   dirty = false;
-  pendingInlineEdit = false;
   refreshUi();
   syncPreviewState();
   preview?.refreshSoon();
@@ -240,10 +239,12 @@ function syncPreviewState() {
 
 function syncAcquisitionControls() {
   const metadata = editor.graph.metadata ?? {};
-  scanRate.value = metadata.scanRate ?? 1000;
-  streamResolution.value = metadata.streamResolutionIndex ?? 0;
-  streamSettling.value = metadata.streamSettlingUs ?? 0;
+  metadataControls?.sync(metadata);
   signalQuality.open = Number(streamResolution.value) !== 0 || Number(streamSettling.value) > 0;
+}
+
+function hasPendingUiEdits() {
+  return editor.hasPendingInlineEdit || Boolean(metadataControls?.hasPending);
 }
 
 function openToolMenu(menu) {

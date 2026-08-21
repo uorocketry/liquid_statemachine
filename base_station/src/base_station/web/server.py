@@ -43,9 +43,8 @@ class StateRequest(BaseModel):
     state: int = Field(ge=0, le=7)
 
 
-def configured_scan_rate() -> int:
-    graph = normalize_graph(daq_config.load())
-    return int(graph.get("metadata", {}).get("scanRate", 1000))
+def configured_graph() -> dict:
+    return normalize_graph(daq_config.load())
 
 
 @asynccontextmanager
@@ -145,7 +144,7 @@ def disconnect_labjack() -> dict[str, bool]:
 @app.post("/api/labjack/stream/start")
 def start_stream() -> dict[str, bool]:
     try:
-        labjack.start_stream(configured_scan_rate())
+        labjack.start_stream(configured_graph())
     except (RuntimeError, ValueError) as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
     return {"ok": True}

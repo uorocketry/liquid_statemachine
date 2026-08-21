@@ -73,6 +73,11 @@ DEFAULT_CONFIGS = {
 SPEC_NODE_TYPES = frozenset(DEFAULT_CONFIGS)
 
 
+def spec_defaults() -> dict:
+    """Return detached declarative-node defaults for the browser editor."""
+    return deepcopy(DEFAULT_CONFIGS)
+
+
 def normalize_spec_node(node: dict) -> bool:
     """Apply current defaults and pins to a recognized declarative node."""
     node_type = node.get("nodeType")

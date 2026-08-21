@@ -55,9 +55,11 @@ def build_ui_router(
             "active_device": active_device,
         }
 
+    def configured_graph() -> dict:
+        return normalize_graph(daq_config.load())
+
     def configured_scan_rate() -> int:
-        graph = normalize_graph(daq_config.load())
-        return int(graph.get("metadata", {}).get("scanRate", 1000))
+        return int(configured_graph().get("metadata", {}).get("scanRate", 1000))
 
     def labjack_context(request: Request) -> dict:
         values = context(request)
@@ -217,7 +219,7 @@ def build_ui_router(
     @router.post("/ui/labjack/stream/start", include_in_schema=False)
     def start_stream_ui(request: Request):
         try:
-            labjack.start_stream(configured_scan_rate())
+            labjack.start_stream(configured_graph())
         except (RuntimeError, ValueError) as error:
             dashboard.log(f"LabJack stream failed: {error}", "error", "labjack")
         return labjack_fragment(request)

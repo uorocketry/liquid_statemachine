@@ -1,14 +1,25 @@
-"""Durable acquisition runs backed by the Python standard-library SQLite driver."""
+"""Generic durable acquisition runs backed by SQLite chunk storage."""
 
 from __future__ import annotations
 
+import math
 import sqlite3
 from datetime import datetime
+from itertools import groupby
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Iterator
+from typing import Iterator, Sequence
+
+from base_station.web.daq_config.acquisition import SampleBatch, SignalDescriptor
+from base_station.web.run_chunks import accumulate_chunk, csv_line, pack_values, unpack_values
+
+
+SCHEMA_VERSION = 2
+
 
 class RunRepository:
+    """Persist aligned source batches without knowing anything about the source."""
+
     def __init__(self, path: Path) -> None:
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -16,7 +27,6 @@ class RunRepository:
 
     def _connect(self) -> sqlite3.Connection:
         # StreamingResponse may resume its iterator on a different worker thread.
-        # Each connection is private to one operation and SQLite serializes its use.
         connection = sqlite3.connect(self.path, timeout=15, check_same_thread=False)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
@@ -25,61 +35,154 @@ class RunRepository:
     def _initialize(self) -> None:
         with self._connect() as connection:
             connection.execute("PRAGMA journal_mode = WAL")
+            version = int(connection.execute("PRAGMA user_version").fetchone()[0])
+            if version != SCHEMA_VERSION:
+                # This project intentionally supports only the current run-store
+                # schema. Pre-release databases are disposable rather than a
+                # permanent compatibility burden.
+                connection.executescript(
+                    """
+                    DROP TABLE IF EXISTS sample_chunks;
+                    DROP TABLE IF EXISTS run_signals;
+                    DROP TABLE IF EXISTS samples;
+                    DROP TABLE IF EXISTS runs;
+                    """
+                )
             connection.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS runs (
                     id INTEGER PRIMARY KEY,
                     started_at TEXT NOT NULL,
                     ended_at TEXT,
+                    source_id TEXT NOT NULL,
                     scan_rate INTEGER NOT NULL,
                     status TEXT NOT NULL,
                     sample_count INTEGER NOT NULL DEFAULT 0,
                     error TEXT
                 );
-                CREATE TABLE IF NOT EXISTS samples (
+                CREATE TABLE IF NOT EXISTS run_signals (
                     run_id INTEGER NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
-                    sample_index INTEGER NOT NULL,
-                    channel_a REAL NOT NULL,
-                    channel_b REAL NOT NULL,
-                    PRIMARY KEY (run_id, sample_index)
+                    signal_id TEXT NOT NULL,
+                    position INTEGER NOT NULL,
+                    label TEXT NOT NULL,
+                    unit TEXT NOT NULL,
+                    PRIMARY KEY (run_id, signal_id),
+                    UNIQUE (run_id, position)
                 ) WITHOUT ROWID;
-                CREATE INDEX IF NOT EXISTS samples_run_index
-                    ON samples(run_id, sample_index);
+                CREATE TABLE IF NOT EXISTS sample_chunks (
+                    run_id INTEGER NOT NULL,
+                    signal_id TEXT NOT NULL,
+                    start_index INTEGER NOT NULL,
+                    sample_count INTEGER NOT NULL,
+                    valid_count INTEGER NOT NULL,
+                    minimum REAL,
+                    maximum REAL,
+                    total REAL NOT NULL,
+                    values_blob BLOB NOT NULL,
+                    PRIMARY KEY (run_id, signal_id, start_index),
+                    FOREIGN KEY (run_id, signal_id)
+                        REFERENCES run_signals(run_id, signal_id) ON DELETE CASCADE
+                ) WITHOUT ROWID;
+                CREATE INDEX IF NOT EXISTS sample_chunks_window
+                    ON sample_chunks(run_id, signal_id, start_index);
                 """
             )
+            connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
             connection.execute(
                 """UPDATE runs SET status = 'interrupted', ended_at = ?
                    WHERE status = 'recording'""",
                 (datetime.now().astimezone().isoformat(timespec="seconds"),),
             )
 
-    def start_run(self, scan_rate: int) -> int:
+    def start_run(
+        self,
+        scan_rate: int,
+        signals: Sequence[SignalDescriptor],
+        *,
+        source_id: str,
+    ) -> int:
+        if isinstance(scan_rate, bool) or not isinstance(scan_rate, int) or scan_rate <= 0:
+            raise ValueError("Run scan rate must be a positive integer")
+        if not isinstance(source_id, str) or not source_id.strip():
+            raise ValueError("Run source id is required")
+        descriptors = tuple(signals)
+        if not descriptors:
+            raise ValueError("Acquisition requires at least one recorded signal")
+        signal_ids = [signal.id for signal in descriptors]
+        if any(not signal_id for signal_id in signal_ids) or len(set(signal_ids)) != len(signal_ids):
+            raise ValueError("Recorded signal ids must be non-empty and unique")
+        if any(not isinstance(signal.label, str) or not signal.label.strip() for signal in descriptors):
+            raise ValueError("Recorded signals require display labels")
         with self._connect() as connection:
             cursor = connection.execute(
                 """INSERT INTO runs
-                   (started_at, scan_rate, status)
-                   VALUES (?, ?, 'recording')""",
+                   (started_at, source_id, scan_rate, status)
+                   VALUES (?, ?, ?, 'recording')""",
                 (
                     datetime.now().astimezone().isoformat(timespec="seconds"),
+                    source_id,
                     scan_rate,
                 ),
             )
-            return int(cursor.lastrowid)
-
-    def add_samples(
-        self, run_id: int, start_index: int, channel_a: list[float], channel_b: list[float]
-    ) -> None:
-        rows = (
-            (run_id, start_index + offset, value_a, value_b)
-            for offset, (value_a, value_b) in enumerate(zip(channel_a, channel_b))
-        )
-        with self._connect() as connection:
+            run_id = int(cursor.lastrowid)
             connection.executemany(
-                "INSERT INTO samples VALUES (?, ?, ?, ?)", rows
+                """INSERT INTO run_signals
+                   (run_id, signal_id, position, label, unit)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (
+                    (run_id, signal.id, position, signal.label, signal.unit)
+                    for position, signal in enumerate(descriptors)
+                ),
+            )
+            return run_id
+
+    def add_batch(self, run_id: int, batch: SampleBatch) -> None:
+        if isinstance(batch.start_index, bool) or not isinstance(batch.start_index, int) or batch.start_index < 0:
+            raise ValueError("Acquisition batch start index must be a non-negative integer")
+        count = batch.sample_count
+        if count <= 0:
+            return
+        with self._connect() as connection:
+            expected = {
+                row["signal_id"]
+                for row in connection.execute(
+                    "SELECT signal_id FROM run_signals WHERE run_id = ?", (run_id,)
+                )
+            }
+            received = set(batch.samples)
+            if received != expected:
+                missing = sorted(expected - received)
+                extra = sorted(received - expected)
+                raise ValueError(
+                    f"Acquisition batch signal mismatch; missing={missing}, extra={extra}"
+                )
+            rows = []
+            for signal_id, values in batch.samples.items():
+                numbers = [float(value) for value in values]
+                finite = [value for value in numbers if math.isfinite(value)]
+                rows.append(
+                    (
+                        run_id,
+                        signal_id,
+                        batch.start_index,
+                        count,
+                        len(finite),
+                        min(finite) if finite else None,
+                        max(finite) if finite else None,
+                        sum(finite),
+                        pack_values(numbers),
+                    )
+                )
+            connection.executemany(
+                """INSERT INTO sample_chunks
+                   (run_id, signal_id, start_index, sample_count, valid_count,
+                    minimum, maximum, total, values_blob)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                rows,
             )
             connection.execute(
-                "UPDATE runs SET sample_count = ? WHERE id = ?",
-                (start_index + min(len(channel_a), len(channel_b)), run_id),
+                "UPDATE runs SET sample_count = MAX(sample_count, ?) WHERE id = ?",
+                (batch.start_index + count, run_id),
             )
 
     def finish_run(self, run_id: int, status: str, sample_count: int, error: str | None) -> None:
@@ -104,7 +207,14 @@ class RunRepository:
     def get_run(self, run_id: int) -> dict | None:
         with self._connect() as connection:
             row = connection.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
-        return dict(row) if row else None
+            if not row:
+                return None
+            signals = connection.execute(
+                """SELECT signal_id AS id, label, unit
+                   FROM run_signals WHERE run_id = ? ORDER BY position""",
+                (run_id,),
+            ).fetchall()
+        return {**dict(row), "signals": [dict(signal) for signal in signals]}
 
     def delete_run(self, run_id: int) -> bool:
         with self._connect() as connection:
@@ -114,38 +224,83 @@ class RunRepository:
     def sample_window(
         self, run_id: int, start: int, end: int, points: int,
     ) -> list[dict]:
-        width = max(1, end - start)
-        bucket = max(1, (width + points - 1) // points)
+        run = self.get_run(run_id)
+        if not run or end <= start or not run["signals"]:
+            return []
+        bucket_size = max(1, (end - start + points - 1) // points)
+        buckets: dict[int, dict] = {}
         with self._connect() as connection:
-            rows = connection.execute(
-                """SELECT MIN(sample_index) AS sample_index,
-                          MAX(sample_index) + 1 AS sample_end,
-                          COUNT(*) AS sample_count,
-                          MIN(channel_a) AS a_min, MAX(channel_a) AS a_max,
-                          AVG(channel_a) AS a_mean,
-                          MIN(channel_b) AS b_min, MAX(channel_b) AS b_max,
-                          AVG(channel_b) AS b_mean
-                   FROM samples
-                   WHERE run_id = ? AND sample_index >= ? AND sample_index < ?
-                   GROUP BY CAST((sample_index - ?) / ? AS INTEGER)
-                   ORDER BY sample_index""",
-                (run_id, start, end, start, bucket),
-            ).fetchall()
-        return [dict(row) for row in rows]
+            for signal in run["signals"]:
+                chunks = connection.execute(
+                    """SELECT * FROM sample_chunks
+                       WHERE run_id = ? AND signal_id = ?
+                         AND start_index < ?
+                         AND start_index + sample_count > ?
+                       ORDER BY start_index""",
+                    (run_id, signal["id"], end, start),
+                ).fetchall()
+                for chunk in chunks:
+                    accumulate_chunk(
+                        buckets,
+                        signal["id"],
+                        chunk,
+                        start=start,
+                        end=end,
+                        bucket_size=bucket_size,
+                    )
+        rows = []
+        for bucket_index in sorted(buckets):
+            bucket = buckets[bucket_index]
+            values = {}
+            for signal in run["signals"]:
+                stats = bucket["signals"].get(signal["id"])
+                if not stats or not stats["count"]:
+                    continue
+                values[signal["id"]] = {
+                    "min": stats["min"],
+                    "max": stats["max"],
+                    "mean": stats["sum"] / stats["count"],
+                }
+            rows.append(
+                {
+                    "sample_index": bucket["sample_index"],
+                    "sample_end": bucket["sample_end"],
+                    "sample_count": bucket["sample_end"] - bucket["sample_index"],
+                    "values": values,
+                }
+            )
+        return rows
 
     def csv_rows(self, run_id: int) -> Iterator[str]:
         run = self.get_run(run_id)
         if not run:
             return
-        yield "time_s,ain0_minus_ain1_v,ain2_minus_ain3_v\r\n"
+        signal_ids = [signal["id"] for signal in run["signals"]]
+        yield csv_line(["time_s", *signal_ids])
         with self._connect() as connection:
-            cursor = connection.execute(
-                """SELECT sample_index, channel_a, channel_b FROM samples
-                   WHERE run_id = ? ORDER BY sample_index""",
+            rows = connection.execute(
+                """SELECT c.start_index, c.sample_count, c.signal_id, c.values_blob
+                   FROM sample_chunks AS c
+                   JOIN run_signals AS s
+                     ON s.run_id = c.run_id AND s.signal_id = c.signal_id
+                   WHERE c.run_id = ?
+                   ORDER BY c.start_index, s.position""",
                 (run_id,),
             )
-            for index, channel_a, channel_b in cursor:
-                yield f"{index / run['scan_rate']:.9f},{channel_a:.12g},{channel_b:.12g}\r\n"
+            for start_index, group in groupby(rows, key=lambda row: int(row["start_index"])):
+                chunks = list(group)
+                by_signal = {row["signal_id"]: unpack_values(row["values_blob"]) for row in chunks}
+                count = int(chunks[0]["sample_count"]) if chunks else 0
+                for offset in range(count):
+                    yield csv_line(
+                        [
+                            f"{(start_index + offset) / run['scan_rate']:.9f}",
+                            *[
+                                f"{by_signal[signal_id][offset]:.12g}"
+                                for signal_id in signal_ids
+                            ],
+                        ]
+                    )
 
     def backup_bytes(self) -> bytes:
         with NamedTemporaryFile(suffix=".sqlite3") as temporary:

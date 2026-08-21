@@ -43,6 +43,7 @@ export class LiquidBlueprintEditor extends HTMLElement {
     this._wireFrame = 0;
     this._previewFrame = 0;
     this._resizeObserver = null;
+    this._inlineDraft = null;
     /** @type {(source:BlueprintPin,target:BlueprintPin,sourceNode:BlueprintNode,targetNode:BlueprintNode)=>boolean} */
     this.connectionPolicy = (source, target) => pinsCompatible(source, target);
     /**
