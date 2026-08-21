@@ -18,6 +18,10 @@ These notes capture the current project state and UI decisions that should be pr
 - P1AM: `192.168.8.50`; LabJack T7: `192.168.8.51`.
 - The base station talks to both devices directly; the P1AM does not control the LabJack.
 - Human-facing product name is **Fill Cart**.
+- Prefer modules under roughly 300 LOC because responsibilities should split before files become catch-alls. Declarative registries may approach that size when keeping one change surface is clearer than artificial fragmentation.
+- P1AM integration is split under `web/p1am/`: `client.py` owns serialized HTTP/protocol validation, `service.py` owns lifecycle/health/transition supervision, and `states.py` owns operator state semantics.
+- Device identity/navigation metadata is declared once in `web/devices.py`; device-specific services/pages remain explicitly composed.
+- Acquisition sources meet the generic `SignalDescriptor` / `SampleBatch` boundary. Run storage/history/CSV must remain source-agnostic.
 
 ## Current web shell
 
@@ -48,15 +52,18 @@ These notes capture the current project state and UI decisions that should be pr
 
 - Node configuration belongs inside nodes.
 - The global sidebar must not contain DAQ controls.
-- DAQ page controls live in the bottom graph toolbar/popovers: node palette, acquisition, issues, undo/redo, frame, reload, save.
-- Graph-wide stream settings are scan rate, stream resolution, and stream settling. Range remains per analog measurement node.
-- Low-rate preview is server-side and starts automatically only when the LabJack is available and acquisition is idle.
+- DAQ page controls live in the bottom graph toolbar/popovers: categorized node creation, issues, undo/redo, frame, and save. Browser reload/navigation is the discard mechanism; do not add a second reload/discard transaction.
+- LabJack acquisition settings (scan rate, resolution, settling, MUX80) belong to the LabJack device page, not graph topology.
+- Persisted DAQ configuration is section-owned: `graph`, `sources.labjack`, and `dashboard.layout` have independent atomic save APIs.
+- Low-rate draft preview uses one WebSocket because the browser owns unsaved graph state and readings flow back from the server.
 - Engineering transforms use server-side NumPy-compatible signal math.
-- The high-rate recorder still uses the legacy fixed stream/storage schema; saved-graph compilation into acquisition/storage is not complete yet.
+- The LabJack adapter compiles the saved graph into a generic stream plan; run storage must not contain fixed LabJack channel columns.
 
 ## Runs and devices
 
 - Recording controls live inside `/runs`, not in the global sidebar.
-- DAQ Setup owns scan rate; Runs displays/uses the saved DAQ rate.
+- The LabJack source settings own scan rate; Runs displays/uses the saved source rate.
 - P1AM and LabJack have separate device pages.
 - Logs have a dedicated `/logs` page; do not recreate a combined Diagnostics page.
+- Global/device health uses one SSE status connection and patches stable DOM. The State Machine page also consumes the P1AM detail payload from that stream; do not reintroduce periodic browser polling for cart state.
+- Saved Dashboard telemetry and the Logs page use SSE. Operator commands and persistence remain normal request/response transactions.

@@ -18,6 +18,9 @@ function updateP1am(section, status) {
   setField(section, 'p1_rack', status.p1_initialized ? `${status.modules_detected ?? 0} I/O modules` : 'Not initialized');
   setField(section, 'consecutive_failures', String(status.consecutive_failures ?? 0));
   setField(section, 'last_seen', status.last_seen || '—');
+  setField(section, 'error', status.error || '');
+  const errorRow = section.querySelector('[data-device-row="error"]');
+  if (errorRow) errorRow.hidden = !status.error;
   setField(section, 'initialization_status', initializationMessage(status));
   setField(section, 'reset_message', status.reset_message || '');
 

@@ -2,11 +2,26 @@
 #include "./commands.h"
 #include "../state_machine/state_machine.h"
 
+namespace {
+const char* STATE_NAMES[] = {
+	"Valve testing", "Initialize", "Fuel fill", "LOX fill",
+	"Fire", "Purge", "Overload", "Abort"
+};
+}
+
 int getState() {
 	// The library uses -1 until its first run, at which point it enters state 0.
 	const int currentState = stateMachine.currentState < 0 ? 0 : stateMachine.currentState;
 	Serial.println("Got current state: " + String(currentState));
 	return currentState;
+}
+
+int getStateCount() {
+	return sizeof(STATE_NAMES) / sizeof(STATE_NAMES[0]);
+}
+
+const char* getStateName(int stateIndex) {
+	return stateIndex >= 0 && stateIndex < getStateCount() ? STATE_NAMES[stateIndex] : "Unknown";
 }
 
 bool setState(int stateIndex) {

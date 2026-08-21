@@ -16,11 +16,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
-from base_station.web.cart_service import CartService, STATE_NAMES
 from base_station.web.daq_config import build_daq_router
 from base_station.web.daq_config.repository import DaqConfigRepository
+from base_station.web.devices import DEVICE_BY_ID
 from base_station.web.labjack_service import LabJackService
 from base_station.web.models import DashboardState
+from base_station.web.p1am import P1amService, STATE_NAMES
 from base_station.web.run_repository import RunRepository
 from base_station.web.ui_routes import build_ui_router
 
@@ -31,7 +32,7 @@ DAQ_CONFIG_PATH = DATA_DIR / "daq-config.json"
 
 templates = Jinja2Templates(directory=TEMPLATE_DIR)
 dashboard = DashboardState()
-cart = CartService(dashboard)
+cart = P1amService(dashboard)
 runs = RunRepository(DATA_DIR / "acquisition.sqlite3")
 labjack = LabJackService(dashboard, runs)
 daq_config = DaqConfigRepository(DAQ_CONFIG_PATH)
@@ -77,8 +78,11 @@ def status() -> dict:
 
 
 @app.get("/api/status/events", include_in_schema=False)
-async def status_events(device: str | None = Query(default=None, pattern="^(p1am|labjack)$")) -> StreamingResponse:
+async def status_events(device: str | None = Query(default=None)) -> StreamingResponse:
     """Push global navigation status changes over one long-lived SSE request."""
+
+    if device is not None and device not in DEVICE_BY_ID:
+        raise HTTPException(status_code=422, detail=f"Unknown device: {device}")
 
     async def stream():
         previous = None
@@ -106,6 +110,36 @@ async def status_events(device: str | None = Query(default=None, pattern="^(p1am
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
         },
+    )
+
+
+@app.get("/api/logs/events", include_in_schema=False)
+async def log_events() -> StreamingResponse:
+    """Push the bounded operator log only when new entries are recorded."""
+
+    async def stream():
+        previous_revision = -1
+        heartbeat_ticks = 0
+        yield "retry: 2000\n\n"
+        while True:
+            revision = dashboard.log_revision()
+            if revision != previous_revision:
+                payload = json.dumps(
+                    {"logs": dashboard.log_snapshot(limit=500)}, separators=(",", ":")
+                )
+                yield f"event: logs\ndata: {payload}\n\n"
+                previous_revision = revision
+                heartbeat_ticks = 0
+            elif heartbeat_ticks >= 30:
+                yield ": keep-alive\n\n"
+                heartbeat_ticks = 0
+            await asyncio.sleep(0.5)
+            heartbeat_ticks += 1
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 

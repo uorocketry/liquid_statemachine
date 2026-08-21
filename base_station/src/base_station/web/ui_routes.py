@@ -9,10 +9,12 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse, Response, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
-from base_station.web.cart_service import CartService, STATE_NAMES
 from base_station.web.daq_config.repository import DaqConfigRepository
+from base_station.web.devices import DEVICE_DEFINITIONS, LOG_COMPONENTS
 from base_station.web.labjack_service import LabJackService
 from base_station.web.models import DashboardState
+from base_station.web.p1am import P1amService, STATE_DEFINITIONS, STATE_NAMES
+from base_station.web.p1am.errors import diagnostic_signature, operator_message
 from base_station.web.run_repository import RunRepository
 
 
@@ -32,7 +34,7 @@ async def form_values(request: Request) -> dict[str, str]:
 def build_ui_router(
     templates: Jinja2Templates,
     dashboard: DashboardState,
-    cart: CartService,
+    cart: P1amService,
     labjack: LabJackService,
     runs: RunRepository,
     daq_config: DaqConfigRepository,
@@ -46,8 +48,12 @@ def build_ui_router(
             "request": request,
             **dashboard.snapshot(),
             "state_names": STATE_NAMES,
+            "state_definitions": STATE_DEFINITIONS,
             "format_duration": format_duration,
             "active_device": active_device,
+            "devices": DEVICE_DEFINITIONS,
+            "device_navigation": dashboard.navigation_status(),
+            "log_components": LOG_COMPONENTS,
         }
 
     def configured_graph() -> dict:
@@ -83,7 +89,9 @@ def build_ui_router(
 
     @router.get("/state", include_in_schema=False)
     def state_machine(request: Request):
-        return templates.TemplateResponse(request, "state.html", context(request))
+        values = context(request)
+        values["status_device"] = "p1am"
+        return templates.TemplateResponse(request, "state.html", values)
 
     @router.get("/devices/p1am", include_in_schema=False)
     def p1am_device(request: Request):
@@ -139,10 +147,6 @@ def build_ui_router(
         headers = {"Content-Disposition": f'attachment; filename="acquisition-run-{run_id}.csv"'}
         return StreamingResponse(runs.csv_rows(run_id), media_type="text/csv", headers=headers)
 
-    @router.get("/fragments/cart", include_in_schema=False)
-    def get_cart_fragment(request: Request):
-        return cart_fragment(request)
-
     @router.get("/fragments/labjack", include_in_schema=False)
     def get_labjack_fragment(request: Request):
         return labjack_fragment(request)
@@ -151,24 +155,16 @@ def build_ui_router(
     def get_labjack_connection_fragment(request: Request):
         return labjack_connection_fragment(request)
 
-    @router.get("/fragments/logs", include_in_schema=False)
-    def logs_fragment(request: Request, level: str | None = None, component: str | None = None):
-        values = context(request)
-        values.update(
-            filtered_logs=dashboard.log_snapshot(level, component, 500),
-            selected_level=level or "",
-            selected_component=component or "",
-        )
-        return templates.TemplateResponse(request, "fragments/logs.html", values)
-
     @router.put("/ui/cart/state/{state}", include_in_schema=False)
     def request_cart_state(request: Request, state: int):
         try:
             cart.set_state(state)
         except (OSError, ConnectionError, ValueError) as error:
             with dashboard.lock:
-                dashboard.cart.transition_message = f"Request rejected: {error}"
-            dashboard.log(f"Transition request failed: {error}", "error", "p1am")
+                dashboard.cart.transition_message = f"Request rejected: {operator_message(error)}"
+            dashboard.log(
+                f"Transition request failed: {diagnostic_signature(error)}", "error", "p1am"
+            )
         return cart_fragment(request)
 
     @router.post("/ui/cart/initialize", include_in_schema=False)
@@ -185,8 +181,10 @@ def build_ui_router(
             cart.reset()
         except (OSError, ConnectionError, ValueError) as error:
             with dashboard.lock:
-                dashboard.cart.reset_message = f"Restart request failed: {error}"
-            dashboard.log(f"P1AM restart failed: {error}", "error", "p1am")
+                dashboard.cart.reset_message = f"Restart request failed: {operator_message(error)}"
+            dashboard.log(
+                f"P1AM restart failed: {diagnostic_signature(error)}", "error", "p1am"
+            )
         return p1am_health_fragment(request)
 
     @router.post("/ui/labjack/connect", include_in_schema=False)

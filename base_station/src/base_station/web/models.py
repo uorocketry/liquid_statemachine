@@ -8,6 +8,8 @@ from datetime import datetime
 from threading import Lock
 from typing import Any
 
+from base_station.web.devices import DEVICE_BY_ID, DEVICE_DEFINITIONS
+
 
 @dataclass
 class CartStatus:
@@ -82,18 +84,23 @@ class DashboardState:
         """Small stable status payload used by the global sidebar stream."""
         with self.lock:
             return {
-                "p1am": {"status": self.cart.health},
-                "labjack": {"status": "online" if self.labjack.connected else "offline"},
+                device.id: {
+                    "status": device.navigation_status(getattr(self, device.state_attribute))
+                }
+                for device in DEVICE_DEFINITIONS
             }
 
     def device_status(self, device_id: str) -> dict[str, Any] | None:
         """Return one detached detail snapshot for a device page."""
+        device = DEVICE_BY_ID.get(device_id)
+        if device is None:
+            return None
         with self.lock:
-            if device_id == "p1am":
-                return asdict(self.cart)
-            if device_id == "labjack":
-                return asdict(self.labjack)
-        return None
+            return asdict(getattr(self, device.state_attribute))
+
+    def log_revision(self) -> int:
+        with self.lock:
+            return self._log_sequence
 
     def log_snapshot(
         self, level: str | None = None, component: str | None = None, limit: int = 200

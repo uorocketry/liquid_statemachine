@@ -18,7 +18,7 @@
   setOpen(open, false);
   toggle.addEventListener('click', () => setOpen(shell.classList.contains('sidebar-collapsed')));
 
-  bindStatusStream(shell.dataset.activeDevice || '');
+  bindStatusStream(shell.dataset.statusDevice || shell.dataset.activeDevice || '');
 })();
 
 function bindStatusStream(activeDevice) {

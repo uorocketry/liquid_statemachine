@@ -7,6 +7,7 @@
     <div><dt>Ethernet link</dt><dd data-device-field="ethernet_link">{{ "Linked" if cart.ethernet_link else "Not linked" }}</dd></div>
     <div><dt>P1 rack <span class="info-tip" tabindex="0" title="One P1 rack; valve outputs target module slot 2.">i</span></dt><dd data-device-field="p1_rack">{% if cart.p1_initialized %}{{ cart.modules_detected }} I/O modules{% else %}Not initialized{% endif %}</dd></div>
     <div><dt>Failures</dt><dd data-device-field="consecutive_failures">{{ cart.consecutive_failures }}</dd></div><div><dt>Last seen</dt><dd data-device-field="last_seen">{{ cart.last_seen or "—" }}</dd></div>
+    <div data-device-row="error"{% if not cart.error %} hidden{% endif %}><dt>Issue</dt><dd data-device-field="error">{{ cart.error or "" }}</dd></div>
   </dl>
   <div class="device-actions">
     {{ action_button("Rack initialized" if cart.p1_initialized else "Initialize P1 rack", "post", "/ui/cart/initialize", "#p1am-health", disabled=(not cart.connected or cart.p1_initialized or cart.initialization_status == "initializing"), class_name="primary-button initialize-button") }}

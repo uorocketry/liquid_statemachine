@@ -8,6 +8,8 @@ missing in a code review.
 from pathlib import Path
 from unittest import TestCase
 
+from base_station.web.devices import DEVICE_DEFINITIONS
+
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "src" / "base_station" / "web"
@@ -27,11 +29,14 @@ class FrontendContractTests(TestCase):
             ('href="/runs"', "Runs"),
             ('href="/logs"', "Logs"),
             ('href="/settings"', "Settings"),
-            ('href="/devices/p1am"', "P1AM"),
-            ('href="/devices/labjack"', "LabJack"),
         ):
             self.assertIn(href, base)
             self.assertIn(label, base)
+        self.assertEqual(
+            {(device.route, device.label) for device in DEVICE_DEFINITIONS},
+            {("/devices/p1am", "P1AM"), ("/devices/labjack", "LabJack")},
+        )
+        self.assertIn("for device in devices", base)
         self.assertIn('<nav class="site-sidebar-nav"', base)
         self.assertNotIn("DAQ Setup", base)
 

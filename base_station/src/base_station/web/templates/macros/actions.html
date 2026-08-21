@@ -1,8 +1,8 @@
-{% macro action_button(label, method, url, target, disabled=false, class_name="primary-button", confirm=none, include_form=false) -%}
+{% macro action_button(label, method, url, target, disabled=false, class_name="primary-button", confirm=none, include_form=false, extra_attrs="") -%}
 <button type="button" class="{{ class_name }} action-button"
         hx-{{ method }}="{{ url }}" hx-target="{{ target }}" hx-swap="outerHTML"
         hx-disabled-elt="this"{% if include_form %} hx-include="closest form"{% endif %}
-        {% if confirm %}hx-confirm="{{ confirm }}"{% endif %}{% if disabled %} disabled{% endif %}>
+        {% if confirm %}hx-confirm="{{ confirm }}"{% endif %}{% if disabled %} disabled{% endif %} {{ extra_attrs|safe }}>
   <span class="button-label">{{ label }}</span><span class="request-indicator" aria-hidden="true"></span>
 </button>
 {%- endmacro %}

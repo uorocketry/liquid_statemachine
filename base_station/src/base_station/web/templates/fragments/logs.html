@@ -1,12 +1,12 @@
-<section id="logs-fragment" class="panel logs-workspace" hx-get="/fragments/logs?level={{ selected_level }}&amp;component={{ selected_component }}" hx-trigger="every 2s" hx-swap="outerHTML">
+<section id="logs-workspace" class="panel logs-workspace">
   <div class="logs-toolbar">
     <p class="log-count">{{ filtered_logs|length }} event{{ "" if filtered_logs|length == 1 else "s" }}</p>
-    <form class="log-filters" hx-get="/fragments/logs" hx-target="#logs-fragment" hx-swap="outerHTML" hx-trigger="change">
-      <label>Component<select name="component"><option value="">All</option>{% for value in ["system", "p1am", "labjack"] %}<option value="{{ value }}" {% if selected_component == value %}selected{% endif %}>{{ value|capitalize }}</option>{% endfor %}</select></label>
+    <form class="log-filters">
+      <label>Component<select name="component"><option value="">All</option>{% for value in log_components %}<option value="{{ value }}" {% if selected_component == value %}selected{% endif %}>{{ value|capitalize }}</option>{% endfor %}</select></label>
       <label>Severity<select name="level"><option value="">All</option>{% for value in ["info", "success", "warning", "error"] %}<option value="{{ value }}" {% if selected_level == value %}selected{% endif %}>{{ value|capitalize }}</option>{% endfor %}</select></label>
     </form>
   </div>
-  <div class="log-table-wrap"><table class="log-table"><thead><tr><th>Time</th><th>Level</th><th>Component</th><th>Message</th></tr></thead><tbody>
+  <div class="log-table-wrap"><table class="log-table"><thead><tr><th>Time</th><th>Level</th><th>Component</th><th>Message</th></tr></thead><tbody data-log-body>
     {% for entry in filtered_logs|reverse %}<tr><td>{{ entry.time }}</td><td class="level {{ entry.level }}">{{ entry.level }}</td><td>{{ entry.component }}</td><td>{{ entry.message }}</td></tr>{% endfor %}
   </tbody></table></div>
 </section>

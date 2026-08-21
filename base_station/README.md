@@ -56,21 +56,23 @@ The macOS `BaseStation.command` and Windows `Base Station.bat` launchers run
 
 - `/` — blueprint-published live telemetry.
 - `/state` — Fill Cart state transitions and controller health.
-- `/configuration` — LabJack/signal blueprint editor and low-rate preview.
+- `/configuration` — DAQ Graph editor and low-rate preview.
 - `/runs` — Record/Stop, run archive, CSV export, and database backup.
 - `/devices/p1am` — P1AM health, P1 rack initialization, and restart.
 - `/devices/labjack` — LabJack connection and device health.
 - `/logs` — structured system events.
 - `/settings` — System/Light/Dark appearance.
 
-DAQ configuration is saved to `data/daq-blueprint.json`. Live preview starts
-automatically when the LabJack is available and acquisition is idle.
-Engineering transforms are server-side NumPy functions shared by preview and
-future stream-chunk execution.
+DAQ configuration is saved to `data/daq-config.json` with independently owned
+`graph`, `sources`, and `dashboard` sections. LabJack acquisition settings live
+on `/devices/labjack`; DAQ Graph saves topology only. Draft graph preview uses
+one WebSocket connection. Engineering transforms are server-side NumPy-compatible
+functions.
 
-The high-rate recorder still uses the legacy fixed differential stream and
-storage schema. Compiling the saved graph into acquisition/storage is the next
-backend migration; the UI does not pretend otherwise.
+The LabJack adapter compiles the saved graph into a generic acquisition plan.
+Recorded sources cross the shared `SignalDescriptor` / `SampleBatch` boundary,
+so run storage, CSV export, decimation, and history rendering are not tied to a
+fixed LabJack channel count.
 
 There is no frontend build step. Jinja/HTMX handles ordinary controls; native
 custom elements use vendored Lit for blueprint DOM updates. All browser
@@ -93,12 +95,15 @@ tighter engineering controls may use smaller radii when appropriate. Large
 canvas/editor surfaces should not receive page-sized focus outlines; focus rings
 belong on the actual interactive control.
 
-FastAPI polls the P1AM once per process, so opening more browsers does not
-multiply controller traffic.
+FastAPI polls the P1AM once per process through a serialized, validated client,
+so opening more browsers does not multiply controller traffic or race operator
+commands. Browser status/state updates use SSE rather than periodic fragment
+polling. Dashboard telemetry and Logs are SSE streams; unsaved DAQ Graph preview
+uses WebSocket because graph revisions also travel from browser to server.
 
-DAQ Setup owns the acquisition scan rate. Runs displays that saved rate and
-uses it when recording starts. Start/Stop is guarded by an explicit
-starting/running/stopping/idle lifecycle.
+The LabJack source settings own acquisition scan rate, resolution, settling,
+and MUX80 configuration. Runs displays and uses that saved source rate.
+Start/Stop is guarded by an explicit starting/running/stopping/idle lifecycle.
 
 Runs are stored in `data/acquisition.sqlite3`. CSV is generated on demand; no
 CSV files are written into the repository. Record/Stop lives on `/runs`.

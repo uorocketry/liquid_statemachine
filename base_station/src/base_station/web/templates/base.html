@@ -15,7 +15,7 @@
     <script src="/static/vendor/htmx-2.0.10.min.js" defer></script>
   </head>
   <body>
-    <div id="site-shell" class="site-shell" data-active-device="{{ active_device or '' }}">
+    <div id="site-shell" class="site-shell" data-active-device="{{ active_device or '' }}" data-status-device="{{ status_device or active_device or '' }}">
       <aside id="site-sidebar" class="site-sidebar">
         <div class="site-sidebar-scroll">
           <div class="site-brand">
@@ -25,12 +25,12 @@
             <section class="site-sidebar-section site-status-section">
               <h2>Devices</h2>
               <div class="status-cluster">
-                <a href="/devices/p1am" data-device-status="p1am" class="service-status {{ cart.health }}{% if active_device == 'p1am' %} active{% endif %}">
-                  <span class="device-nav-icon arduino-icon" aria-hidden="true"></span><b>P1AM</b><em>{{ cart.health }}</em>
+                {% for device in devices %}
+                {% set nav_status = device_navigation[device.id].status %}
+                <a href="{{ device.route }}" data-device-status="{{ device.id }}" class="service-status {{ nav_status }}{% if active_device == device.id %} active{% endif %}">
+                  <span class="device-nav-icon {{ device.icon_class }}" aria-hidden="true"></span><b>{{ device.label }}</b><em>{{ nav_status }}</em>
                 </a>
-                <a href="/devices/labjack" data-device-status="labjack" class="service-status {{ 'online' if labjack.connected else 'offline' }}{% if active_device == 'labjack' %} active{% endif %}">
-                  <span class="device-nav-icon labjack-icon" aria-hidden="true"></span><b>LabJack</b><em>{{ 'online' if labjack.connected else 'offline' }}</em>
-                </a>
+                {% endfor %}
               </div>
             </section>
             <div class="site-sidebar-section site-nav">
